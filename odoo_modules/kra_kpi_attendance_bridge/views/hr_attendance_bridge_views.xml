@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        The KRA side of the attendance form. Lives here rather than in
+        hr_attendance_369 because it references kra_session_ids, which only
+        exists once this bridge is installed.
+    -->
+    <record id="view_attendance_form_kra_bridge" model="ir.ui.view">
+        <field name="name">hr.attendance.form.kra.bridge</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance_369.view_attendance_form_inherit_late"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='day_status_id']" position="after">
+                <field name="kra_session_ids" readonly="1"
+                       string="KRA Workday"
+                       invisible="not kra_session_ids"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
