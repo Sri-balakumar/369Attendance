@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Branch details on the bank account itself, not on the employee. An
+        IFSC belongs to a branch, and Odoo 19 lets one employee hold several
+        accounts, so putting it here is the only shape that can describe two
+        accounts at two branches.
+
+        The show_* flags come from the company-level Employee Details record,
+        so these stay invisible until an admin switches Bank on. They are
+        declared invisible in the arch because a field must be loaded before
+        it can drive another field's visibility.
+    -->
+    <record id="view_partner_bank_form_inherit_branch" model="ir.ui.view">
+        <field name="name">res.partner.bank.form.inherit.branch</field>
+        <field name="model">res.partner.bank</field>
+        <field name="inherit_id" ref="base.view_partner_bank_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='bank_id']" position="after">
+                <field name="show_ifsc_code" invisible="1"/>
+                <field name="show_bank_branch" invisible="1"/>
+                <field name="show_bank_account_category" invisible="1"/>
+                <field name="ifsc_code" invisible="not show_ifsc_code"
+                       placeholder="SBIN0001234"/>
+                <field name="bank_branch" invisible="not show_bank_branch"/>
+                <field name="bank_account_category"
+                       invisible="not show_bank_account_category"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

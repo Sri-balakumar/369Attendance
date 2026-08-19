@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Monthly Wage lives on the Payroll page, beside the other pay data.
+
+        It replaces `contract_wage`, which only exists when hr_contract is
+        installed. Every deduction in this suite divides it by the working days
+        in the month: absent days, half days and unpaid leave.
+    -->
+    <record id="view_employee_form_inherit_wage" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.wage</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='payroll_information']" position="inside">
+                <group string="Attendance Deductions">
+                    <field name="monthly_wage"
+                           help="Gross monthly salary. Absent days, half days and unpaid leave all charge Monthly Wage divided by the working days in that month. Leave it at 0 and those deductions come out as 0."/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

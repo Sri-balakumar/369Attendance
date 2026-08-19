@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Merged from the five former addons' menu files. Loaded LAST in the
+        manifest because every menuitem below references an action defined in
+        one of the view files.
+
+        Top-level sequences under Attendances are preserved exactly as they
+        were, so the menu reads the same as before the merge:
+            30  Attendance Status  (was hr_attendance_late)
+            35  Devices            (was employee_device)
+            40  Leave Requests     (was hr_leave_request)
+            50  Work From Home     (was hr_wfh_request)
+                                  + Configuration > Auto-Approval
+            55  Employee Details   (payroll breakup, statutory IDs)
+            60  Employee Report    (was hr_employee_report)
+            98  Help               (was hr_attendance_late/help_menu.xml)
+    -->
+
+    <!-- Help card popup (OWL client action). Declared here, immediately before
+         the menuitem that uses it. -->
+    <record id="action_attendance_help_guide" model="ir.actions.client">
+        <field name="name">Help &amp; User Guide</field>
+        <field name="tag">attendance_help_guide</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  30 — ATTENDANCE STATUS                                      -->
+    <!-- ============================================================ -->
+    <!-- id deliberately unchanged: renaming it would orphan every child
+         menuitem and any ir.model.data reference. Only the label moves. -->
+    <menuitem id="menu_late_tracking_root"
+              name="Attendance Status"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="30"/>
+
+    <menuitem id="menu_late_attendance_records"
+              name="Late Records"
+              parent="menu_late_tracking_root"
+              action="action_late_attendance"
+              sequence="10"/>
+
+    <menuitem id="menu_late_summary"
+              name="Monthly Summary"
+              parent="menu_late_tracking_root"
+              action="action_late_summary_wizard"
+              sequence="20"/>
+
+    <menuitem id="menu_attendance_day_status"
+              name="Day Status"
+              parent="menu_late_tracking_root"
+              action="action_attendance_day_status"
+              sequence="15"/>
+
+    <menuitem id="menu_attendance_absent_today"
+              name="Absent Today"
+              parent="menu_late_tracking_root"
+              action="action_attendance_absent_today"
+              sequence="16"
+              groups="hr.group_hr_manager,base.group_system"/>
+
+
+
+    <menuitem id="menu_late_config_root"
+              name="Configuration"
+              parent="menu_late_tracking_root"
+              sequence="50"/>
+
+    <menuitem id="menu_late_config_settings"
+              name="Office Hours &amp; Working Days"
+              parent="menu_late_config_root"
+              action="action_late_config"
+              sequence="10"/>
+
+
+    <menuitem id="menu_public_holidays"
+              name="Public Holidays"
+              parent="menu_late_config_root"
+              action="action_public_holiday"
+              sequence="30"/>
+
+    <!-- ============================================================ -->
+    <!--  35 — DEVICES                                                -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_employee_devices_root"
+              name="Devices"
+              parent="hr_attendance.menu_hr_attendance_root"
+              action="action_employee_device_register"
+              sequence="35"/>
+
+    <!-- ============================================================ -->
+    <!--  40 — LEAVE REQUESTS                                         -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_leave_root"
+              name="Leave Requests"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="40"/>
+
+    <menuitem id="menu_leave_all_requests"
+              name="All Leave Requests"
+              parent="menu_leave_root"
+              action="action_leave_request"
+              sequence="10"
+              groups="hr_attendance_369.group_leave_manager,base.group_system"/>
+
+    <menuitem id="menu_my_leave_requests"
+              name="My Leave Requests"
+              parent="menu_leave_root"
+              action="action_my_leave_requests"
+              sequence="20"/>
+
+    <menuitem id="menu_approved_leaves_report"
+              name="Approved Leaves Report"
+              parent="menu_leave_root"
+              action="action_approved_leaves_report"
+              sequence="30"/>
+
+    <menuitem id="menu_leave_config_root"
+              name="Configuration"
+              parent="menu_leave_root"
+              sequence="50"/>
+
+    <menuitem id="menu_leave_policy_config"
+              name="Leave Policy"
+              parent="menu_leave_config_root"
+              action="action_leave_config"
+              sequence="10"
+              groups="hr_attendance_369.group_leave_manager,base.group_system"/>
+
+    <!-- Same action as the WFH one below on purpose: one auto-approval policy,
+         reachable from whichever menu the admin happens to be in. -->
+    <menuitem id="menu_leave_auto_approve_config"
+              name="Auto-Approval"
+              parent="menu_leave_config_root"
+              action="action_auto_approve_config"
+              sequence="20"
+              groups="hr_attendance_369.group_leave_manager,base.group_system"/>
+
+    <!-- ============================================================ -->
+    <!--  50 — WORK FROM HOME                                         -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_wfh_root"
+              name="Work From Home"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="50"/>
+
+    <menuitem id="menu_wfh_all_requests"
+              name="All WFH Requests"
+              parent="menu_wfh_root"
+              action="action_wfh_request"
+              sequence="10"
+              groups="hr_attendance_369.group_wfh_manager,base.group_system"/>
+
+    <menuitem id="menu_my_wfh_requests"
+              name="My WFH Requests"
+              parent="menu_wfh_root"
+              action="action_my_wfh_requests"
+              sequence="20"/>
+
+    <menuitem id="menu_wfh_config_root"
+              name="Configuration"
+              parent="menu_wfh_root"
+              sequence="50"/>
+
+    <menuitem id="menu_wfh_auto_approve_config"
+              name="Auto-Approval"
+              parent="menu_wfh_config_root"
+              action="action_auto_approve_config"
+              sequence="10"
+              groups="hr_attendance_369.group_wfh_manager,base.group_system"/>
+
+        <!-- ============================================================ -->
+    <!--  57 - PAYROLL                                                -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_payroll_root"
+              name="Payroll"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="57"
+              groups="hr.group_hr_manager"/>
+
+    <menuitem id="menu_payslip_run"
+              name="Payroll Runs"
+              parent="menu_payroll_root"
+              action="action_payslip_run"
+              sequence="10"/>
+
+    <menuitem id="menu_payslip"
+              name="Payslips"
+              parent="menu_payroll_root"
+              action="action_payslip"
+              sequence="20"/>
+
+    <!-- ============================================================ -->
+    <!--  60 — EMPLOYEE REPORT                                        -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_employee_report_root"
+              name="Employee Report"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="60"/>
+
+    <menuitem id="menu_employee_report_generate"
+              name="Generate Report"
+              parent="menu_employee_report_root"
+              action="action_employee_report_wizard"
+              sequence="10"/>
+
+    <menuitem id="menu_employee_report_browse"
+              name="Past Reports"
+              parent="menu_employee_report_root"
+              action="action_employee_report_list"
+              sequence="20"/>
+
+    <!-- ============================================================ -->
+    <!--  98 — HELP                                                   -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_attendance_help"
+              name="Help"
+              parent="hr_attendance.menu_hr_attendance_root"
+              action="action_attendance_help_guide"
+              sequence="98"/>
+
+    <!-- Help Documents sits under Attendances → Configuration, not the root. -->
+    <menuitem id="menu_help_document"
+              name="Help Documents"
+              parent="hr_attendance.menu_hr_attendance_configuration"
+              action="action_help_document"
+              sequence="50"/>
+
+
+    <!-- ============================================================ -->
+    <!--  55 - EMPLOYEE DETAILS                                       -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_employee_details_root"
+              name="Employee Details"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="55"
+              groups="hr.group_hr_manager"/>
+
+    <menuitem id="menu_salary_component"
+              name="Salary Components"
+              parent="menu_employee_details_root"
+              action="action_salary_component"
+              sequence="10"/>
+
+    <menuitem id="menu_statutory_id_type"
+              name="Statutory ID Types"
+              parent="menu_employee_details_root"
+              action="action_statutory_id_type"
+              sequence="20"/>
+
+
+    <menuitem id="menu_employee_details_config"
+              name="Field Settings"
+              parent="menu_employee_details_root"
+              action="action_employee_details_config"
+              sequence="5"/>
+
+
+</odoo>

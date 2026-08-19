@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_statutory_id_type_list" model="ir.ui.view">
+        <field name="name">hr.statutory.id.type.list</field>
+        <field name="model">hr.statutory.id.type</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="active" widget="boolean_toggle" string="On"/>
+                <field name="name"/>
+                <field name="code" optional="show"/>
+                <field name="validation_regex" optional="show"/>
+                <field name="is_required" optional="hide"/>
+                <field name="is_confidential" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_statutory_id_type_form" model="ir.ui.view">
+        <field name="name">hr.statutory.id.type.form</field>
+        <field name="model">hr.statutory.id.type</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group>
+                            <field name="is_required"/>
+                            <field name="is_confidential"/>
+                        </group>
+                    </group>
+                    <group string="Format Check">
+                        <field name="validation_regex" placeholder="[0-9]{12}"/>
+                        <field name="validation_message"
+                               placeholder="Aadhaar must be exactly 12 digits."/>
+                    </group>
+                    <div class="text-muted mt-2">
+                        The pattern must match the WHOLE value. Leave it empty to
+                        accept anything: a blank pattern is better than a wrong
+                        one, because a wrong one rejects valid numbers.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_statutory_id_type" model="ir.actions.act_window">
+        <field name="name">Statutory ID Types</field>
+        <field name="res_model">hr.statutory.id.type</field>
+        <field name="view_mode">list,form</field>
+        <!-- Same reason as Salary Components: the presets ship inactive and
+             would otherwise be invisible here. -->
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Define the identity numbers you record</p>
+            <p>
+                Switch on the ones your company keeps, or add your own with
+                whatever format check you need.
+            </p>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Inherit hr.attendance LIST view to add late columns -->
+    <record id="view_attendance_list_inherit_late" model="ir.ui.view">
+        <field name="name">hr.attendance.list.inherit.late</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.view_attendance_tree"/>
+        <field name="arch" type="xml">
+            <!-- Hide the built-in (user-tz) columns; show only Office-TZ times -->
+            <xpath expr="//field[@name='check_in']" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='check_out']" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='check_out']" position="after">
+                <field name="check_in_office_time" string="Check In (Office TZ)" optional="show"/>
+                <field name="check_out_office_time" string="Check Out (Office TZ)" optional="show"/>
+                <field name="day_status_display" string="Day Status" optional="show"/>
+                <field name="is_late"/>
+                <field name="late_minutes" optional="hide"/>
+                <field name="late_minutes_display" string="Late Time"/>
+                <field name="late_reason"/>
+                <field name="daily_total_hours" widget="float_time"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Inherit hr.attendance FORM view to add late fields -->
+    <record id="view_attendance_form_inherit_late" model="ir.ui.view">
+        <field name="name">hr.attendance.form.inherit.late</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.hr_attendance_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_open_checkout_confirm_wizard"
+                            type="object"
+                            string="Check Out Now"
+                            class="btn-warning"
+                            icon="fa-sign-out"
+                            invisible="not id or not check_in or check_out"/>
+                </header>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Work Location">
+                    <group>
+                        <field name="work_location"/>
+                        <!-- Set automatically when the employee checks in on a
+                             day they were approved to work from home. -->
+                        <field name="wfh_request_id" readonly="1"
+                               invisible="not wfh_request_id"/>
+                    </group>
+                </group>
+                <group string="Late Tracking">
+                    <group>
+                        <field name="check_in_office_time" readonly="1"/>
+                        <field name="check_out_office_time" readonly="1"
+                               invisible="not check_out"/>
+                        <field name="expected_start_time" widget="float_time"/>
+                        <field name="is_late" readonly="1"/>
+                        <field name="late_minutes" readonly="1"/>
+                        <field name="late_minutes_display" string="Late Time" readonly="1"/>
+                    </group>
+                    <group>
+                        <!-- Loaded invisibly so the late_reason_button widget can
+                             read it: a view widget only sees fields the view
+                             fetched. Drives whether the button renders at all. -->
+                        <field name="late_reason_required" invisible="1"/>
+                        <widget name="late_reason_button" colspan="2"/>
+                        <field name="late_reason"
+                               placeholder="Click 'Enter Late Reason' button above to fill via popup, or type here..."/>
+                        <field name="daily_total_hours" widget="float_time" readonly="1"/>
+                    </group>
+                </group>
+                <group string="Day Status">
+                    <group>
+                        <field name="day_status_display" string="Graded As" readonly="1"/>
+                        <field name="day_status_id" readonly="1"
+                               string="Day Record"
+                               help="The per-day row that grades this attendance. A half day is the only status that carries a deduction."/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Inherit hr.attendance SEARCH view to add late filters -->
+    <record id="view_attendance_search_inherit_late" model="ir.ui.view">
+        <field name="name">hr.attendance.search.inherit.late</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.hr_attendance_view_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='employee_id']" position="after">
+                <field name="late_reason" string="Late Reason"/>
+            </xpath>
+            <xpath expr="//filter[@name='archivedemployees']" position="after">
+                <separator/>
+                <filter name="filter_late" string="Late Only" domain="[('is_late', '=', True)]"/>
+                <filter name="filter_not_late" string="On Time" domain="[('is_late', '=', False)]"/>
+                <separator/>
+                <separator/>
+                <filter name="filter_has_reason" string="Has Late Reason" domain="[('late_reason', '!=', False)]"/>
+                <filter name="filter_no_reason" string="No Late Reason" domain="[('late_reason', '=', False), ('is_late', '=', True)]"/>
+            </xpath>
+            <xpath expr="//filter[@name='groupby_name']" position="after">
+                <filter name="group_late_date" string="Date" context="{'group_by': 'date'}"/>
+                <filter name="group_late_month" string="Month" context="{'group_by': 'date:month'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- DEDICATED Late Records search view -->
+    <record id="late_attendance_search_view" model="ir.ui.view">
+        <field name="name">late.attendance.search</field>
+        <field name="model">hr.attendance</field>
+        <field name="arch" type="xml">
+            <search string="Late Attendance">
+                <field name="employee_id"/>
+                <field name="department_id" operator="child_of"/>
+                <field name="late_reason"/>
+                <field name="check_in"/>
+                <separator/>
+                <filter string="Late Only" name="late_only" domain="[('is_late', '=', True)]"/>
+                <filter string="On Time" name="on_time" domain="[('is_late', '=', False)]"/>
+                <separator/>
+                <separator/>
+                <filter string="Has Reason" name="has_reason" domain="[('late_reason', '!=', False)]"/>
+                <filter string="Missing Reason" name="missing_reason" domain="[('late_reason', '=', False), ('is_late', '=', True)]"/>
+                <separator/>
+                <filter string="Date" name="date_filter" date="check_in"/>
+                <group>
+                    <filter string="Employee" name="group_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Department" name="group_department" context="{'group_by': 'department_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
+                    <filter string="Month" name="group_month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Dedicated Late Attendance action -->
+    <record id="action_late_attendance" model="ir.actions.act_window">
+        <field name="name">Late Attendance Records</field>
+        <field name="res_model">hr.attendance</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('is_late', '=', True)]</field>
+        <field name="search_view_id" ref="late_attendance_search_view"/>
+        <field name="context">{'search_default_late_only': 1}</field>
+    </record>
+
+    <!-- Management list (Management menu) — add Office-Time columns -->
+    <record id="view_attendance_tree_management_office_tz" model="ir.ui.view">
+        <field name="name">hr.attendance.list.management.office.tz</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.view_attendance_tree_management"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='check_in']" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='check_out']" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='check_out']" position="after">
+                <field name="check_in_office_time" string="Check In (Office TZ)" optional="show"/>
+                <field name="check_out_office_time" string="Check Out (Office TZ)" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Overview dashboard kanban — show Office-Time on the card -->
+    <record id="view_hr_attendance_kanban_office_tz" model="ir.ui.view">
+        <field name="name">hr.attendance.kanban.office.tz</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.view_hr_attendance_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban/field[@name='check_out']" position="after">
+                <field name="check_in_office_time"/>
+                <field name="check_out_office_time"/>
+            </xpath>
+            <!-- Replace the built-in (user-tz) period line with the Office-time line -->
+            <xpath expr="//t[@t-name='card']/div" position="replace">
+                <div class="text-muted small">
+                    <i class="fa fa-clock-o me-1" title="Office Time"/>
+                    <field name="check_in_office_time"/> - <field name="check_out_office_time"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

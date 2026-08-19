@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Late Config - Tree View -->
+    <record id="view_late_config_tree" model="ir.ui.view">
+        <field name="name">hr.attendance.late.config.tree</field>
+        <field name="model">hr.attendance.late.config</field>
+        <field name="arch" type="xml">
+            <list string="Attendance Rules">
+                <field name="company_id"/>
+                <field name="department_id"/>
+                <field name="late_tracking_enabled" string="Late Tracking"/>
+                <field name="office_start_hour" widget="float_time" string="Start"/>
+                <field name="office_end_hour" widget="float_time" string="End"/>
+                <field name="daily_work_hours" widget="float_time" string="Paid Hrs"/>
+                <field name="late_threshold_minutes" string="Grace Min"/>
+                <field name="late_until_hour" widget="float_time" string="Late Until"/>
+                <field name="half_day_after_hour" widget="float_time" string="Half Day After"/>
+                <field name="half_day_min_hours_ratio" string="Half Below" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Late Config - Form View -->
+    <record id="view_late_config_form" model="ir.ui.view">
+        <field name="name">hr.attendance.late.config.form</field>
+        <field name="model">hr.attendance.late.config</field>
+        <field name="arch" type="xml">
+            <form string="Attendance Rules">
+                <header>
+                    <button name="action_recompute_records" type="object"
+                            string="Recompute Late Records" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group string="Late Tracking">
+                        <group>
+                            <field name="late_tracking_enabled"/>
+                            <field name="late_reason_required"
+                                   invisible="not late_tracking_enabled"/>
+                        </group>
+                        <group>
+                            <div class="text-muted"
+                                 invisible="late_tracking_enabled">
+                                Late tracking is <b>OFF</b> for this scope. Check-ins are
+                                still recorded, but nothing is flagged late, no reason is
+                                asked and no deduction is applied. Switch it back on and
+                                click <b>Recompute Late Records</b> to restore the figures.
+                            </div>
+                        </group>
+                    </group>
+
+                    <group>
+                        <group string="Scope">
+                            <field name="company_id"/>
+                            <field name="department_id"
+                                   placeholder="Leave empty for company-wide"/>
+                            <field name="timezone"
+                                   placeholder="e.g. Asia/Muscat (empty = employee's tz)"/>
+                        </group>
+                        <group string="Late Settings"
+                               invisible="not late_tracking_enabled">
+                            <field name="late_threshold_minutes"
+                                   string="Grace Minutes"
+                                   help="Minutes after Office Start before a check-in counts as late. 15 on a 9:30 start means anyone in by 9:45 is on time."/>
+                        </group>
+                    </group>
+
+                    <group string="Office Hours">
+                        <group>
+                            <field name="office_start_hour" widget="float_time"
+                                   string="Office Start"/>
+                            <field name="office_end_hour" widget="float_time"
+                                   string="Office End"/>
+                        </group>
+                        <group>
+                            <field name="daily_work_hours" widget="float_time"
+                                   string="Daily Paid Hours"
+                                   help="Auto-calculated as Office End minus Office Start, but editable. 9:30-18:30 spans 9 hours while only 8 are paid (1 hour lunch). This is the baseline for the half-day hours test, so a wrong value mis-grades short days. Editing the office hours recomputes and overwrites whatever is typed here."/>
+                        </group>
+                    </group>
+
+                    <group string="Day Status Ladder">
+                        <group>
+                            <field name="late_until_hour" widget="float_time"
+                                   string="Late Window Ends"
+                                   help="Past this hour: someone who has NOT checked in is stamped Absent by the cron, and someone who DOES check in is Present with no late deduction at all. Set to 0 to switch the ladder off entirely and leave lateness unbounded."/>
+                            <field name="half_day_after_hour" widget="float_time"
+                                   string="Half Day After"
+                                   help="Check in later than this and the day counts as a half day. 0 = off."/>
+                        </group>
+                        <group>
+                            <field name="half_day_min_hours_ratio"
+                                   string="Half Day Below Ratio"
+                                   help="Fraction of Daily Paid Hours below which a finished day counts as a half day. 0.5 catches anyone who worked less than half their hours. Applied when the check-out is written. 0 = off."/>
+                            <field name="kra_workday_creates_attendance"
+                                   string="KRA Workday Creates Attendance"
+                                   help="When on, Start Workday in the KRA/KPI board creates the check-in here and End Workday writes the check-out."/>
+                        </group>
+                    </group>
+
+                    <group string="Working Days"
+                           help="Unchecked days are never stamped Absent and are excluded from the working-day count that divides the monthly wage - which is what makes them paid. Public holidays behave the same way; add them under Configuration > Public Holidays.">
+                        <group>
+                            <field name="work_monday"/>
+                            <field name="work_tuesday"/>
+                            <field name="work_wednesday"/>
+                            <field name="work_thursday"/>
+                        </group>
+                        <group>
+                            <field name="work_friday"/>
+                            <field name="work_saturday"/>
+                            <field name="work_sunday"/>
+                        </group>
+                    </group>
+
+                    <div class="alert alert-warning mt-3" role="alert"
+                         invisible="not late_tracking_enabled">
+                        <p><b>How a day is graded</b> (office-local arrival time):</p>
+                        <ul>
+                            <li>In by <b>Office Start + Grace Minutes</b> &#8594; <b>Present</b>, nothing owed.</li>
+                            <li>Between that and <b>Late Window Ends</b> &#8594; <b>Late</b>.
+                            Recorded and reported, but <b>not charged</b>.</li>
+                            <li>After <b>Late Window Ends</b> &#8594; <b>Present</b> again, nothing owed.
+                            The start time is still shown in brackets so a late arrival stays visible.</li>
+                            <li>After <b>Half Day After</b> &#8594; <b>Half Day</b>, charged half a day.</li>
+                            <li>Worked less than <b>Half Day Below Ratio</b> of Daily Paid Hours
+                            &#8594; <b>Half Day</b>. Decided on check-out.</li>
+                            <li>Never checked in on a working day &#8594; <b>Absent</b>, stamped by the
+                            "stamp absentees" cron once the office passes Late Window Ends. An absent
+                            day costs a full day by <b>not being earned</b> in the monthly report, so
+                            its Deduction column reads 0.</li>
+                        </ul>
+                        <p class="mb-0">
+                            <b>A half day is the only deduction.</b> Lateness costs nothing, and an
+                            absent day is handled by not being earned. Daily rate =
+                            <b>employee Monthly Wage &#247; working days that month</b>, so Sundays and
+                            public holidays are paid and can never be deducted. Set every threshold to
+                            <b>0</b> to switch the ladder off.
+                        </p>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Late Config - Action -->
+    <record id="action_late_config" model="ir.actions.act_window">
+        <field name="name">Office Hours &amp; Working Days</field>
+        <field name="res_model">hr.attendance.late.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

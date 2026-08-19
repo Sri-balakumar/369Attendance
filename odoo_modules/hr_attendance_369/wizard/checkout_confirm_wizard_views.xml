@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_checkout_confirm_wizard_form" model="ir.ui.view">
+        <field name="name">hr.attendance.checkout.confirm.wizard.form</field>
+        <field name="model">hr.attendance.checkout.confirm.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Confirm Check Out">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        <h4 class="mb-2"><i class="fa fa-sign-out"/> Confirm Check Out</h4>
+                        <p class="mb-2">
+                            You are about to check out
+                            <strong>
+                                <field name="employee_name" readonly="1" nolabel="1" class="oe_inline"/>
+                            </strong>
+                            for the day.
+                        </p>
+                        <p class="mb-0">
+                            <strong>Once checked out, you CANNOT check in again to Session
+                            today
+                            today.</strong>
+                            To re-enter, you would need to wait until tomorrow.
+                        </p>
+                    </div>
+                    <field name="attendance_id" invisible="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_checkout"
+                            type="object"
+                            string="Sure, Check Out"
+                            class="btn-primary"/>
+                    <button special="cancel"
+                            string="Cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_checkout_confirm_wizard" model="ir.actions.act_window">
+        <field name="name">Confirm Check Out</field>
+        <field name="res_model">hr.attendance.checkout.confirm.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

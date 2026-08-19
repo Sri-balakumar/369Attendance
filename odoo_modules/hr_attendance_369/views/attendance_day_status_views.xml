@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Day status: one row per employee per day, saying what that day was
+        worth. Absent rows have no attendance_id at all, which is the whole
+        reason this model exists.
+    -->
+
+    <record id="view_attendance_day_status_list" model="ir.ui.view">
+        <field name="name">hr.attendance.day.status.list</field>
+        <field name="model">hr.attendance.day.status</field>
+        <field name="arch" type="xml">
+            <list string="Day Status"
+                  decoration-danger="status == 'absent'"
+                  decoration-warning="status == 'half_day'"
+                  decoration-info="status == 'late'"
+                  decoration-success="status == 'leave'">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="status_display" string="Status"/>
+                <field name="status" column_invisible="1"/>
+                <field name="deduction_amount" sum="Total Deduction"/>
+                <field name="stamped_by_cron" string="No-show" optional="hide"/>
+                <field name="attendance_id" optional="hide"/>
+                <field name="leave_request_id" optional="hide"/>
+                <field name="company_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_attendance_day_status_form" model="ir.ui.view">
+        <field name="name">hr.attendance.day.status.form</field>
+        <field name="model">hr.attendance.day.status</field>
+        <field name="arch" type="xml">
+            <form string="Day Status">
+                <header>
+                    <button name="action_recompute" type="object"
+                            string="Recompute"
+                            help="Re-grade this day. Needed after changing the office hours or the ladder thresholds, because those live in configuration rather than in a field dependency."/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Day">
+                            <field name="employee_id"/>
+                            <field name="date"/>
+                            <field name="company_id" invisible="1"/>
+                        </group>
+                        <group string="Outcome">
+                            <field name="status_display" string="Status"/>
+                            <field name="status"/>
+                            <field name="deduction_amount"/>
+                        </group>
+                    </group>
+                    <group string="Source">
+                        <field name="attendance_id"
+                               help="The check-in that anchors this day. Empty means nobody checked in."/>
+                        <field name="leave_request_id"
+                               help="Approved leave covering this day. Set instead of leaving the day Absent. An attendance still wins: if they came in anyway, the day is graded on what they worked."/>
+                        <field name="stamped_by_cron"
+                               string="Stamped as no-show"
+                               help="Set by the absent cron. Cleared automatically the moment an attendance is attached."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_attendance_day_status_search" model="ir.ui.view">
+        <field name="name">hr.attendance.day.status.search</field>
+        <field name="model">hr.attendance.day.status</field>
+        <field name="arch" type="xml">
+            <search string="Day Status">
+                <field name="employee_id"/>
+                <field name="date"/>
+                <filter name="today" string="Today"
+                        domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <!-- relativedelta(day=1), not date.replace(day=1): search domains
+                     are evaluated in the BROWSER by py.js, whose PyDate has
+                     today() and strftime() but no replace(). Using replace here
+                     threw "Function.prototype.apply was called on undefined" and
+                     broke this whole screen, because the action auto-applies
+                     this filter via search_default_this_month. -->
+                <filter name="this_month" string="This Month"
+                        domain="[('date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="absent_only" string="Absent"
+                        domain="[('status', '=', 'absent')]"/>
+                <filter name="half_day_only" string="Half Day"
+                        domain="[('status', '=', 'half_day')]"/>
+                <filter name="leave_only" string="Leave"
+                        domain="[('status', '=', 'leave')]"/>
+                <filter name="late_only" string="Late"
+                        domain="[('status', '=', 'late')]"/>
+                <separator/>
+                <filter name="deducted" string="Has Deduction"
+                        domain="[('deduction_amount', '&gt;', 0)]"/>
+                <group>
+                    <filter name="group_status" string="Status"
+                            context="{'group_by': 'status'}"/>
+                    <filter name="group_employee" string="Employee"
+                            context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_date" string="Date"
+                            context="{'group_by': 'date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_attendance_day_status" model="ir.actions.act_window">
+        <field name="name">Day Status</field>
+        <field name="res_model">hr.attendance.day.status</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_attendance_day_status_search"/>
+        <field name="context">{'search_default_this_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No day status yet</p>
+            <p>
+                Rows appear as people check in, and the absent cron stamps
+                anyone who has not, once the office passes the configured
+                "Late Window Ends" hour. Leave that hour at 0 and this stays
+                empty.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_attendance_absent_today" model="ir.actions.act_window">
+        <field name="name">Absent Today</field>
+        <field name="res_model">hr.attendance.day.status</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_attendance_day_status_search"/>
+        <field name="domain">[('date', '=', context_today().strftime('%Y-%m-%d')), ('status', '=', 'absent')]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nobody is absent today</p>
+            <p>
+                Everyone expected in has checked in, or is on approved leave
+                or an approved work-from-home day. Leave days appear here as
+                Leave rather than Absent.
+            </p>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Leave Config - List View -->
+    <record id="view_leave_config_list" model="ir.ui.view">
+        <field name="name">hr.leave.config.list</field>
+        <field name="model">hr.leave.config</field>
+        <field name="arch" type="xml">
+            <list string="Leave Configuration">
+                <field name="company_id"/>
+                <field name="paid_leave_enabled"/>
+                <field name="paid_leave_days_per_year"/>
+                <field name="paid_leave_days_per_month"/>
+                <field name="unpaid_leave_deduction_enabled"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Leave Config - Form View -->
+    <record id="view_leave_config_form" model="ir.ui.view">
+        <field name="name">hr.leave.config.form</field>
+        <field name="model">hr.leave.config</field>
+        <field name="arch" type="xml">
+            <form string="Leave Configuration">
+                <sheet>
+                    <group>
+                        <field name="company_id"/>
+                    </group>
+
+                    <group string="Paid Leave Settings">
+                        <group>
+                            <field name="paid_leave_enabled"/>
+                            <field name="paid_leave_days_per_year"/>
+                            <field name="paid_leave_days_per_month"/>
+                        </group>
+                        <group>
+                            <field name="carry_forward_enabled"/>
+                            <field name="max_carry_forward_days"
+                                   invisible="not carry_forward_enabled"/>
+                        </group>
+                    </group>
+
+                    <group string="Unpaid Leave / Deduction Settings">
+                        <group>
+                            <field name="unpaid_leave_deduction_enabled"/>
+                        </group>
+                    </group>
+
+                    <div class="text-muted mt-3">
+                        <p><b>How it works:</b></p>
+                        <ul>
+                            <li>Each employee gets the configured paid leave days per year.</li>
+                            <li>When an employee exceeds their paid leave quota, the leave becomes unpaid.</li>
+                            <li>Unpaid leave deduction = Employee Monthly Wage ÷ Working Days in Month.</li>
+                            <li>Half day unpaid = half the daily rate.</li>
+                            <li>Admin can change these settings at any time.</li>
+                        </ul>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Leave Config - Action -->
+    <record id="action_leave_config" model="ir.actions.act_window">
+        <field name="name">Leave Policy Configuration</field>
+        <field name="res_model">hr.leave.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

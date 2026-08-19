@@ -1,0 +1,141 @@
+/** @odoo-module **/
+
+import { Component, useState } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
+import { useService } from "@web/core/utils/hooks";
+import { Dialog } from "@web/core/dialog/dialog";
+import { formatFloatTime } from "@web/views/fields/formatters";
+import { serializeDateTime } from "@web/core/l10n/dates";
+import { _t } from "@web/core/l10n/translation";
+
+// Popup that captures the late reason and writes it back to the IN-MEMORY
+// record only (record.update) — it never triggers a server save. This is the
+// whole point: a brand-new late attendance can get its reason BEFORE the first
+// save, so the `_check_late_reason_required` Python constraint (which runs on
+// save) passes instead of deadlocking. The old `type="object"` button
+// auto-saved the record first, which hit the constraint before the wizard
+// could even open. The dialog body mirrors the old server wizard's layout.
+export class LateReasonDialog extends Component {
+    static template = "hr_attendance_369.LateReasonDialog";
+    static components = { Dialog };
+    static props = {
+        close: Function,
+        title: { type: String, optional: true },
+        showInfo: { type: Boolean, optional: true },
+        info: { type: Object, optional: true },
+        defaultReason: { type: String, optional: true },
+        onConfirm: Function,
+    };
+
+    setup() {
+        this.state = useState({ reason: this.props.defaultReason || "" });
+    }
+
+    get canSave() {
+        return !!this.state.reason.trim();
+    }
+
+    async onSave() {
+        if (!this.canSave) {
+            return;
+        }
+        await this.props.onConfirm(this.state.reason.trim());
+        this.props.close();
+    }
+}
+
+export class LateReasonButton extends Component {
+    static template = "hr_attendance_369.LateReasonButton";
+    static props = { ...standardWidgetProps };
+
+    setup() {
+        this.dialog = useService("dialog");
+        this.orm = useService("orm");
+    }
+
+    get isVisible() {
+        const d = this.props.record.data;
+        // Hidden once checked out (form is read-only) and for waived / on-time.
+        // Also hidden when the employee's config has "Require Late Reason" (or
+        // late tracking as a whole) switched off — late_reason_required is the
+        // computed mirror of those two switches. `!== false` so a view that
+        // forgot to load the field still shows the button.
+        if (d.late_reason_required === false) {
+            return false;
+        }
+        return (d.is_late || (d.late_minutes || 0) > 0) && !d.check_out;
+    }
+
+    get hasReason() {
+        const r = this.props.record.data.late_reason;
+        return !!(r && r.trim());
+    }
+
+    get buttonLabel() {
+        return this.hasReason ? _t("Update Reason") : _t("Enter Late Reason");
+    }
+
+    async onClick() {
+        const record = this.props.record;
+        const d = record.data;
+
+        // Update mode: a reason already exists -> just edit it. No detail box,
+        // no preview RPC; show only the existing reason in the textarea.
+        if (this.hasReason) {
+            this.dialog.add(LateReasonDialog, {
+                title: _t("Update Late Reason"),
+                showInfo: false,
+                info: {},
+                defaultReason: d.late_reason || "",
+                onConfirm: (reason) => record.update({ late_reason: reason }),
+            });
+            return;
+        }
+
+        const emp = d.employee_id;
+        const employeeName = Array.isArray(emp)
+            ? emp[1]
+            : (emp && (emp.display_name || emp.name)) || "";
+        const empId = Array.isArray(emp) ? emp[0] : emp && emp.id;
+
+        // Defaults from the in-memory record, refreshed from a no-save
+        // preview so a brand-new record still shows the real figures.
+        let lateDisplay = d.late_minutes_display || "";
+        let expectedStart = d.expected_start_time || 0;
+
+        if (empId && d.check_in) {
+            try {
+                const preview = await this.orm.call("hr.attendance", "preview_late_info", [
+                    empId,
+                    serializeDateTime(d.check_in),
+                ]);
+                if (preview && Object.keys(preview).length) {
+                    lateDisplay = preview.late_minutes_display || lateDisplay;
+                    expectedStart = preview.expected_start_time ?? expectedStart;
+                }
+            } catch {
+                // Network/preview failure — fall back to the form's values.
+            }
+        }
+
+        const info = {
+            employeeName: employeeName,
+            lateDisplay: lateDisplay,
+            expectedStart: formatFloatTime(expectedStart || 0),
+        };
+        this.dialog.add(LateReasonDialog, {
+            title: _t("Enter Late Reason"),
+            showInfo: true,
+            info: info,
+            defaultReason: d.late_reason || "",
+            onConfirm: (reason) => record.update({ late_reason: reason }),
+        });
+    }
+}
+
+export const lateReasonButton = {
+    component: LateReasonButton,
+};
+
+registry.category("view_widgets").add("late_reason_button", lateReasonButton);

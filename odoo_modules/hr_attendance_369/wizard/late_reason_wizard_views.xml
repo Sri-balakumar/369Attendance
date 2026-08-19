@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_late_reason_wizard_form" model="ir.ui.view">
+        <field name="name">hr.attendance.late.reason.wizard.form</field>
+        <field name="model">hr.attendance.late.reason.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Enter Late Reason">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        <h4 class="mb-2"><i class="fa fa-clock-o"/> Late Check-in Detected</h4>
+                        <p class="mb-1">
+                            <strong>
+                                <field name="employee_name" readonly="1" nolabel="1" class="oe_inline"/>
+                            </strong>
+                            is
+                            <strong>
+                                <field name="late_minutes_display" readonly="1" nolabel="1" class="oe_inline"/>
+                            </strong>
+                            late for
+                            <strong>Session
+                            </strong>.
+                        </p>
+                        <p class="mb-0 text-muted">
+                            Expected start:
+                            <field name="expected_start_time" widget="float_time" readonly="1" nolabel="1" class="oe_inline"/>
+                            &#8226; Late # in month:
+                            &#8226; Deduction:
+                        </p>
+                    </div>
+                    <group>
+                        <field name="attendance_id" invisible="1"/>
+                        <field name="late_reason"
+                               nolabel="1"
+                               required="1"
+                               placeholder="Please describe why you were late (e.g. traffic delay, family emergency, medical appointment)..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_submit"
+                            type="object"
+                            string="Save Reason"
+                            class="btn-primary"/>
+                    <button special="cancel"
+                            string="Cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_late_reason_wizard" model="ir.actions.act_window">
+        <field name="name">Enter Late Reason</field>
+        <field name="res_model">hr.attendance.late.reason.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

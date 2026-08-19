@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_payslip_run_list" model="ir.ui.view">
+        <field name="name">hr.payslip.run.list</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'paid'">
+                <field name="name"/>
+                <field name="month"/>
+                <field name="year"/>
+                <field name="employee_count" string="Employees"/>
+                <field name="total_gross" sum="Gross"/>
+                <field name="total_deductions" sum="Deductions"/>
+                <field name="total_net" sum="Net Pay"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-success="state == 'paid'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_payslip_run_form" model="ir.ui.view">
+        <field name="name">hr.payslip.run.form</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_generate" type="object"
+                            string="Generate Payslips" class="btn-primary"
+                            invisible="state != 'draft'"
+                            confirm="This recalculates every payslip in this run from current attendance and salary data. Continue?"/>
+                    <button name="action_confirm" type="object"
+                            string="Confirm" class="btn-primary"
+                            invisible="state != 'draft' or not payslip_ids"/>
+                    <button name="action_mark_paid" type="object"
+                            string="Mark Paid" class="btn-primary"
+                            invisible="state != 'confirmed'"/>
+                    <button name="action_print_all" type="object"
+                            string="Print All Payslips"
+                            invisible="not payslip_ids"/>
+                    <button name="action_reset_to_draft" type="object"
+                            string="Back to Draft"
+                            invisible="state != 'confirmed'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,confirmed,paid"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_payslips" type="object"
+                                class="oe_stat_button" icon="fa-list-alt"
+                                invisible="not payslip_ids">
+                            <field name="employee_count" widget="statinfo"
+                                   string="Payslips"/>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+
+                    <field name="mismatch_count" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="mismatch_count == 0">
+                        <b><field name="mismatch_count" readonly="1" nolabel="1"/>
+                        payslip(s)</b> have earnings that disagree with the
+                        employee's Monthly Wage. Monthly Wage is what every
+                        attendance deduction is calculated from, so this run
+                        cannot be confirmed until they agree. Use the
+                        <b>Wage Mismatch</b> filter on the payslip list to find them.
+                    </div>
+
+                    <group>
+                        <group string="Period">
+                            <field name="month" readonly="state != 'draft'"/>
+                            <field name="year" readonly="state != 'draft'"/>
+                            <field name="date_from" readonly="1"/>
+                            <field name="date_to" readonly="1"/>
+                            <field name="pay_date" readonly="state == 'paid'"/>
+                        </group>
+                        <group string="Totals">
+                            <field name="company_id" groups="base.group_multi_company"
+                                   readonly="state != 'draft'"/>
+                            <field name="total_gross" readonly="1"/>
+                            <field name="total_deductions" readonly="1"/>
+                            <field name="total_net" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Payslips" name="payslips">
+                            <field name="payslip_ids" readonly="1" nolabel="1">
+                                <list decoration-warning="wage_mismatch">
+                                    <field name="employee_name" string="Employee"/>
+                                    <field name="department_name" optional="show"/>
+                                    <field name="paid_days"/>
+                                    <field name="lop_days" string="LOP"
+                                           decoration-danger="lop_days &gt; 0"/>
+                                    <field name="gross_earnings" sum="Gross"/>
+                                    <field name="total_deductions" sum="Deductions"/>
+                                    <field name="net_pay_rounded" sum="Net Pay"/>
+                                    <field name="wage_mismatch" column_invisible="1"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_payslip_run" model="ir.actions.act_window">
+        <field name="name">Payroll Runs</field>
+        <field name="res_model">hr.payslip.run</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Run payroll for a month</p>
+            <p>
+                Create the month, press <b>Generate Payslips</b>, and every
+                employee gets one. Unpaid days come straight from attendance,
+                so the payslip and your attendance records always agree.
+            </p>
+        </field>
+    </record>
+
+</odoo>

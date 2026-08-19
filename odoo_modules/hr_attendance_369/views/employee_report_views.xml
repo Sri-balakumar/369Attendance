@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ═══════════════════════════════════════════════════════
+         WIZARD FORM  –  Month/Year based parameter collection
+         ═══════════════════════════════════════════════════════ -->
+    <record id="view_employee_report_wizard_form" model="ir.ui.view">
+        <field name="name">hr.employee.report.wizard.form</field>
+        <field name="model">hr.employee.report.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Employee Monthly Report">
+                <group>
+                    <group string="PERIOD">
+                        <field name="month"/>
+                        <field name="year"/>
+                    </group>
+                    <group string="COMPANY">
+                        <field name="company_id"/>
+                    </group>
+                </group>
+                <group string="EMPLOYEES">
+                    <group>
+                        <field name="employee_select" widget="radio"/>
+                    </group>
+                    <group>
+                        <field name="employee_ids" widget="many2many_tags"
+                               placeholder="Select employees..."
+                               invisible="employee_select != 'selected'"/>
+                        <field name="department_id"
+                               placeholder="Filter by department (optional)"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_generate_report" type="object"
+                            string="Generate Report" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_employee_report_wizard" model="ir.actions.act_window">
+        <field name="name">Employee Monthly Report</field>
+        <field name="res_model">hr.employee.report.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         REPORT FORM  –  dynamic report with tabs
+         ═══════════════════════════════════════════════════════ -->
+    <record id="view_employee_report_form" model="ir.ui.view">
+        <field name="name">hr.employee.report.form</field>
+        <field name="model">hr.employee.report</field>
+        <field name="arch" type="xml">
+            <form string="Employee Monthly Report" create="0">
+                <header>
+                    <button name="action_refresh" type="object"
+                            string="⟳ Refresh" class="btn-warning"/>
+                    <button name="action_print_pdf" type="object"
+                            string="⇩ PDF Report" class="btn-info"/>
+                    <button name="action_export_excel" type="object"
+                            string="⇩ Excel Export" class="btn-success"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="REPORT INFO">
+                            <field name="company_id" readonly="1"/>
+                            <field name="department_id" readonly="1"/>
+                        </group>
+                        <group string="PERIOD">
+                            <field name="date_from" readonly="1"/>
+                            <field name="date_to" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Grand Totals Banner -->
+                    <field name="currency_id" invisible="1"/>
+                    <group string="Totals">
+                        <group>
+                            <field name="grand_leave_deduction" string="Total Leave Deductions" readonly="1"
+                                   widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="grand_total_deduction" string="Grand Total Deductions" readonly="1"
+                                   widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        </group>
+                        <group>
+                            <field name="grand_wage" string="Total Wages" readonly="1"
+                                   widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <label for="grand_final_amount" string="Grand Final Amount"/>
+                            <div>
+                                <field name="grand_final_amount" nolabel="1" readonly="1" class="oe_inline fw-bold fs-4"
+                                       widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            </div>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <!-- TAB 1: Employee Summary -->
+                        <page string="Employee Summary" name="summary">
+                            <field name="summary_line_ids" nolabel="1" readonly="1">
+                                <list default_order="employee_name asc">
+                                    <!-- All data columns are optional so users can pick which
+                                         to show via the list's optional-columns (sliders) menu.
+                                         Colour is per-cell (red deductions, green final) — never
+                                         the whole row. -->
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="employee_name"/>
+                                    <field name="department_name" optional="show"/>
+                                    <field name="total_working_days" string="Working Days" optional="show"/>
+                                    <field name="total_present_days" string="Present Days" optional="show"/>
+                                    <field name="late_days" string="Late Days" optional="show"/>
+                                    <field name="total_late_days_raw" string="Late (Raw)" optional="hide"/>
+                                    <field name="late_minutes" string="Late (Min)" optional="hide"/>
+                                    <field name="late_minutes_display" string="Late Time" optional="show"/>
+                                    <field name="paid_leave_days" string="Paid Leave Days" sum="Total" optional="show"/>
+                                    <field name="unpaid_leave_days" string="Unpaid Leave Days" sum="Total" optional="show"/>
+                                    <field name="leave_deduction" string="Leave Deduction" sum="Total" optional="show"
+                                           widget="monetary" options="{'currency_field': 'currency_id'}"
+                                           decoration-danger="leave_deduction &gt; 0"/>
+                                    <field name="wage" string="Wage" sum="Total" optional="show"
+                                           widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                    <field name="total_deduction" string="Total Deduction" sum="Grand Total" optional="show"
+                                           widget="monetary" options="{'currency_field': 'currency_id'}"
+                                           decoration-danger="total_deduction &gt; 0"/>
+                                    <field name="final_amount" string="Final Amount" sum="Grand Total" optional="show"
+                                           widget="monetary" options="{'currency_field': 'currency_id'}"
+                                           decoration-bf="1" decoration-success="final_amount &gt; 0"/>
+                                    <!-- Drill-down buttons -->
+                                    <button name="action_view_day_details" type="object"
+                                            string="📋 Details" title="View Day-wise Details"
+                                            class="btn-link"/>
+                                    <button name="action_view_late_records" type="object"
+                                            string="⏱ Late" title="View Late Records"
+                                            class="btn-link"/>
+                                    <button name="action_view_leave_records" type="object"
+                                            string="🗓 Leave" title="View Leave Records"
+                                            class="btn-link"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- TAB 2: Detailed Day-wise Entries -->
+                        <page string="Day-wise Details" name="details">
+                            <field name="detail_line_ids" nolabel="1" readonly="1">
+                                <list default_order="employee_name asc, entry_date asc">
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="employee_id" column_invisible="1"/>
+                                    <field name="employee_name"/>
+                                    <field name="entry_date"/>
+                                    <field name="day_type" widget="badge"
+                                           decoration-info="day_type == 'present'"
+                                           decoration-warning="day_type in ('late', 'half_day')"
+                                           decoration-danger="day_type == 'absent'"
+                                           decoration-muted="day_type == 'holiday'"
+                                           decoration-success="day_type == 'leave'"/>
+                                    <field name="description"/>
+                                    <field name="check_in_time" string="Check In (Office)"/>
+                                    <field name="check_out_time" string="Check Out (Office)"/>
+                                    <field name="is_half_day" optional="hide"/>
+                                    <field name="late_minutes_display" string="Late Time" optional="show"/>
+                                    <field name="late_reason" optional="show"/>
+                                    <field name="leave_type" optional="hide"/>
+                                    <field name="leave_paid_type" string="Paid/Unpaid" optional="hide"/>
+                                    <field name="leave_reason" optional="hide"/>
+                                    <field name="leave_deduction" string="Leave Ded." sum="Total Leave Deductions"
+                                           widget="monetary" options="{'currency_field': 'currency_id'}"
+                                           decoration-danger="leave_deduction &gt; 0"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SUMMARY LINE – Form view with drill-down smart buttons
+         ═══════════════════════════════════════════════════════ -->
+    <record id="view_summary_line_form" model="ir.ui.view">
+        <field name="name">hr.employee.report.summary.line.form</field>
+        <field name="model">hr.employee.report.summary.line</field>
+        <field name="arch" type="xml">
+            <form string="Employee Summary" create="0" edit="0">
+                <header>
+                    <button name="action_view_day_details" type="object"
+                            string="View Day-wise Details" class="btn-primary"/>
+                    <button name="action_view_late_records" type="object"
+                            string="View Late Records" class="btn-primary"
+                            invisible="late_days == 0"/>
+                    <button name="action_view_leave_records" type="object"
+                            string="View Leave Records" class="btn-primary"
+                            invisible="paid_leave_days == 0 and unpaid_leave_days == 0"/>
+                </header>
+                <sheet>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="employee_name" readonly="1"/></h1>
+                        <h3><field name="department_name" readonly="1"/></h3>
+                    </div>
+                    <group>
+                        <group string="Attendance">
+                            <field name="total_working_days"/>
+                            <field name="total_present_days"/>
+                        </group>
+                        <group string="Attendance">
+                            <field name="total_late_days_raw" string="Total Late Days"/>
+                            <field name="late_days" string="Late Days"/>
+                            <field name="late_minutes_display" string="Total Late Time"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Leave Tracking">
+                            <field name="paid_leave_days"/>
+                            <field name="unpaid_leave_days"/>
+                            <field name="leave_deduction" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        </group>
+                        <group string="Salary">
+                            <field name="wage" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="total_deduction" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="final_amount" class="fw-bold" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         REPORT LIST view (for browsing past reports)
+         ═══════════════════════════════════════════════════════ -->
+    <record id="view_employee_report_list" model="ir.ui.view">
+        <field name="name">hr.employee.report.list</field>
+        <field name="model">hr.employee.report</field>
+        <field name="arch" type="xml">
+            <list string="Employee Reports" create="0">
+                <field name="name"/>
+                <field name="company_id"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="grand_total_deduction" string="Total Deductions"/>
+                <field name="grand_final_amount" string="Final Amount"/>
+                <field name="create_date" string="Generated On"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Search view for reports -->
+    <record id="view_employee_report_search" model="ir.ui.view">
+        <field name="name">hr.employee.report.search</field>
+        <field name="model">hr.employee.report</field>
+        <field name="arch" type="xml">
+            <search string="Employee Reports">
+                <field name="name"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('date_from', '&gt;=', (context_today()).strftime('%%Y-%%m-01'))]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         DETAIL LINE – Standalone list view (for drill-down)
+         ═══════════════════════════════════════════════════════ -->
+    <record id="view_detail_line_list" model="ir.ui.view">
+        <field name="name">hr.employee.report.detail.line.list</field>
+        <field name="model">hr.employee.report.detail.line</field>
+        <field name="arch" type="xml">
+            <list string="Day-wise Details" create="0" edit="0"
+                  default_order="employee_name asc, entry_date asc">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="entry_date"/>
+                <field name="employee_name"/>
+                <field name="department_name" optional="show"/>
+                <field name="day_type" widget="badge"
+                       decoration-info="day_type == 'present'"
+                       decoration-warning="day_type in ('late', 'half_day')"
+                       decoration-danger="day_type == 'absent'"
+                       decoration-muted="day_type == 'holiday'"
+                       decoration-success="day_type == 'leave'"/>
+                <field name="description"/>
+                <field name="check_in_time" string="Check In (Office)"/>
+                <field name="check_out_time" string="Check Out (Office)"/>
+                <field name="is_half_day" optional="show"/>
+                <field name="late_minutes_display" string="Late Time" optional="show"/>
+                <field name="late_reason" optional="show"/>
+                <field name="leave_type" optional="show"/>
+                <field name="leave_paid_type" string="Paid/Unpaid" optional="show"/>
+                <field name="leave_reason" optional="show"/>
+                <field name="leave_deduction" string="Leave Ded." sum="Total Leave Deductions"
+                       widget="monetary" options="{'currency_field': 'currency_id'}"
+                       decoration-danger="leave_deduction &gt; 0"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Detail line search view -->
+    <record id="view_detail_line_search" model="ir.ui.view">
+        <field name="name">hr.employee.report.detail.line.search</field>
+        <field name="model">hr.employee.report.detail.line</field>
+        <field name="arch" type="xml">
+            <search string="Detail Lines">
+                <field name="employee_name"/>
+                <field name="day_type"/>
+                <field name="entry_date"/>
+                <separator/>
+                <filter name="present_only" string="Present"
+                        domain="[('day_type', '=', 'present')]"/>
+                <filter name="late_only" string="Late"
+                        domain="[('day_type', '=', 'late')]"/>
+                <filter name="leave_only" string="Leave"
+                        domain="[('day_type', '=', 'leave')]"/>
+                <filter name="absent_only" string="Absent"
+                        domain="[('day_type', '=', 'absent')]"/>
+                <filter name="holiday_only" string="Holiday"
+                        domain="[('day_type', '=', 'holiday')]"/>
+                <separator/>
+                <filter name="with_deduction" string="With Deduction"
+                        domain="[('leave_deduction', '&gt;', 0)]"/>
+                <filter name="half_day" string="Half Day"
+                        domain="[('is_half_day', '=', True)]"/>
+                <group>
+                    <filter name="group_employee" string="Employee"
+                            context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_type" string="Day Type"
+                            context="{'group_by': 'day_type'}"/>
+                    <filter name="group_date" string="Date"
+                            context="{'group_by': 'entry_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action for browsing all reports -->
+    <record id="action_employee_report_list" model="ir.actions.act_window">
+        <field name="name">Employee Reports</field>
+        <field name="res_model">hr.employee.report</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'create': False}</field>
+    </record>
+
+</odoo>

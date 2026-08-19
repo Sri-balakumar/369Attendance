@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        A payslip is a record of what was paid, so almost everything on it is
+        readonly: the figures come from Generate on the run, not from typing.
+        Editing a number here by hand would make the document disagree with
+        the attendance it was calculated from.
+    -->
+    <record id="view_payslip_list" model="ir.ui.view">
+        <field name="name">hr.payslip.list</field>
+        <field name="model">hr.payslip</field>
+        <field name="arch" type="xml">
+            <list decoration-warning="wage_mismatch" create="0">
+                <field name="employee_name" string="Employee"/>
+                <field name="department_name" string="Department" optional="show"/>
+                <field name="working_days" optional="hide"/>
+                <field name="paid_days" optional="show"/>
+                <field name="lop_days" string="LOP" optional="show"
+                       decoration-danger="lop_days &gt; 0"/>
+                <field name="gross_earnings" sum="Gross"/>
+                <field name="total_deductions" sum="Deductions"/>
+                <field name="net_pay_rounded" sum="Net Pay"/>
+                <field name="wage_mismatch" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_payslip_form" model="ir.ui.view">
+        <field name="name">hr.payslip.form</field>
+        <field name="model">hr.payslip</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button name="action_print_payslip" type="object"
+                            string="Print Payslip" class="btn-primary"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,confirmed,paid"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="employee_name" readonly="1"/></h1>
+                        <h3><field name="date_from" widget="date" readonly="1"/>
+                            &#8211;
+                            <field name="date_to" widget="date" readonly="1"/></h3>
+                    </div>
+
+                    <field name="wage_mismatch" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="not wage_mismatch">
+                        The earnings on this payslip do not add up to the
+                        employee's <b>Monthly Wage</b>, which is what every
+                        attendance deduction is calculated from. The run cannot
+                        be confirmed until the two agree.
+                    </div>
+
+                    <group>
+                        <group string="Employee">
+                            <field name="employee_id" readonly="1"/>
+                            <field name="job_title" readonly="1"/>
+                            <field name="department_name" readonly="1"/>
+                        </group>
+                        <group string="Days">
+                            <field name="working_days" readonly="1"/>
+                            <field name="paid_days" readonly="1"/>
+                            <field name="lop_days" readonly="1"/>
+                            <field name="present_days" readonly="1"/>
+                            <field name="half_days" readonly="1"/>
+                            <field name="absent_days" readonly="1"/>
+                            <field name="leave_days_paid" readonly="1"/>
+                            <field name="leave_days_unpaid" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Earnings &amp; Deductions" name="lines">
+                            <field name="line_ids" readonly="1">
+                                <list>
+                                    <field name="sequence" column_invisible="1"/>
+                                    <field name="category"/>
+                                    <field name="name"/>
+                                    <field name="code" optional="hide"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="amount" sum="Total"/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer">
+                                <field name="gross_earnings" readonly="1"/>
+                                <field name="total_deductions" readonly="1"/>
+                                <field name="net_pay_rounded" readonly="1"
+                                       class="oe_subtotal_footer_separator"/>
+                                <field name="net_in_words" readonly="1" nolabel="1"
+                                       colspan="2"/>
+                            </group>
+                        </page>
+                        <page string="Leave" name="leave">
+                            <group>
+                                <field name="leave_opening" readonly="1"/>
+                                <field name="leave_taken" readonly="1"/>
+                                <field name="leave_closing" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Basis" name="basis">
+                            <group>
+                                <field name="monthly_wage" readonly="1"/>
+                                <field name="net_pay" readonly="1"/>
+                                <field name="pay_date" readonly="1"/>
+                                <field name="run_id" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_payslip_search" model="ir.ui.view">
+        <field name="name">hr.payslip.search</field>
+        <field name="model">hr.payslip</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="run_id"/>
+                <filter name="has_lop" string="With Loss of Pay"
+                        domain="[('lop_days', '&gt;', 0)]"/>
+                <filter name="mismatched" string="Wage Mismatch"
+                        domain="[('wage_mismatch', '=', True)]"/>
+                <separator/>
+                <group>
+                    <filter name="group_run" string="Payroll Run" domain="[]"
+                            context="{'group_by': 'run_id'}"/>
+                    <filter name="group_department" string="Department" domain="[]"
+                            context="{'group_by': 'department_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_payslip" model="ir.actions.act_window">
+        <field name="name">Payslips</field>
+        <field name="res_model">hr.payslip</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[]</field>
+        <field name="search_view_id" ref="view_payslip_search"/>
+        <field name="context">{'search_default_group_run': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No payslips yet</p>
+            <p>
+                Payslips are produced a month at a time. Open
+                <b>Payroll Runs</b>, create the month and press Generate.
+            </p>
+        </field>
+    </record>
+
+</odoo>

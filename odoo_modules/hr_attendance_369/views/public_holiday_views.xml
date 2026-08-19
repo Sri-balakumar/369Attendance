@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Public holidays are excluded from get_working_days_in_month(), which is
+        the divisor for every daily rate. Adding one therefore RAISES everyone's
+        daily rate and makes an absence or half day in that month cost more.
+
+        The "Counts" column is the important one: a holiday landing on a day
+        that is already off (a Sunday) is subtracted from a set it was never in,
+        so it changes nothing at all.
+    -->
+
+    <record id="view_public_holiday_tree" model="ir.ui.view">
+        <field name="name">hr.public.holiday.tree</field>
+        <field name="model">hr.public.holiday</field>
+        <field name="arch" type="xml">
+            <list string="Public Holidays" editable="bottom"
+                  decoration-muted="not affects_working_days">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="day_name" string="Day"/>
+                <field name="affects_working_days" string="Counts"
+                       widget="boolean_toggle" readonly="1"/>
+                <field name="year" optional="hide"/>
+                <field name="company_id" optional="hide"
+                       groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_public_holiday_calendar" model="ir.ui.view">
+        <field name="name">hr.public.holiday.calendar</field>
+        <field name="model">hr.public.holiday</field>
+        <field name="arch" type="xml">
+            <calendar string="Public Holidays" date_start="date"
+                      mode="month" quick_create="1" event_open_popup="1">
+                <field name="name"/>
+                <field name="day_name"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="view_public_holiday_form" model="ir.ui.view">
+        <field name="name">hr.public.holiday.form</field>
+        <field name="model">hr.public.holiday</field>
+        <field name="arch" type="xml">
+            <form string="Public Holiday">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="date"/>
+                            <field name="day_name" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="company_id"
+                                   groups="base.group_multi_company"/>
+                            <field name="affects_working_days" readonly="1"
+                                   string="Reduces working days"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-warning mb-0" role="alert"
+                         invisible="affects_working_days or not date">
+                        This date already falls on a non-working day, so it does
+                        <b>not</b> reduce the working days in the month and will
+                        <b>not</b> change anyone's pay. Keep it for the record if
+                        you like — it simply has no payroll effect.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_public_holiday_search" model="ir.ui.view">
+        <field name="name">hr.public.holiday.search</field>
+        <field name="model">hr.public.holiday</field>
+        <field name="arch" type="xml">
+            <search string="Public Holidays">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="year"/>
+                <filter string="Upcoming" name="upcoming"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="This Year" name="this_year"
+                        domain="[('date', '&gt;=', (context_today() + relativedelta(month=1, day=1)).strftime('%Y-%m-%d')),
+                                 ('date', '&lt;=', (context_today() + relativedelta(month=12, day=31)).strftime('%Y-%m-%d'))]"/>
+                <group>
+                    <filter string="Year" name="group_year"
+                            context="{'group_by': 'year'}"/>
+                    <filter string="Month" name="group_month"
+                            context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_public_holiday" model="ir.actions.act_window">
+        <field name="name">Public Holidays</field>
+        <field name="res_model">hr.public.holiday</field>
+        <field name="view_mode">list,calendar,form</field>
+        <field name="search_view_id" ref="view_public_holiday_search"/>
+        <field name="context">{'search_default_this_year': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add the first public holiday</p>
+            <p>
+                Holidays are excluded from the working days used to divide the
+                monthly wage, so adding one <b>raises</b> everybody's daily rate
+                and makes an absence or half day that month cost more. Nobody is
+                ever marked Absent on a holiday.
+            </p>
+            <p>
+                Watch the <b>Counts</b> column. A holiday that lands on a day
+                already off — a Sunday — changes nothing at all.
+            </p>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Report Action -->
+    <record id="action_report_late_attendance" model="ir.actions.report">
+        <field name="name">Late Attendance Report</field>
+        <field name="model">hr.attendance</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">hr_attendance_369.report_late_attendance</field>
+        <field name="report_file">hr_attendance_369.report_late_attendance</field>
+        <field name="binding_model_id" ref="hr_attendance.model_hr_attendance"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- QWeb Template -->
+    <template id="report_late_attendance">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Late Attendance Report</h2>
+                        <table class="table table-sm table-bordered mt-3">
+                            <thead>
+                                <tr class="bg-primary text-white">
+                                    <th>Employee</th>
+                                    <th>Department</th>
+                                    <th>Date</th>
+                                    <th>Check-in</th>
+                                    <th>Expected Time</th>
+                                    <th>Late Time</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="doc.is_late">
+                                    <td><t t-esc="doc.employee_id.name"/></td>
+                                    <td><t t-esc="doc.employee_id.department_id.name or '-'"/></td>
+                                    <td><t t-esc="doc.date"/></td>
+                                    <td><t t-esc="doc.check_in_office_time"/></td>
+                                    <td>
+                                        <t t-esc="'%02d:%02d' % (int(doc.expected_start_time), int((doc.expected_start_time % 1) * 60))"/>
+                                    </td>
+                                    <td><t t-esc="doc.late_minutes_display"/></td>
+                                    <td><t t-esc="doc.late_reason or '-'"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

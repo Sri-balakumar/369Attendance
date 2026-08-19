@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_salary_component_list" model="ir.ui.view">
+        <field name="name">hr.salary.component.list</field>
+        <field name="model">hr.salary.component</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="active" widget="boolean_toggle" string="On"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="component_type"/>
+                <field name="computation"/>
+                <field name="base_component_id" optional="show"/>
+                <field name="percentage" optional="show"/>
+                <field name="default_amount" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_salary_component_form" model="ir.ui.view">
+        <field name="name">hr.salary.component.form</field>
+        <field name="model">hr.salary.component</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="component_type"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="computation"/>
+                            <field name="base_component_id"
+                                   invisible="computation != 'percent_of_component'"
+                                   required="computation == 'percent_of_component'"
+                                   domain="[('id', '!=', id)]"/>
+                            <field name="percentage" invisible="computation == 'fixed'"/>
+                            <field name="default_amount" invisible="computation != 'fixed'"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <div class="text-muted mt-2">
+                        A component only appears on employees while it is active.
+                        Switching one off keeps every amount already recorded
+                        against it, but stops it being added to anybody new.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_salary_component" model="ir.actions.act_window">
+        <field name="name">Salary Components</field>
+        <field name="res_model">hr.salary.component</field>
+        <field name="view_mode">list,form</field>
+        <!-- active_test=False is essential: the presets ship inactive, so
+             without it this list looks empty and the admin has nothing to
+             switch on. -->
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Define your salary components</p>
+            <p>
+                Switch on the ones your company uses, or create your own.
+                Nothing appears on an employee until a component is active.
+            </p>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- =============================================
+             WFH REQUEST — TREE VIEW
+        ============================================= -->
+        <record id="view_wfh_request_tree" model="ir.ui.view">
+            <field name="name">hr.wfh.request.tree</field>
+            <field name="model">hr.wfh.request</field>
+            <field name="arch" type="xml">
+                <list string="WFH Requests"
+                      decoration-success="state == 'approved'"
+                      decoration-info="state == 'checked_in'"
+                      decoration-muted="state in ('cancelled', 'expired')"
+                      decoration-danger="state == 'rejected'"
+                      decoration-warning="state == 'pending'">
+                    <field name="employee_name"/>
+                    <field name="request_date"/>
+                    <field name="reason"/>
+                    <field name="state" widget="badge"
+                           decoration-success="state in ('approved', 'checked_out')"
+                           decoration-info="state == 'checked_in'"
+                           decoration-warning="state == 'pending'"
+                           decoration-danger="state == 'rejected'"
+                           decoration-muted="state in ('cancelled', 'expired')"/>
+                    <field name="approved_by"/>
+                    <field name="auto_approved" string="Auto" optional="show"
+                           widget="boolean_toggle" readonly="1"/>
+                    <field name="checkin_time"/>
+                    <field name="checkout_time"/>
+                    <field name="worked_hours" widget="float_time"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- =============================================
+             WFH REQUEST — FORM VIEW
+        ============================================= -->
+        <record id="view_wfh_request_form" model="ir.ui.view">
+            <field name="name">hr.wfh.request.form</field>
+            <field name="model">hr.wfh.request</field>
+            <field name="arch" type="xml">
+                <form string="WFH Request">
+                    <header>
+                        <!-- Employee Buttons -->
+                        <button name="action_submit" type="object"
+                                string="Submit for Approval"
+                                class="btn-primary"
+                                invisible="state != 'draft'"/>
+                        <button name="action_cancel" type="object"
+                                string="Cancel"
+                                class="btn-secondary"
+                                invisible="state not in ('draft', 'pending', 'approved')"
+                                confirm="Are you sure you want to cancel this WFH request?"/>
+
+                        <!-- Manager Buttons -->
+                        <button name="action_approve" type="object"
+                                string="✅ Approve"
+                                class="btn-success"
+                                invisible="state != 'pending'"
+                                groups="hr_attendance_369.group_wfh_manager,base.group_system"/>
+
+                        <!-- No check-in button here on purpose. There is ONE
+                             check-in in this system: the ordinary attendance
+                             one. On an approved WFH day it records itself as
+                             WFH and moves this request to Checked In / Checked
+                             Out by itself, so a second button here would only
+                             be a second way to do the same thing. Fix a bad
+                             day on the attendance record itself (Attendances),
+                             which has its own Check Out Now button. -->
+
+                        <field name="state" widget="statusbar"
+                               statusbar_visible="draft,pending,approved,checked_in,checked_out"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group string="Request Details">
+                                <field name="employee_user_id"
+                                       readonly="state != 'draft'"/>
+                                <field name="hr_employee_id" readonly="1"/>
+                                <field name="request_date"
+                                       readonly="state != 'draft'"/>
+                                <field name="reason"
+                                       readonly="state not in ('draft', 'pending')"/>
+                            </group>
+                            <group string="Approval Info">
+                                <field name="approved_by" readonly="1"/>
+                                <field name="approval_date" readonly="1"/>
+                                <field name="submitted_on" readonly="1"/>
+                                <field name="auto_approved" readonly="1"
+                                       invisible="not auto_approved"/>
+                                <field name="rejection_reason" readonly="1"
+                                       invisible="state != 'rejected'"/>
+                            </group>
+                        </group>
+                        <group string="Attendance" invisible="state not in ('checked_in', 'checked_out')">
+                            <group>
+                                <field name="checkin_time" readonly="1"/>
+                                <field name="checkout_time" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="worked_hours" readonly="1" widget="float_time"/>
+                                <field name="attendance_id" readonly="1"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- =============================================
+             WFH REQUEST — SEARCH VIEW
+        ============================================= -->
+        <record id="view_wfh_request_search" model="ir.ui.view">
+            <field name="name">hr.wfh.request.search</field>
+            <field name="model">hr.wfh.request</field>
+            <field name="arch" type="xml">
+                <search string="Search WFH Requests">
+                    <field name="employee_name"/>
+                    <field name="request_date"/>
+                    <filter string="Pending" name="pending" domain="[('state', '=', 'pending')]"/>
+                    <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                    <filter string="My Requests" name="my_requests" domain="[('employee_user_id', '=', uid)]"/>
+                </search>
+            </field>
+        </record>
+
+        <!-- =============================================
+             WFH REQUEST — ACTION
+        ============================================= -->
+        <record id="action_wfh_request" model="ir.actions.act_window">
+            <field name="name">WFH Requests</field>
+            <field name="res_model">hr.wfh.request</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_wfh_request_search"/>
+            <field name="context">{'search_default_pending': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No WFH requests yet
+                </p>
+                <p>
+                    Create a WFH request to work from home.
+                    Manager approval is required before check-in.
+                </p>
+            </field>
+        </record>
+
+        <!-- My WFH Requests Action (filtered for current user) -->
+        <record id="action_my_wfh_requests" model="ir.actions.act_window">
+            <field name="name">My WFH Requests</field>
+            <field name="res_model">hr.wfh.request</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_wfh_request_search"/>
+            <field name="domain">[('employee_user_id', '=', uid)]</field>
+        </record>
+
+        <!-- =============================================
+             HR ATTENDANCE — TREE VIEW INHERIT
+             (Add work_location column to attendance list)
+        ============================================= -->
+        <record id="view_hr_attendance_tree_inherit_wfh" model="ir.ui.view">
+            <field name="name">hr.attendance.tree.inherit.wfh</field>
+            <field name="model">hr.attendance</field>
+            <field name="inherit_id" ref="hr_attendance.view_attendance_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='check_in']" position="before">
+                    <field name="work_location" optional="show"
+                           widget="badge"
+                           decoration-info="work_location == 'wfh'"
+                           decoration-success="work_location == 'office'"/>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

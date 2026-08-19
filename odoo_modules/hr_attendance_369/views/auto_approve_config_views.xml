@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Auto-Approval Config — List View -->
+    <record id="view_auto_approve_config_list" model="ir.ui.view">
+        <field name="name">hr.request.auto.approve.config.list</field>
+        <field name="model">hr.request.auto.approve.config</field>
+        <field name="arch" type="xml">
+            <list string="Request Auto-Approval">
+                <field name="company_id"/>
+                <field name="leave_auto_approve" string="Leave"/>
+                <field name="leave_delay_number" string="Leave Wait"/>
+                <field name="leave_delay_unit" string="Unit"/>
+                <field name="wfh_auto_approve" string="WFH"/>
+                <field name="wfh_delay_number" string="WFH Wait"/>
+                <field name="wfh_delay_unit" string="Unit"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Auto-Approval Config — Form View -->
+    <record id="view_auto_approve_config_form" model="ir.ui.view">
+        <field name="name">hr.request.auto.approve.config.form</field>
+        <field name="model">hr.request.auto.approve.config</field>
+        <field name="arch" type="xml">
+            <form string="Request Auto-Approval">
+                <sheet>
+                    <group>
+                        <field name="company_id"/>
+                    </group>
+
+                    <group string="Leave Requests">
+                        <group>
+                            <field name="leave_auto_approve"/>
+                        </group>
+                        <group invisible="not leave_auto_approve">
+                            <label for="leave_delay_number" string="Approve after"/>
+                            <div class="o_row">
+                                <field name="leave_delay_number" class="oe_inline"/>
+                                <field name="leave_delay_unit" class="oe_inline"/>
+                            </div>
+                            <field name="leave_delay_minutes" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Work From Home Requests">
+                        <group>
+                            <field name="wfh_auto_approve"/>
+                        </group>
+                        <group invisible="not wfh_auto_approve">
+                            <label for="wfh_delay_number" string="Approve after"/>
+                            <div class="o_row">
+                                <field name="wfh_delay_number" class="oe_inline"/>
+                                <field name="wfh_delay_unit" class="oe_inline"/>
+                            </div>
+                            <field name="wfh_delay_minutes" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <div class="text-muted mt-3">
+                        <p><b>How it works:</b></p>
+                        <ul>
+                            <li>The wait starts when the employee <b>submits</b> the request, not when they create the draft.</li>
+                            <li>If no manager approves or rejects it within that wait, the system approves it.</li>
+                            <li>It is counted in plain clock time — nights and weekends included.</li>
+                            <li>Auto-approved records show <b>Approved By: OdooBot</b> and an <b>Auto Approved</b> tick, so you can always tell them apart from a manager's decision.</li>
+                            <li>The check runs every 10 minutes, so a 30-minute wait clears somewhere between 30 and 40 minutes.</li>
+                            <li>A manager can still reject at any time before the wait runs out. Once approved, use Reset to Draft to undo.</li>
+                            <li>Leave both switches off (the default) and nothing is ever auto-approved.</li>
+                        </ul>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Auto-Approval Config — Action (shared by the Leave and WFH menus) -->
+    <record id="action_auto_approve_config" model="ir.actions.act_window">
+        <field name="name">Request Auto-Approval</field>
+        <field name="res_model">hr.request.auto.approve.config</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No auto-approval policy yet
+            </p>
+            <p>
+                Create one row for your company to decide how long a manager has
+                to answer a leave or WFH request before the system approves it
+                on their behalf. Until then, nothing is auto-approved.
+            </p>
+        </field>
+    </record>
+
+</odoo>

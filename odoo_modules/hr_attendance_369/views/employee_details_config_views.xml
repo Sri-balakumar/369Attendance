@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        The switchboard. Every field the Employee Details feature adds is
+        hidden until it is ticked on here, so a company that upgrades and
+        does nothing sees no change at all to the employee form.
+
+        Field switches sit inside their section and disappear while the
+        section is off, so the screen only ever shows the choices that
+        currently mean something.
+    -->
+    <record id="view_employee_details_config_form" model="ir.ui.view">
+        <field name="name">hr.employee.details.config.form</field>
+        <field name="model">hr.employee.details.config</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="everyone_exists" invisible="1"/>
+                            <!-- Hidden when there is nothing to decide: the
+                                 Everyone record already exists and only one is
+                                 allowed, so a new record can only be for one
+                                 person. Still shown on saved records, so an
+                                 existing one can be read at a glance. -->
+                            <field name="config_scope" widget="radio"
+                                   invisible="everyone_exists and not id"/>
+                            <!-- Asked for as soon as "Per employee" is picked;
+                                 readonly afterwards, because moving a record to
+                                 a different person would silently change who
+                                 the settings govern. -->
+                            <field name="employee_id"
+                                   invisible="config_scope != 'employee'"
+                                   required="config_scope == 'employee'"
+                                   readonly="id"
+                                   options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+
+                    <div class="alert alert-info" role="alert"
+                         invisible="not everyone_exists or id">
+                        The company defaults already exist, so this record is
+                        for <b>one person</b>. They will use it <b>instead of</b>
+                        the defaults, so tick everything they should see.
+                    </div>
+
+                    <div class="alert alert-info" role="alert"
+                         invisible="everyone_exists and not id">
+                        <span invisible="config_scope != 'global'">
+                            The <b>defaults</b>. Used for everybody who does not
+                            have a record of their own.
+                        </span>
+                        <span invisible="config_scope != 'employee'">
+                            Applies to <b>this person only</b>, and is used
+                            <b>instead of</b> the defaults rather than added to
+                            them: whatever is unticked here stays hidden for them
+                            even when the defaults show it.
+                        </span>
+                    </div>
+
+                    <group string="Salary Breakup">
+                        <field name="show_salary_section"/>
+                        <field name="show_salary_effective_date"
+                               invisible="not show_salary_section"/>
+                        <field name="show_annual_ctc"
+                               invisible="not show_salary_section"/>
+                        <div colspan="2" class="text-muted"
+                             invisible="not show_salary_section">
+                            Which components exist is set under Employee Details,
+                            Salary Components. Only active ones appear.
+                            Salary is never visible to the employee themselves.
+                        </div>
+                    </group>
+
+                    <group string="Statutory Identifiers">
+                        <field name="show_statutory_section"/>
+                        <field name="show_tax_regime"
+                               invisible="not show_statutory_section"/>
+                        <field name="show_professional_tax_state"
+                               invisible="not show_statutory_section"/>
+                        <div colspan="2" class="text-muted"
+                             invisible="not show_statutory_section">
+                            Which identifiers exist is set under Employee Details,
+                            Statutory ID Types.
+                        </div>
+                    </group>
+
+                    <group string="Bank &amp; Payment">
+                        <field name="show_bank_section"/>
+                        <field name="show_bank_ifsc"
+                               invisible="not show_bank_section"/>
+                        <field name="show_bank_branch"
+                               invisible="not show_bank_section"/>
+                        <field name="show_bank_account_category"
+                               invisible="not show_bank_section"/>
+                        <field name="show_payment_mode"
+                               invisible="not show_bank_section"/>
+                    </group>
+
+                    <group string="Personal &amp; Emergency">
+                        <field name="show_personal_section"/>
+                        <field name="show_blood_group"
+                               invisible="not show_personal_section"/>
+                        <field name="show_father_name"
+                               invisible="not show_personal_section"/>
+                        <field name="show_mother_name"
+                               invisible="not show_personal_section"/>
+                        <field name="show_emergency_relation"
+                               invisible="not show_personal_section"/>
+                        <field name="show_second_emergency_contact"
+                               invisible="not show_personal_section"/>
+                    </group>
+
+                    <group string="Employment History">
+                        <field name="show_employment_section"/>
+                        <field name="show_confirmation_date"
+                               invisible="not show_employment_section"/>
+                        <field name="show_notice_period"
+                               invisible="not show_employment_section"/>
+                        <field name="show_previous_employment"
+                               invisible="not show_employment_section"/>
+                        <field name="show_qualifications"
+                               invisible="not show_employment_section"/>
+                        <field name="show_total_experience"
+                               invisible="not show_employment_section"/>
+                        <div colspan="2" class="text-muted"
+                             invisible="not show_employment_section">
+                            Joining date, probation end and exit date are standard
+                            Odoo fields shown elsewhere on the employee form, and
+                            are always available.
+                        </div>
+                    </group>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_employee_details_config_list" model="ir.ui.view">
+        <field name="name">hr.employee.details.config.list</field>
+        <field name="model">hr.employee.details.config</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="employee_id" string="Applies To"
+                       placeholder="Everyone"/>
+                <field name="config_scope" optional="hide"/>
+                <field name="show_salary_section" string="Salary"/>
+                <field name="show_statutory_section" string="Statutory"/>
+                <field name="show_bank_section" string="Bank"/>
+                <field name="show_personal_section" string="Personal"/>
+                <field name="show_employment_section" string="Employment"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+
+    <!--
+        The per-employee form. Separate from the company one on purpose: the
+        company record has no Employee and must not show the selector, while
+        this one is USELESS without it. Sharing a single form meant the
+        selector was hidden while creating, employee_id stayed empty, and the
+        new record silently became a second company record.
+    -->
+
+    <!--
+        The two sections the list opens with are Odoo grouping, not a bespoke
+        layout: group by Applies To and the records sort themselves into
+        Everyone and Per employee.
+    -->
+    <record id="view_employee_details_config_search" model="ir.ui.view">
+        <field name="name">hr.employee.details.config.search</field>
+        <field name="model">hr.employee.details.config</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <filter name="for_everyone" string="Everyone"
+                        domain="[('config_scope', '=', 'global')]"/>
+                <filter name="per_employee" string="Per employee"
+                        domain="[('config_scope', '=', 'employee')]"/>
+                <separator/>
+                <group>
+                    <filter name="group_applies_to" string="Applies To" domain="[]"
+                            context="{'group_by': 'config_scope'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+
+    <record id="action_employee_details_config" model="ir.actions.act_window">
+        <field name="name">Field Settings</field>
+        <field name="res_model">hr.employee.details.config</field>
+        <field name="view_mode">list,form</field>
+        <!-- Set explicitly, NOT omitted. This action used to carry
+             domain="[('employee_id', '=', False)]" from when it only
+             showed the company record. Dropping the line from the XML
+             does not clear the column (Odoo leaves alone any field it is
+             not told about), so the stale domain survived the upgrade and
+             hid every per-employee row. -->
+        <field name="domain">[]</field>
+        <field name="search_view_id" ref="view_employee_details_config_search"/>
+        <field name="context">{'search_default_group_applies_to': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'sequence': 1, 'view_mode': 'list',
+                    'view_id': ref('view_employee_details_config_list')}),
+            (0, 0, {'sequence': 2, 'view_mode': 'form',
+                    'view_id': ref('view_employee_details_config_form')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Choose what your company records</p>
+            <p>
+                Start with one <b>Everyone</b> record and switch on the fields you
+                need. Add a <b>Per employee</b> record only for someone who should
+                differ -- they then use theirs instead of the defaults.
+            </p>
+        </field>
+    </record>
+
+
+
+</odoo>

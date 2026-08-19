@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Self service. The employee fills these in about themselves from
+        Preferences / My Profile, so HR does not have to key in everybody's
+        blood group and PAN.
+
+        What appears here is governed twice over. The show_* flags hide
+        whatever the admin has not switched on, and Odoo's own self-service
+        allow list (SELF_READABLE_FIELDS / SELF_WRITEABLE_FIELDS, extended in
+        models/res_users.py) decides what an ordinary user may actually read
+        or write. Salary is in neither, so it cannot surface here at all.
+    -->
+    <record id="view_users_form_simple_modif_employee_details" model="ir.ui.view">
+        <field name="name">res.users.preferences.form.employee.details</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form_simple_modif"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="My Details" name="employee_details_page"
+                      invisible="not employee_id">
+                    <field name="employee_id" invisible="1"/>
+                    <field name="show_personal_section" invisible="1"/>
+                    <field name="show_statutory_section" invisible="1"/>
+                    <field name="show_employment_section" invisible="1"/>
+                    <field name="show_blood_group" invisible="1"/>
+                    <field name="show_father_name" invisible="1"/>
+                    <field name="show_mother_name" invisible="1"/>
+                    <field name="show_emergency_relation" invisible="1"/>
+                    <field name="show_second_emergency_contact" invisible="1"/>
+                    <field name="show_tax_regime" invisible="1"/>
+                    <field name="show_previous_employment" invisible="1"/>
+                    <field name="show_qualifications" invisible="1"/>
+
+                    <group string="Personal" name="my_personal"
+                           invisible="not show_personal_section">
+                        <field name="blood_group" invisible="not show_blood_group"/>
+                        <field name="father_name" invisible="not show_father_name"/>
+                        <field name="mother_name" invisible="not show_mother_name"/>
+                    </group>
+
+                    <group string="Emergency Contact" name="my_emergency"
+                           invisible="not show_personal_section">
+                        <field name="emergency_contact_relation"
+                               invisible="not show_emergency_relation"/>
+                        <field name="emergency_contact_2"
+                               invisible="not show_second_emergency_contact"/>
+                        <field name="emergency_phone_2" widget="phone"
+                               invisible="not show_second_emergency_contact"/>
+                        <field name="emergency_contact_relation_2"
+                               invisible="not show_second_emergency_contact"/>
+                    </group>
+
+                    <group string="Statutory Identifiers" name="my_statutory"
+                           invisible="not show_statutory_section">
+                        <field name="tax_regime" invisible="not show_tax_regime"/>
+                        <field name="statutory_id_ids" nolabel="1" colspan="2">
+                            <list editable="bottom">
+                                <field name="type_id"
+                                       options="{'no_create': True, 'no_open': True}"/>
+                                <field name="value"/>
+                            </list>
+                        </field>
+                    </group>
+
+                    <separator string="Previous Employment"
+                               invisible="not show_employment_section or not show_previous_employment"/>
+                    <field name="previous_employment_ids"
+                           invisible="not show_employment_section or not show_previous_employment">
+                        <list editable="bottom">
+                            <field name="company_name"/>
+                            <field name="job_title"/>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="duration_display" string="Duration"/>
+                            <field name="reason_for_leaving" optional="hide"/>
+                        </list>
+                    </field>
+
+                    <separator string="Qualifications"
+                               invisible="not show_employment_section or not show_qualifications"/>
+                    <field name="qualification_ids"
+                           invisible="not show_employment_section or not show_qualifications">
+                        <list editable="bottom">
+                            <field name="name"/>
+                            <field name="specialization" optional="hide"/>
+                            <field name="institution"/>
+                            <field name="year_of_passing"/>
+                            <field name="grade" optional="hide"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

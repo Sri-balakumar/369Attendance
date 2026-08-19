@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Employee Details on the employee form.
+
+        Kept out of hr_employee_views.xml on purpose: that file is short and
+        tells one story (Monthly Wage, the attendance deduction basis).
+        Folding five unrelated xpaths into it would turn it into a grab bag
+        and make either half hard to revert on its own.
+
+        Every block below is wrapped in invisible="not show_*". The flags come
+        from hr.employee.details.config, and they are ALL declared in the
+        hidden block in the first record: invisible= is evaluated client side
+        against loaded record data, so a flag that is not in the arch is never
+        fetched and the expression silently reads as undefined.
+    -->
+
+    <!-- ============================================================ -->
+    <!--  SALARY BREAKUP - inside the stock Payroll page              -->
+    <!--  That page is groups="hr.group_hr_manager", which is exactly -->
+    <!--  the audience for salary: employees never see this tab.      -->
+    <!-- ============================================================ -->
+    <record id="view_employee_form_inherit_salary" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.salary</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Every visibility flag, loaded once, used everywhere below. -->
+            <xpath expr="//notebook" position="before">
+                <group invisible="1">
+                    <field name="show_salary_section"/>
+                    <field name="show_statutory_section"/>
+                    <field name="show_bank_section"/>
+                    <field name="show_personal_section"/>
+                    <field name="show_employment_section"/>
+                    <field name="show_salary_effective_date"/>
+                    <field name="show_annual_ctc"/>
+                    <field name="show_payment_mode"/>
+                    <field name="show_tax_regime"/>
+                    <field name="show_professional_tax_state"/>
+                    <field name="show_bank_ifsc"/>
+                    <field name="show_bank_branch"/>
+                    <field name="show_bank_account_category"/>
+                    <field name="show_blood_group"/>
+                    <field name="show_father_name"/>
+                    <field name="show_mother_name"/>
+                    <field name="show_emergency_relation"/>
+                    <field name="show_second_emergency_contact"/>
+                    <field name="show_confirmation_date"/>
+                    <field name="show_notice_period"/>
+                    <field name="show_previous_employment"/>
+                    <field name="show_qualifications"/>
+                    <field name="show_total_experience"/>
+                    <field name="salary_mismatch"/>
+                    <field name="has_active_salary_components"/>
+                    <field name="has_active_statutory_types"/>
+                    <field name="currency_id"/>
+                </group>
+            </xpath>
+
+            <xpath expr="//page[@name='payroll_information']" position="inside">
+                <group string="Salary Breakup" name="salary_breakup"
+                       invisible="not show_salary_section">
+                    <field name="salary_effective_date"
+                           invisible="not show_salary_effective_date"/>
+                    <!-- NOT invisible="not salary_line_ids": hiding the
+                         container would make the first line impossible
+                         to add. -->
+                    <div colspan="2" class="alert alert-info" role="alert"
+                         invisible="has_active_salary_components">
+                        No salary components are switched on yet, so there is
+                        nothing to add here.
+                        <button name="%(action_salary_component)d" type="action"
+                                class="btn btn-link p-0 ms-1"
+                                string="Set up Salary Components"/>
+                    </div>
+                    <field name="salary_line_ids" nolabel="1" colspan="2"
+                           invisible="not has_active_salary_components">
+                        <list editable="bottom" decoration-muted="not component_active">
+                            <field name="sequence" widget="handle"/>
+                            <field name="component_id"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                            <field name="component_type"/>
+                            <field name="computation" optional="hide"/>
+                            <field name="percentage" optional="hide"/>
+                            <field name="component_active" column_invisible="1"/>
+                            <field name="currency_id" column_invisible="1"/>
+                            <field name="amount" sum="Total"/>
+                        </list>
+                    </field>
+                </group>
+
+                <!-- The summary is derived, so hiding it until there is
+                     something to summarise is safe. -->
+                <group string="Salary Summary" name="salary_summary"
+                       invisible="not show_salary_section or not salary_line_ids">
+                    <field name="gross_salary"/>
+                    <field name="total_deductions"/>
+                    <field name="net_salary"/>
+                    <field name="annual_ctc" invisible="not show_annual_ctc"/>
+                    <field name="salary_difference"
+                           decoration-danger="salary_mismatch"/>
+                    <div colspan="2" class="alert alert-warning mb-0" role="alert"
+                         invisible="not salary_mismatch">
+                        The components do not add up to Monthly Wage. That is
+                        allowed and nothing is blocked, but note that
+                        <b>Monthly Wage</b> is what every attendance deduction
+                        is calculated from, not the breakup above.
+                        <button name="action_sync_monthly_wage_from_components"
+                                type="object" class="btn btn-link p-0 ms-1"
+                                string="Copy the component gross onto Monthly Wage"/>
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  STATUTORY IDENTIFIERS - inside the stock Personal page      -->
+    <!--  Sits beside the stock identification fields, where people   -->
+    <!--  already look for an ID number.                             -->
+    <!-- ============================================================ -->
+    <record id="view_employee_form_inherit_statutory" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.statutory</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='personal_information']" position="inside">
+                <group string="Statutory Identifiers" name="statutory_identifiers"
+                       invisible="not show_statutory_section">
+                    <field name="tax_regime" invisible="not show_tax_regime"/>
+                    <field name="professional_tax_state_id"
+                           invisible="not show_professional_tax_state"/>
+                    <div colspan="2" class="alert alert-info" role="alert"
+                         invisible="has_active_statutory_types">
+                        No identifier types are switched on yet, so there is
+                        nothing to record here.
+                        <button name="%(action_statutory_id_type)d" type="action"
+                                class="btn btn-link p-0 ms-1"
+                                string="Set up Statutory ID Types"/>
+                    </div>
+                    <field name="statutory_id_ids" nolabel="1" colspan="2"
+                           invisible="not has_active_statutory_types">
+                        <list editable="bottom" decoration-muted="not type_active">
+                            <field name="sequence" widget="handle"/>
+                            <field name="type_id"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                            <field name="type_active" column_invisible="1"/>
+                            <field name="value"/>
+                        </list>
+                    </field>
+                </group>
+
+                <group string="Bank &amp; Payment" name="employee_bank_extra"
+                       invisible="not show_bank_section">
+                    <field name="salary_payment_mode"
+                           invisible="not show_payment_mode"/>
+                    <div colspan="2" class="text-muted">
+                        IFSC, branch and account category are recorded on the bank
+                        account itself, so an employee with two accounts can have
+                        two branches. Open an account above to edit them.
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  PERSONAL & EMERGENCY EXTRAS                                 -->
+    <!--  Anchored on a FIELD, not on the surrounding group: the      -->
+    <!--  stock Emergency group carries no name attribute, so a       -->
+    <!--  field is the most stable anchor available.                  -->
+    <!-- ============================================================ -->
+    <record id="view_employee_form_inherit_personal_extra" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.personal.extra</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='emergency_phone']" position="after">
+                <field name="emergency_contact_relation"
+                       invisible="not show_personal_section or not show_emergency_relation"/>
+                <field name="emergency_contact_2"
+                       invisible="not show_personal_section or not show_second_emergency_contact"/>
+                <field name="emergency_phone_2" widget="phone"
+                       invisible="not show_personal_section or not show_second_emergency_contact"/>
+                <field name="emergency_contact_relation_2"
+                       invisible="not show_personal_section or not show_second_emergency_contact"/>
+                <field name="blood_group"
+                       invisible="not show_personal_section or not show_blood_group"/>
+                <field name="father_name"
+                       invisible="not show_personal_section or not show_father_name"/>
+                <field name="mother_name"
+                       invisible="not show_personal_section or not show_mother_name"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  EMPLOYMENT HISTORY - its own page                           -->
+    <!-- ============================================================ -->
+    <record id="view_employee_form_inherit_employment" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.employment</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Employment" name="employment_details"
+                      groups="hr.group_hr_user"
+                      invisible="not show_employment_section">
+                    <group>
+                        <group string="Employment Dates" name="employment_dates">
+                            <field name="confirmation_date"
+                                   invisible="not show_confirmation_date"/>
+                            <field name="notice_period_days"
+                                   invisible="not show_notice_period"/>
+                            <field name="total_experience_display"
+                                   invisible="not show_total_experience"/>
+                        </group>
+                    </group>
+                    <div class="text-muted mb-3">
+                        Joining date, end of trial period and departure date are
+                        standard Odoo fields and live on the Payroll and Work
+                        Information tabs, so they are edited there rather than
+                        duplicated here.
+                    </div>
+
+                    <separator string="Previous Employment"
+                               invisible="not show_previous_employment"/>
+                    <field name="previous_employment_ids"
+                           invisible="not show_previous_employment">
+                        <list editable="bottom">
+                            <field name="company_name"/>
+                            <field name="job_title"/>
+                            <field name="location" optional="hide"/>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="duration_display" string="Duration"/>
+                            <field name="currency_id" column_invisible="1"/>
+                            <field name="last_drawn_salary" optional="hide"/>
+                            <field name="reason_for_leaving" optional="hide"/>
+                            <field name="reference_contact" optional="hide"/>
+                        </list>
+                    </field>
+
+                    <separator string="Qualifications"
+                               invisible="not show_qualifications"/>
+                    <field name="qualification_ids"
+                           invisible="not show_qualifications">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="specialization" optional="hide"/>
+                            <field name="institution"/>
+                            <field name="board_university" optional="hide"/>
+                            <field name="year_of_passing"/>
+                            <field name="grade" optional="hide"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+
+    <!-- ============================================================ -->
+    <!--  DETAIL FIELDS - choose this person's fields on their own    -->
+    <!--  form, including while the employee is still being created.  -->
+    <!--  A button could not do this: an unsaved employee has no id   -->
+    <!--  to attach an override to, so the toggles are edited inline  -->
+    <!--  and saved together with the employee.                       -->
+    <!-- ============================================================ -->
+    <record id="view_employee_form_inherit_detail_fields" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.detail.fields</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <!-- Always available to HR managers: there is no company-wide
+                     mode to satisfy any more, a person's record simply wins. -->
+                <page string="Detail Fields" name="employee_detail_fields"
+                      groups="hr.group_hr_manager">
+                    <div class="alert alert-info" role="alert">
+                        Choose which detail fields <b>this person</b> gets.
+                        Leave this empty and they follow the Everyone defaults
+                        under Employee Details, Field Settings. Add a row and
+                        they use it <b>instead of</b> those defaults -- anything
+                        unticked here stays hidden for them.
+                    </div>
+                    <field name="detail_config_ids" mode="form" nolabel="1"
+                           context="{'default_company_id': company_id,
+                                     'default_config_scope': 'employee'}">
+                        <form>
+                            <group>
+                                <group string="Salary Breakup">
+                                    <field name="show_salary_section"/>
+                                    <field name="show_salary_effective_date"
+                                           invisible="not show_salary_section"/>
+                                    <field name="show_annual_ctc"
+                                           invisible="not show_salary_section"/>
+                                </group>
+                                <group string="Statutory Identifiers">
+                                    <field name="show_statutory_section"/>
+                                    <field name="show_tax_regime"
+                                           invisible="not show_statutory_section"/>
+                                    <field name="show_professional_tax_state"
+                                           invisible="not show_statutory_section"/>
+                                </group>
+                                <group string="Bank &amp; Payment">
+                                    <field name="show_bank_section"/>
+                                    <field name="show_bank_ifsc"
+                                           invisible="not show_bank_section"/>
+                                    <field name="show_bank_branch"
+                                           invisible="not show_bank_section"/>
+                                    <field name="show_bank_account_category"
+                                           invisible="not show_bank_section"/>
+                                    <field name="show_payment_mode"
+                                           invisible="not show_bank_section"/>
+                                </group>
+                                <group string="Personal &amp; Emergency">
+                                    <field name="show_personal_section"/>
+                                    <field name="show_blood_group"
+                                           invisible="not show_personal_section"/>
+                                    <field name="show_father_name"
+                                           invisible="not show_personal_section"/>
+                                    <field name="show_mother_name"
+                                           invisible="not show_personal_section"/>
+                                    <field name="show_emergency_relation"
+                                           invisible="not show_personal_section"/>
+                                    <field name="show_second_emergency_contact"
+                                           invisible="not show_personal_section"/>
+                                </group>
+                                <group string="Employment History">
+                                    <field name="show_employment_section"/>
+                                    <field name="show_confirmation_date"
+                                           invisible="not show_employment_section"/>
+                                    <field name="show_notice_period"
+                                           invisible="not show_employment_section"/>
+                                    <field name="show_previous_employment"
+                                           invisible="not show_employment_section"/>
+                                    <field name="show_qualifications"
+                                           invisible="not show_employment_section"/>
+                                    <field name="show_total_experience"
+                                           invisible="not show_employment_section"/>
+                                </group>
+                            </group>
+                        </form>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

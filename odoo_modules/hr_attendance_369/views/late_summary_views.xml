@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Summary Wizard Form -->
+    <record id="view_late_summary_wizard_form" model="ir.ui.view">
+        <field name="name">hr.attendance.late.summary.wizard.form</field>
+        <field name="model">hr.attendance.late.summary.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Generate Late Attendance Summary">
+                <group>
+                    <group>
+                        <field name="month"/>
+                        <field name="year"/>
+                    </group>
+                    <group>
+                        <field name="department_id"/>
+                        <field name="employee_ids" widget="many2many_tags"
+                               placeholder="Leave empty for all employees"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_generate_summary" type="object"
+                            string="Generate Summary" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Summary Wizard - Action -->
+    <record id="action_late_summary_wizard" model="ir.actions.act_window">
+        <field name="name">Monthly Late Summary</field>
+        <field name="res_model">hr.attendance.late.summary.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Summary Lines Tree -->
+    <record id="view_late_summary_line_tree" model="ir.ui.view">
+        <field name="name">hr.attendance.late.summary.line.tree</field>
+        <field name="model">hr.attendance.late.summary.line</field>
+        <field name="arch" type="xml">
+            <list string="Late Attendance Summary">
+                <field name="employee_name"/>
+                <field name="department_name"/>
+                <field name="total_late_days"/>
+                <field name="total_late_minutes" optional="hide"/>
+                <field name="total_late_time_display" string="Total Late Time"/>
+            </list>
+        </field>
+    </record>
+
+</odoo>
