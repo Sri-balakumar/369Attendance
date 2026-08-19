@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Payroll run references: PAY/2026/0001. noupdate so the counter is
+         never reset by a module upgrade. -->
+    <record id="sequence_payslip_run" model="ir.sequence">
+        <field name="name">Payroll Run</field>
+        <field name="code">hr.payslip.run</field>
+        <field name="prefix">PAY/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+</odoo>

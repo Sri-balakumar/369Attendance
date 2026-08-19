@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!--
+        Common Indian salary components, shipped INACTIVE.
+
+        Two things follow from active="False". A company that upgrades and
+        does nothing sees no components at all, which is the point: this
+        company does not run PF or HRA and should not be shown them. And
+        because these are ordinary records, an admin who does need one just
+        ticks it on, or writes their own.
+
+        noupdate="1" is what protects the admin's choices: records whose
+        xmlid does not exist yet are still created on upgrade, but ones
+        already here are never rewritten. Switching HRA on, or renaming
+        Special Allowance, therefore survives every later upgrade.
+
+        company_id is left empty on purpose so the presets are offered to
+        every company in the database.
+
+        Basic is defined first because the percentage components below
+        reference it.
+    -->
+
+    <record id="salary_component_basic" model="hr.salary.component">
+        <field name="name">Basic</field>
+        <field name="code">BASIC</field>
+        <field name="component_type">earning</field>
+        <field name="computation">fixed</field>
+        <field name="sequence">10</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_hra" model="hr.salary.component">
+        <field name="name">House Rent Allowance</field>
+        <field name="code">HRA</field>
+        <field name="component_type">earning</field>
+        <field name="computation">percent_of_component</field>
+        <field name="base_component_id" ref="salary_component_basic"/>
+        <field name="percentage">40.0</field>
+        <field name="sequence">20</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_conveyance" model="hr.salary.component">
+        <field name="name">Conveyance Allowance</field>
+        <field name="code">CONV</field>
+        <field name="component_type">earning</field>
+        <field name="computation">fixed</field>
+        <field name="sequence">30</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_medical" model="hr.salary.component">
+        <field name="name">Medical Allowance</field>
+        <field name="code">MED</field>
+        <field name="component_type">earning</field>
+        <field name="computation">fixed</field>
+        <field name="sequence">40</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_special" model="hr.salary.component">
+        <field name="name">Special Allowance</field>
+        <field name="code">SPL</field>
+        <field name="component_type">earning</field>
+        <field name="computation">fixed</field>
+        <field name="sequence">50</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_pf" model="hr.salary.component">
+        <field name="name">Provident Fund (Employee)</field>
+        <field name="code">PF</field>
+        <field name="component_type">deduction</field>
+        <field name="computation">percent_of_component</field>
+        <field name="base_component_id" ref="salary_component_basic"/>
+        <field name="percentage">12.0</field>
+        <field name="sequence">60</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_esi" model="hr.salary.component">
+        <field name="name">ESI (Employee)</field>
+        <field name="code">ESI</field>
+        <field name="component_type">deduction</field>
+        <field name="computation">percent_of_gross</field>
+        <field name="percentage">0.75</field>
+        <field name="sequence">70</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="salary_component_pt" model="hr.salary.component">
+        <field name="name">Professional Tax</field>
+        <field name="code">PT</field>
+        <field name="component_type">deduction</field>
+        <field name="computation">fixed</field>
+        <field name="sequence">80</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+</odoo>

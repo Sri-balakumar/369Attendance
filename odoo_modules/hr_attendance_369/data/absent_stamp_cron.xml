@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!--
+            Stamp Absent on anyone with no attendance, once their own office has
+            passed the configured "Late Window Ends" hour.
+
+            Every 30 minutes rather than a single daily run at a fixed time: the
+            cutoff is a per-company/department config value and offices can sit
+            in different timezones, so no single clock time is right for
+            everybody. The method is idempotent (it checks for an existing day
+            row before creating one), so the frequency costs nothing.
+
+            Harmless until configured: late_until_hour defaults to 0.0 (off) and
+            the method returns immediately for every employee whose scope leaves
+            it there.
+        -->
+        <record id="ir_cron_attendance_stamp_absentees" model="ir.cron">
+            <field name="name">Attendance: stamp absentees</field>
+            <field name="model_id" ref="model_hr_attendance_day_status"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_stamp_absentees()</field>
+            <field name="interval_number">30</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

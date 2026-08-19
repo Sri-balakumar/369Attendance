@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!--
+        Common Indian identity numbers, shipped INACTIVE for the same reasons
+        as the salary components: present for whoever needs them, invisible
+        to whoever does not, and editable rather than hardcoded.
+
+        The patterns are matched with fullmatch(), so they carry no ^ or $.
+        Anchoring them here would be harmless, but leaving them off keeps
+        what an admin types consistent with what ships.
+
+        Patterns accept either case; values are trimmed before matching.
+    -->
+
+    <record id="statutory_id_type_pan" model="hr.statutory.id.type">
+        <field name="name">PAN</field>
+        <field name="code">PAN</field>
+        <field name="validation_regex">[A-Za-z]{5}[0-9]{4}[A-Za-z]</field>
+        <field name="validation_message">PAN must be 5 letters, then 4 digits, then 1 letter (for example ABCDE1234F).</field>
+        <field name="sequence">10</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="statutory_id_type_aadhaar" model="hr.statutory.id.type">
+        <field name="name">Aadhaar</field>
+        <field name="code">AADHAAR</field>
+        <!-- Permissive on purpose. The stricter UIDAI form is [2-9][0-9]{11};
+             an admin can tighten it here without a code change, which is
+             exactly what the pattern field is for. -->
+        <field name="validation_regex">[0-9]{12}</field>
+        <field name="validation_message">Aadhaar must be exactly 12 digits.</field>
+        <field name="sequence">20</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="statutory_id_type_uan" model="hr.statutory.id.type">
+        <field name="name">UAN</field>
+        <field name="code">UAN</field>
+        <field name="validation_regex">[0-9]{12}</field>
+        <field name="validation_message">UAN must be exactly 12 digits.</field>
+        <field name="sequence">30</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="statutory_id_type_pf" model="hr.statutory.id.type">
+        <field name="name">PF Number</field>
+        <field name="code">PFNO</field>
+        <!-- Deliberately NO pattern. The establishment-code format varies
+             enough between regions that a guessed rule would reject valid
+             numbers, and a blank pattern is strictly better than a wrong
+             one. An admin who knows their own format can add it. -->
+        <field name="sequence">40</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="statutory_id_type_esic" model="hr.statutory.id.type">
+        <field name="name">ESIC Number</field>
+        <field name="code">ESIC</field>
+        <field name="validation_regex">[0-9]{17}</field>
+        <field name="validation_message">ESIC number must be exactly 17 digits.</field>
+        <field name="sequence">50</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="statutory_id_type_passport" model="hr.statutory.id.type">
+        <field name="name">Passport Number</field>
+        <field name="code">PASSPORT</field>
+        <field name="sequence">60</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="statutory_id_type_driving_licence" model="hr.statutory.id.type">
+        <field name="name">Driving Licence</field>
+        <field name="code">DL</field>
+        <field name="sequence">70</field>
+        <field name="company_id" eval="False"/>
+        <field name="active" eval="False"/>
+    </record>
+
+</odoo>

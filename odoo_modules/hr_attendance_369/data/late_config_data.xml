@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Default company-wide config: 8 AM start, 15 min threshold, no monthly grace allowance -->
+    <record id="default_late_config" model="hr.attendance.late.config">
+        <field name="company_id" ref="base.main_company"/>
+        <field name="office_start_hour">8.0</field>
+        <field name="late_threshold_minutes">15</field>
+    </record>
+
+</odoo>

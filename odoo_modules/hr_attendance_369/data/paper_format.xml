@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Custom Paper Format for Employee Report
+         Based on European A4 but with increased header_spacing
+         to accommodate tall company headers (logo + bilingual address + VAT) -->
+    <record id="paperformat_employee_report" model="report.paperformat">
+        <field name="name">Employee Report A4 (Large Header)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">50</field>
+        <field name="margin_bottom">30</field>
+        <field name="margin_left">7</field>
+        <field name="margin_right">7</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">42</field>
+        <field name="dpi">90</field>
+    </record>
+
+</odoo>

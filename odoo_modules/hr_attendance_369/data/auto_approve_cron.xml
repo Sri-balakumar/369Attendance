@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!--
+            Approve leave / WFH requests nobody answered within the configured
+            wait.
+
+            Every 10 minutes, because the wait is configurable down to minutes
+            and a once-a-day run would make a "30 minutes" setting meaningless.
+            The consequence is that the effective wait is the configured one
+            rounded up to the next run (a 30-minute wait clears in 30-40
+            minutes), which is written into the settings screen so nobody is
+            surprised by it.
+
+            Harmless until configured: both toggles default to off, and a
+            database with no configuration row sweeps nothing.
+        -->
+        <record id="ir_cron_request_auto_approve" model="ir.cron">
+            <field name="name">Requests: auto-approve unanswered leave and WFH</field>
+            <field name="model_id" ref="model_hr_request_auto_approve_config"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_auto_approve_requests()</field>
+            <field name="interval_number">10</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

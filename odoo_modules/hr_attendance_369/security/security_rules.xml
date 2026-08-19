@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Merged from hr_leave_request/security/leave_security_rules.xml and
+         hr_wfh_request/security/wfh_security_rules.xml, with group references
+         re-pointed at this module. -->
+
+    <!-- ============================================================ -->
+    <!--                      LEAVE REQUESTS                          -->
+    <!-- ============================================================ -->
+
+    <!-- Employee: See own requests only -->
+    <record id="leave_request_rule_employee" model="ir.rule">
+        <field name="name">Leave Request: Employee sees own requests</field>
+        <field name="model_id" ref="model_hr_leave_request"/>
+        <field name="domain_force">[('employee_user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Manager: See all requests -->
+    <record id="leave_request_rule_manager" model="ir.rule">
+        <field name="name">Leave Request: Manager sees all requests</field>
+        <field name="model_id" ref="model_hr_leave_request"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr_attendance_369.group_leave_manager'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Admin: Full access -->
+    <record id="leave_request_rule_admin" model="ir.rule">
+        <field name="name">Leave Request: Admin full access</field>
+        <field name="model_id" ref="model_hr_leave_request"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--                     WFH REQUESTS                             -->
+    <!-- ============================================================ -->
+
+    <!-- Employees can see their own WFH requests -->
+    <record id="wfh_request_rule_employee" model="ir.rule">
+        <field name="name">WFH Request: Employee sees own requests</field>
+        <field name="model_id" ref="model_hr_wfh_request"/>
+        <field name="domain_force">[('employee_user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- WFH Managers can see ALL requests -->
+    <record id="wfh_request_rule_manager" model="ir.rule">
+        <field name="name">WFH Request: Manager sees all requests</field>
+        <field name="model_id" ref="model_hr_wfh_request"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr_attendance_369.group_wfh_manager'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Admin can see ALL requests -->
+    <record id="wfh_request_rule_admin" model="ir.rule">
+        <field name="name">WFH Request: Admin full access</field>
+        <field name="model_id" ref="model_hr_wfh_request"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+
+    <!-- ============================================================ -->
+    <!--                    EMPLOYEE DETAILS                          -->
+    <!-- ============================================================ -->
+    <!--
+        Employees maintain these rows themselves from My Profile, which is
+        why ir.model.access.csv grants base.group_user write on them. That
+        grant is only safe BECAUSE of the rules below: without them, write
+        access on a shared model lets any employee edit any colleague's rows.
+        The two always ship together.
+
+        hr.employee.salary.line deliberately has neither an ACL row nor a
+        rule for base.group_user, because salary is not self-service at all, so an
+        ordinary user cannot reach it by any path.
+    -->
+
+    <record id="employee_statutory_id_rule_employee" model="ir.rule">
+        <field name="name">Statutory Identifier: Employee sees own only</field>
+        <field name="model_id" ref="model_hr_employee_statutory_id"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="employee_statutory_id_rule_manager" model="ir.rule">
+        <field name="name">Statutory Identifier: HR sees all</field>
+        <field name="model_id" ref="model_hr_employee_statutory_id"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="employee_qualification_rule_employee" model="ir.rule">
+        <field name="name">Qualification: Employee sees own only</field>
+        <field name="model_id" ref="model_hr_employee_qualification"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="employee_qualification_rule_manager" model="ir.rule">
+        <field name="name">Qualification: HR sees all</field>
+        <field name="model_id" ref="model_hr_employee_qualification"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="employee_previous_employment_rule_employee" model="ir.rule">
+        <field name="name">Previous Employment: Employee sees own only</field>
+        <field name="model_id" ref="model_hr_employee_previous_employment"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="employee_previous_employment_rule_manager" model="ir.rule">
+        <field name="name">Previous Employment: HR sees all</field>
+        <field name="model_id" ref="model_hr_employee_previous_employment"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+
+    <!-- ============================================================ -->
+    <!--            ATTENDANCE HISTORY AND MONTHLY REPORTS            -->
+    <!-- ============================================================ -->
+    <!--
+        These models all grant base.group_user READ in ir.model.access.csv so
+        an employee can see their own attendance, but until now none of them
+        carried a rule. Verified against a live database: an ordinary employee
+        could read every colleague's day status and deduction_amount, and
+        every colleague's wage, total_deduction and final_amount off the
+        report lines.
+
+        Same discipline the Employee Details block above states: an ACL and
+        its rule always ship together.
+    -->
+
+    <record id="day_status_rule_employee" model="ir.rule">
+        <field name="name">Day Status: Employee sees own only</field>
+        <field name="model_id" ref="model_hr_attendance_day_status"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="day_status_rule_hr" model="ir.rule">
+        <field name="name">Day Status: HR sees all</field>
+        <field name="model_id" ref="model_hr_attendance_day_status"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!--
+        The report itself is a container generated by HR for a set of
+        employees, so an employee has no "own" report to see. The LINES are
+        what carry personal data, so those are scoped by employee and the
+        container is left to HR alone.
+    -->
+    <record id="employee_report_rule_hr" model="ir.rule">
+        <field name="name">Employee Report: HR only</field>
+        <field name="model_id" ref="model_hr_employee_report"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="employee_report_rule_employee" model="ir.rule">
+        <field name="name">Employee Report: not visible to employees</field>
+        <field name="model_id" ref="model_hr_employee_report"/>
+        <field name="domain_force">[(0, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="report_summary_line_rule_employee" model="ir.rule">
+        <field name="name">Report Summary Line: Employee sees own only</field>
+        <field name="model_id" ref="model_hr_employee_report_summary_line"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="report_summary_line_rule_hr" model="ir.rule">
+        <field name="name">Report Summary Line: HR sees all</field>
+        <field name="model_id" ref="model_hr_employee_report_summary_line"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="report_detail_line_rule_employee" model="ir.rule">
+        <field name="name">Report Detail Line: Employee sees own only</field>
+        <field name="model_id" ref="model_hr_employee_report_detail_line"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="report_detail_line_rule_hr" model="ir.rule">
+        <field name="name">Report Detail Line: HR sees all</field>
+        <field name="model_id" ref="model_hr_employee_report_detail_line"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!--
+        employee.device grants base.group_user WRITE (the phone updates
+        last_used and device_name), which without a rule let any employee
+        rewrite a colleague's row, including repointing device_id at their
+        own handset. No create: enrolment stays with HR.
+    -->
+    <record id="employee_device_rule_employee" model="ir.rule">
+        <field name="name">Employee Device: Employee sees own only</field>
+        <field name="model_id" ref="model_employee_device"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="employee_device_rule_hr" model="ir.rule">
+        <field name="name">Employee Device: HR sees all</field>
+        <field name="model_id" ref="model_employee_device"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+</odoo>
