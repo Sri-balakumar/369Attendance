@@ -241,8 +241,19 @@ class LeaveAPI(http.Controller):
     @http.route('/leave/request/report', type='jsonrpc', auth='user',
                 methods=['POST'], csrf=False)
     def get_leave_report(self, **params):
-        """Get leave report with filters."""
+        """Get leave report with filters.
+
+        Manager-only. Same reasoning as /wfh/request/list: the query is sudo(),
+        unlimited, and defaults to every approved leave company-wide, so an
+        ungated call handed any employee the whole table including reasons.
+        """
         try:
+            if not _is_leave_manager():
+                return {
+                    'status': False,
+                    'message': 'Only leave managers/admins can view the leave report.',
+                }
+
             data = request.env['hr.leave.request'].sudo().get_leave_report(
                 employee_id=params.get('employee_id'),
                 department_id=params.get('department_id'),

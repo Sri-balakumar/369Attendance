@@ -1,6 +1,6 @@
 {
     'name': 'Attendance Suite (Late, Leave, WFH, Reports, Devices)',
-    'version': '19.0.8.3.0',
+    'version': '19.0.8.4.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Late tracking & deductions, leave requests, work-from-home, '
                'monthly employee reports and device registration in one module',

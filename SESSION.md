@@ -28,6 +28,20 @@ Every field ships but stays **off until an admin ticks it on**, because this com
 - Net rounded to the rupee, plus **net in words** (Indian lakh/crore) and a leave summary.
 - Confirming is **blocked** when component earnings disagree with `monthly_wage`, naming the employees — paying one figure while deducting against another is the worst outcome.
 
+### The sudo() leak class, closed (v19.0.8.4.0)
+The last two ungated `sudo()` routes were gated. **Demonstrated open first**, as `demo` (a plain
+`base.group_user`): `/wfh/request/list` returned Mitchell Admin's WFH row — `reason`, `rejection_reason`,
+check-in times, 13 fields — to an employee with no manager rights at all. `/leave/request/report` did the
+same for leave. Both now answer `Only ... managers/admins can ...`; both still work for a manager (proven by
+granting `group_wfh_manager` + `group_leave_manager`, confirming access, revoking, confirming refusal).
+
+SESSION.md previously warned that gating `/report` "could break existing backend callers". **It has none** —
+grepped across the addon's `.py`/`.js`/`.xml`/`.html` and the whole app. Neither route was called by anything.
+
+A scan of both controllers now reports **zero ungated sudo routes**. Note `/leave/request/create` keeps one
+deliberate `sudo()` — the `hr.employee` lookup, which has no `base.group_user` ACL in Odoo 19 — while the
+`hr.leave.request` create itself is non-sudo so the record rule stays the boundary.
+
 ### Stray drafts on a rejected create (v19.0.8.3.0)
 A create that FAILED still committed a row. `create()` and `action_submit()` share one `try`, the overlap
 constraint fires on flush, and the controller caught it and returned `status: False` **without rolling back** —
@@ -224,7 +238,7 @@ For Odoo work: `curl` each endpoint **before** wiring a screen. That is what cau
 
 ## 6. State right now
 
-- `sales_test` — addon v**19.0.8.3.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
+- `sales_test` — addon v**19.0.8.4.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
 - Field Settings — company record in **Per employee** mode with every section off, so nobody sees extra fields yet
 - Salary components active: **Basic**, **Special Allowance**
 - App — bundles clean, **35 modules evaluate**, `expo export` exits 0. Home and Leave on live data.

@@ -27,6 +27,13 @@ def convert_to_user_tz(datetime_obj, user=None):
         return str(datetime_obj)
 
 
+def _is_wfh_manager():
+    """WFH Manager or system admin -- mirrors _is_leave_manager in leave_api."""
+    user = request.env.user
+    return (user.has_group('hr_attendance_369.group_wfh_manager')
+            or user.has_group('base.group_system'))
+
+
 class WfhAPI(http.Controller):
     """
     REST API for WFH Requests — used by both Odoo web frontend and React Native mobile app.
@@ -416,8 +423,21 @@ class WfhAPI(http.Controller):
     # =============================================
     @http.route('/wfh/request/list', type='jsonrpc', auth='user', methods=['POST'], csrf=False)
     def get_all_wfh_requests(self, **params):
-        """Get all WFH requests with optional filters (for manager view)"""
+        """Get all WFH requests with optional filters (for manager view).
+
+        Manager-only, and it has to be checked here: the search below is
+        sudo() and takes a caller-supplied employee_id, so without this gate
+        any authenticated employee could read every colleague's WFH rows --
+        reason and rejection_reason included. Verified by doing exactly that
+        as a plain base.group_user before the gate existed.
+        """
         try:
+            if not _is_wfh_manager():
+                return {
+                    'status': False,
+                    'message': 'Only WFH managers/admins can view all requests.',
+                }
+
             domain = []
 
             # Filter by state
