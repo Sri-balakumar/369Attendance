@@ -264,6 +264,56 @@ check('overlap shows the full server message in the banner',
   /already exists for overlapping dates/.test(overlap));
 await shot('20-overlap');
 
+// ================= WFH =================
+// Appended to test-web.mjs. Kept in its own file only because writing it
+// through a shell heredoc kept eating the backslashes in these regexes.
+
+// Back to Home. The overlap sheet may still be open, so close it first.
+await tap('Close', false);
+await sleep(1000);
+await ev('history.back()');
+await waitFor('home again', "/Good (morning|afternoon|evening)/.test(document.body.innerText)");
+await waitFor('home data again', "/This month|Present/.test(document.body.innerText)");
+await shot('30-home-wfh-badge');
+const homeWfh = await text();
+check('WFH badge on the check-in card', /WFH/.test(homeWfh),
+  (homeWfh.match(/Not checked in[^\n]*/) || [''])[0]);
+
+check('tap Work From Home tile', (await tap('Work From Home')) === 'ok');
+await waitFor('wfh screen', "document.body.innerText.includes('Request a day, track approvals')");
+await shot('31-wfh-list');
+const wfh = await text();
+check('WFH screen opens', /Request a day, track approvals/.test(wfh));
+check('today banner shows for an approved WFH day', /working from home today/i.test(wfh));
+check('approved request rendered', /Approved/.test(wfh));
+check('pending request rendered', /Pending/.test(wfh));
+check('WFH filters present',
+  ['All', 'Pending', 'Approved', 'Done', 'Rejected'].every((f) => wfh.includes(f)));
+
+check('tap Rejected filter (wfh)', (await tap('Rejected')) === 'ok');
+await sleep(3000);
+check('wfh empty state', /No rejected requests/i.test(await text()));
+await tap('Show all');
+await sleep(2500);
+
+check('open WFH sheet', (await tap('Request a WFH day', false)) === 'ok');
+await waitFor('wfh sheet', "document.body.innerText.includes('Work from home')");
+await shot('32-wfh-sheet');
+const wsheet = (await text()).replace(/\n/g, ' ');
+check('sheet explains there is no separate WFH button',
+  /no separate\s*WFH button/i.test(wsheet));
+// The WFH form must NOT carry leave's type chips -- different feature, and the
+// route accepts no leave_type at all.
+check('no leave-type chips on the WFH form',
+  !/Casual/.test(wsheet) && !/Emergency/.test(wsheet));
+
+await tap('Submit request', false);
+await sleep(1500);
+const winvalid = await text();
+check('wfh validation blocks an empty submit',
+  /Pick the day/.test(winvalid) && /Give a reason/.test(winvalid));
+await shot('33-wfh-validation');
+
 ws.close();
 const failed = results.filter((r) => !r.pass);
 console.log(`\n  ${results.length - failed.length}/${results.length} checks passed`);

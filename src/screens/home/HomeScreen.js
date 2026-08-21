@@ -197,7 +197,7 @@ export default function HomeScreen({ navigation }) {
               <Skeleton height={54} radius={16} style={{ marginTop: 16 }} />
             </Card>
           ) : (
-            <AttendanceCard today={data?.today} onToggle={onToggleAttendance} />
+            <AttendanceCard today={data?.today} onToggle={onToggleAttendance} wfhToday={data?.wfh?.today} />
           )}
 
           {!loading && data ? <StatTiles today={data.today} style={{ marginTop: spacing.md }} /> : null}
@@ -212,6 +212,7 @@ export default function HomeScreen({ navigation }) {
               // navigate rather than push: it is idempotent, so a double tap
               // cannot stack two Leave screens.
               if (a.key === 'leave') navigation.navigate('Leave');
+              else if (a.key === 'wfh') navigation.navigate('Wfh');
               else showToast(`${a.label} is coming in the next update.`, 'info');
             }}
           />

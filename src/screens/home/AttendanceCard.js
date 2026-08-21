@@ -11,7 +11,7 @@ import { formatClock, formatDuration, formatTime } from '../../utils/time';
  * nothing is sent anywhere. When it is wired up, `onToggle` becomes the call to
  * hr.employee.attendance_manual and the times come back from the server.
  */
-export default function AttendanceCard({ today, onToggle, style }) {
+export default function AttendanceCard({ today, onToggle, wfhToday, style }) {
   const { fontSize, colors, fonts, spacing, radii, withAlpha } = useTheme();
   const [now, setNow] = useState(() => new Date());
   const pulse = useRef(new Animated.Value(0)).current;
@@ -63,13 +63,19 @@ export default function AttendanceCard({ today, onToggle, style }) {
           >
             {formatClock(now)}
           </Text>
-          <Chip
-            label={checkedIn ? `Checked in · ${formatDuration(elapsed)}` : 'Not checked in'}
-            tone={checkedIn ? 'success' : 'muted'}
-            icon={checkedIn ? 'ellipse' : 'ellipse-outline'}
-            size="sm"
-            style={{ marginTop: 8 }}
-          />
+          {/* One button, one status chip -- the WFH badge sits BESIDE them
+              rather than replacing either. The module is explicit that an
+              approved WFH day does not get its own check-in control; it only
+              means this button skips the geo-fence. */}
+          <View style={styles.chipRow}>
+            <Chip
+              label={checkedIn ? `Checked in · ${formatDuration(elapsed)}` : 'Not checked in'}
+              tone={checkedIn ? 'success' : 'muted'}
+              icon={checkedIn ? 'ellipse' : 'ellipse-outline'}
+              size="sm"
+            />
+            {wfhToday ? <Chip label="WFH" tone="accent" icon="home" size="sm" /> : null}
+          </View>
         </View>
 
         <View style={styles.pulseWrap}>
@@ -174,6 +180,7 @@ function TimeCell({ label, value, icon, tone }) {
 }
 
 const styles = StyleSheet.create({
+  chipRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   clockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pulseWrap: { alignItems: 'center', justifyContent: 'center' },
   pulseRing: { position: 'absolute', width: 60, height: 60, borderRadius: 30, borderWidth: 2 },

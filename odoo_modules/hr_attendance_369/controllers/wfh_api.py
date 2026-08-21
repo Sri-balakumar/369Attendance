@@ -88,6 +88,16 @@ class WfhAPI(http.Controller):
                 'state': wfh.state,
             }
         except Exception as e:
+            # Roll back before answering, for the same reason the leave create
+            # does. The duplicate-date constraint fires on flush, after the row
+            # exists; catching it and returning status:False without a rollback
+            # still commits that row when the HTTP response succeeds.
+            #
+            # Worse here than for leave: this route sets state directly to
+            # pending, so the phantom did not sit quietly in draft -- it went
+            # straight into a manager approval queue for a request the employee
+            # had just been told was refused.
+            request.env.cr.rollback()
             _logger.error(f"Error creating WFH request: {str(e)}")
             return {'status': False, 'message': str(e)}
 

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { odooUtcToIso, todayKey } from '../utils/time';
+import { odooUtcToIso, odooLocalToIso, todayKey } from '../utils/time';
 
 /**
  * The real Odoo transport, replacing the bodies that mockOdoo.js stubbed.
@@ -509,7 +509,7 @@ export async function getHomeData(uid) {
   const { from, to } = monthBounds();
   const today = todayKey();
 
-  const [statuses, attendances, config] = await Promise.all([
+  const [statuses, attendances, config, wfhToday] = await Promise.all([
     callKw('hr.attendance.day.status', 'search_read', [
       [['employee_id', '=', employee.id], ['date', '>=', from], ['date', '<=', to]],
       ['date', 'status', 'status_display', 'is_wfh'],
@@ -519,6 +519,10 @@ export async function getHomeData(uid) {
       ATTENDANCE_FIELDS,
     ], { order: 'check_in desc', limit: 60 }),
     fetchAttendanceConfig(),
+    // Whether today is an approved WFH day. Allowed to fail on its own: it
+    // only badges the button and relaxes the geo-fence, so losing it must not
+    // cost the whole dashboard.
+    fetchWfhToday().catch(() => null),
   ]);
 
   const byDate = {};
@@ -555,6 +559,12 @@ export async function getHomeData(uid) {
       status: todayStatus?.status || null,
       statusDisplay: todayStatus?.status_display || '',
       openAttendanceId: openRow ? openRow.id : null,
+    },
+    // The module is explicit that this must not become a second check-in
+    // button: there is one, and this only badges it and skips the geo-fence.
+    wfh: {
+      today: Boolean(wfhToday?.hasWfhToday),
+      skipGeofence: Boolean(wfhToday?.skipGeofence),
     },
     month: {
       label: new Date().toLocaleDateString([], { month: 'long', year: 'numeric' }),
@@ -698,4 +708,114 @@ export async function getLeaveData(uid, { stateFilter = null } = {}) {
     fetchLeaveBalance(employeeId, year).catch(() => null),
   ]);
   return { employeeId, year, balance, requests };
+}
+
+/* ------------------------------------------------------------------ *
+ * Work From Home
+ *
+ * Same module, but the WFH envelope differs from leave at every turn, so
+ * nothing here can be copied across without checking:
+ *
+ *   list key      requests          (leave: data)
+ *   filter param  state             (leave: state_filter)
+ *   create reply  request_id/state at the TOP level, not nested under data
+ *   date          a single request_date, never a range
+ *   states        eight, including checked_in / checked_out
+ *
+ * Neither create nor my_requests takes a user_id at all -- both read the
+ * session user directly on the server -- so there is nothing to omit here.
+ * ------------------------------------------------------------------ */
+
+/**
+ * One my_requests row.
+ *
+ * The times here are RAW UTC: get_my_wfh_requests uses str(field). Its sibling
+ * /wfh/today_status runs the same fields through convert_to_user_tz and hands
+ * back local ones instead, shaped identically. Getting the pair the wrong way
+ * round is a silent five-and-a-half-hour error on this timezone, so the
+ * converter is chosen per endpoint and never by inspecting the value.
+ */
+function toWfhRequest(r) {
+  return {
+    id: r.id,
+    date: r.request_date || '',        // date-only: stays a string
+    reason: r.reason || '',
+    state: r.state,
+    approvedBy: r.approved_by || '',
+    autoApproved: Boolean(r.auto_approved),
+    approvedAt: r.approval_date ? odooUtcToIso(r.approval_date) : null,
+    rejectionReason: r.rejection_reason || '',
+    checkIn: r.checkin_time ? odooUtcToIso(r.checkin_time) : null,
+    checkOut: r.checkout_time ? odooUtcToIso(r.checkout_time) : null,
+    workedHours: r.worked_hours_display || '',
+    canCheckIn: Boolean(r.can_checkin),
+    canCheckOut: Boolean(r.can_checkout),
+    isToday: Boolean(r.is_today),
+    // Mirrors action_cancel on the server. checked_out is deliberately absent:
+    // the day is done, but it is NOT a terminal state -- the server still
+    // allows another check-in, which is why it is not treated as finished.
+    canCancel: ['draft', 'pending', 'approved'].includes(r.state),
+  };
+}
+
+/** My WFH requests, newest first. Server caps this at 50 rows. */
+export async function fetchWfhRequests({ stateFilter = null } = {}) {
+  const result = await moduleCall(
+    '/wfh/request/my_requests',
+    stateFilter ? { state: stateFilter } : {}
+  );
+  return rowsOf(result).map(toWfhRequest);
+}
+
+/** Create and submit. The route sets state 'pending' itself, skipping draft. */
+export async function createWfhRequest({ date, reason }) {
+  const result = await moduleCall('/wfh/request/create', {
+    request_date: date,
+    reason,
+  });
+  // Top level, unlike leave's nested data.{id,state}.
+  return { id: result?.request_id, state: result?.state || 'pending' };
+}
+
+/** Cancel. Unlike leave's, this one does return the resulting state. */
+export async function cancelWfhRequest(requestId) {
+  const result = await moduleCall('/wfh/request/cancel', { request_id: Number(requestId) });
+  return { id: result?.request_id, state: result?.state, message: result?.message || 'WFH request cancelled' };
+}
+
+/**
+ * Whether today is an approved WFH day.
+ *
+ * The module is explicit that this must NOT drive a second check-in button:
+ * there is one attendance button, and this only decides whether to badge it
+ * and skip the geo-fence. Times here are USER-LOCAL, hence odooLocalToIso.
+ */
+export async function fetchWfhToday() {
+  const result = await moduleCall('/wfh/today_status', {});
+  const w = result?.wfh_request || null;
+  return {
+    hasWfhToday: Boolean(result?.has_wfh_today),
+    useNormalAttendance: result?.use_normal_attendance !== false,
+    skipGeofence: Boolean(result?.skip_geofence),
+    request: w
+      ? {
+          id: w.id,
+          state: w.state,
+          canCheckIn: Boolean(w.can_checkin),
+          canCheckOut: Boolean(w.can_checkout),
+          checkIn: w.checkin_time ? odooLocalToIso(w.checkin_time) : null,
+          checkOut: w.checkout_time ? odooLocalToIso(w.checkout_time) : null,
+          workedHours: w.worked_hours_display || '',
+        }
+      : null,
+  };
+}
+
+/** Everything the WFH screen needs. Mirrors getLeaveData. */
+export async function getWfhData(uid, { stateFilter = null } = {}) {
+  const [requests, today] = await Promise.all([
+    fetchWfhRequests({ stateFilter }),
+    fetchWfhToday().catch(() => null),
+  ]);
+  return { today, requests };
 }

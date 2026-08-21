@@ -148,3 +148,25 @@ export function formatDays(n) {
   if (v === 1) return '1 day';
   return `${Number.isInteger(v) ? v : v.toFixed(1)} days`;
 }
+
+/**
+ * The other half of odooUtcToIso: a naive datetime that is already LOCAL.
+ *
+ * The WFH API is inconsistent on purpose-built endpoints, and nothing in the
+ * payload says which you have:
+ *
+ *   /wfh/today_status  runs convert_to_user_tz()  -> already the user's zone
+ *   /wfh/request/my_requests  uses str(field)     -> raw UTC, like everything else
+ *
+ * Both come back shaped '2026-08-22 14:30:00' with no marker. Appending 'Z' to
+ * the already-local one would shift it by the offset a second time -- five and
+ * a half hours here -- so it gets 'T' and nothing else, which Date parses as
+ * local. Pick the converter by the endpoint, never by the look of the value.
+ */
+export function odooLocalToIso(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)) return s;
+  return s.replace(' ', 'T');
+}
