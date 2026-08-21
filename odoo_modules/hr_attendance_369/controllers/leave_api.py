@@ -114,6 +114,16 @@ class LeaveAPI(http.Controller):
                 }
             }
         except Exception as e:
+            # Roll back before answering.
+            #
+            # create() and action_submit() share this try, and the overlap
+            # constraint fires on flush -- after the row exists. Catching that
+            # and returning status:False without a rollback still leaves the
+            # row committed when the HTTP response succeeds, so a REJECTED
+            # submit silently produced a stray draft. Worse, the overlap check
+            # counts draft rows, so that ghost then blocked the very dates the
+            # person was told they could not have.
+            request.env.cr.rollback()
             _logger.error('[Leave API] Create error: %s', str(e))
             return {'status': False, 'message': str(e)}
 

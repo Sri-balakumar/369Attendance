@@ -30,9 +30,8 @@ let sessionId = null;
 // would strand the button in the wrong position.
 let employeeIdCache = null; // { uid, id }
 
-// The database every call belongs to. Sent as X-Odoo-Database so a request
-// never depends on Odoo being able to infer the database from the session --
-// see the header block on rpc() for why that inference fails here.
+// The database the session belongs to. Kept for logging and for anything that
+// needs to name the database explicitly -- NOT sent as a header, see rpc().
 let activeDb = null;
 
 /**
@@ -97,13 +96,23 @@ async function rpc(url, path, params = {}, { withSession = true } = {}) {
       sentSession = true;
     }
   }
-  // Without this, a server hosting several databases cannot tell which one an
-  // unauthenticated-looking request means, and answers with its "No database is
-  // selected" 404 page. Odoo suggests this header on that very page.
-  const db = activeDb || (await loadServer())?.db;
-  if (db) headers['X-Odoo-Database'] = db;
-
-  log(`--> POST ${path}`, { db: db || '(none)', cookie: sentSession ? 'sent' : 'NONE', withSession });
+  // NO X-Odoo-Database header here, deliberately.
+  //
+  // It looks like the right fix for the "No database is selected" 404, and
+  // Odoo itself suggests it on that page -- but Odoo REFUSES a request that
+  // carries both that header and a session_id cookie, with
+  // "403 Cannot use both the session_id cookie and the x-odoo-database header".
+  //
+  // On a device that is unavoidable: React Native keeps its own native cookie
+  // jar and attaches session_id automatically under credentials:'include',
+  // without this code seeing it. So the header turned every authenticated call
+  // into a 403 -- including login itself. The jar is also why the session works
+  // at all, since Odoo 19 never returns session_id anywhere JS can read it.
+  //
+  // The database therefore travels in the session, exactly as Odoo intends.
+  // Note the cookie figure below is what THIS code attached; the platform may
+  // add one of its own, so "NONE" does not mean no cookie was sent.
+  log(`--> POST ${path}`, { cookie: sentSession ? 'sent (explicit)' : 'none from app', withSession });
 
   let response;
   try {
@@ -145,6 +154,15 @@ async function rpc(url, path, params = {}, { withSession = true } = {}) {
     // Odoo's own words when it cannot resolve a database. It means the session
     // was not recognised, NOT that the address is wrong, so it must not be
     // reported as a bad URL -- that sends people to re-type a correct address.
+    // Guard against this being reintroduced: it presents as a blanket 403 on
+    // every call including login, which is otherwise a confusing thing to see.
+    if (/cannot use both the session_id cookie/i.test(text)) {
+      throw new Error(
+        'The app sent both a session cookie and a database header, which this ' +
+          'server refuses. Remove the X-Odoo-Database header from rpc().'
+      );
+    }
+
     if (/no database is selected|database is not initialized/i.test(text)) {
       throw new Error(
         'Signed in, but the session was not kept. Sign in again; if it repeats, ' +
@@ -273,8 +291,13 @@ export async function authenticate({ url, db, login, password }) {
    * relies on the platform's own cookie jar. If that jar is not carrying it
    * either, the server cannot resolve which database the request means and
    * answers with an HTML "No database is selected" 404 -- which reads as a bad
-   * URL and is anything but. rpc() sends X-Odoo-Database so that a missing
-   * session degrades into an honest auth error instead of a phantom 404.
+   * URL and is anything but. rpc() detects that page by its wording and says
+   * so plainly, rather than blaming the address.
+   *
+   * Sending X-Odoo-Database would sidestep the database question, but Odoo
+   * rejects that header alongside a session cookie with a 403 -- and the
+   * platform attaches the cookie on its own. So the session carries the
+   * database, and the cookie jar is what has to work.
    */
   activeDb = result.db || db;
   const fromBody = result.session_id || null;

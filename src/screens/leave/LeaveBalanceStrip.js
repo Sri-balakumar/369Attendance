@@ -61,7 +61,12 @@ export default function LeaveBalanceStrip({ balance, year, loading, style }) {
         {cells.map((c, i) => (
           <React.Fragment key={c.label}>
             {i > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
-            <View style={styles.cell}>
+            <View
+              style={styles.cell}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`${formatDayCount(c.value)} days ${c.label.toLowerCase()}`}
+            >
               <Text style={{ color: c.tone, fontFamily: fonts.bold, fontSize: fontSize.lg }}>
                 {formatDayCount(c.value)}
               </Text>
@@ -73,7 +78,11 @@ export default function LeaveBalanceStrip({ balance, year, loading, style }) {
         ))}
       </View>
 
-      <View style={[styles.track, { backgroundColor: withAlpha(colors.muted, 0.16), marginTop: spacing.md }]}>
+      <View
+        style={[styles.track, { backgroundColor: withAlpha(colors.muted, 0.16), marginTop: spacing.md }]}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: totalAllowed, now: totalUsed }}
+      >
         <View style={[styles.fill, { width: `${pct * 100}%`, backgroundColor: colors.warning }]} />
       </View>
 

@@ -28,6 +28,14 @@ Every field ships but stays **off until an admin ticks it on**, because this com
 - Net rounded to the rupee, plus **net in words** (Indian lakh/crore) and a leave summary.
 - Confirming is **blocked** when component earnings disagree with `monthly_wage`, naming the employees — paying one figure while deducting against another is the worst outcome.
 
+### Stray drafts on a rejected create (v19.0.8.3.0)
+A create that FAILED still committed a row. `create()` and `action_submit()` share one `try`, the overlap
+constraint fires on flush, and the controller caught it and returned `status: False` **without rolling back** —
+so Odoo committed the row when the HTTP response succeeded. The ghost landed in `draft`, and because the
+overlap check counts drafts, it then **blocked the very dates the person had just been refused**. Fixed with
+`request.env.cr.rollback()` in the create handler; verified by re-running the overlap and confirming nothing
+survives.
+
 ### Security fixes (v19.0.8.1.0)
 Two live data leaks, **verified by exploiting them as a plain employee, then verified closed**:
 
@@ -102,28 +110,38 @@ Worse, **the timezone varies per endpoint** with nothing in the payload to tell 
 - **user-local**: `/wfh/today_status`, `/wfh/checkin`, `/wfh/checkout`, `/wfh/request/list`
 - **UTC**: `my_requests`, `pending`, `today_dashboard`
 
-### Session capture — why a correct URL can 404 after login
+### Sessions, and why a correct URL can 404 after login
+
 **Odoo 19's `/web/session/authenticate` does not return `session_id`.** The key is absent from the payload;
-only the `Set-Cookie` header carries it. And `set-cookie` is a *forbidden response header*, so neither
-React Native's fetch nor Node's exposes it to JS — verified both ways.
+only the `Set-Cookie` header carries it. And `set-cookie` is a *forbidden response header*, so neither React
+Native's fetch nor Node's exposes it to JS — verified both ways.
 
-So the app captures no session id of its own and depends entirely on the platform's native cookie jar. When
-that jar does not carry the cookie, the request arrives unauthenticated, this server hosts **7 databases**,
-and Odoo cannot infer which one is meant. It answers with an HTML **`404 No database is selected`** — which
-the app used to report as *"That address answered, but it is not an Odoo server."* That is the app blaming
-a perfectly correct URL for a session problem, and it sends people off re-typing an address that was right.
+So the app never holds a session id. **React Native's native cookie jar is what makes the app work at all**,
+attaching `session_id` automatically under `credentials: 'include'`, invisibly to JS. The transport log line
+`cookie: none from app` therefore does NOT mean no cookie was sent.
 
-Fixed by sending **`X-Odoo-Database`** on every call (Odoo suggests this on that very 404 page). Same request,
-no session:
+Odoo resolves the database in `http.py:1779-1795`, in this order:
 
-| | Without the header | With it |
-|---|---|---|
-| HTTP | 404 + HTML | 200 + JSON-RPC |
-| App shows | "not an Odoo server" | `Your session has expired. Please sign in again.` |
+1. the session's own `db`, if it still passes `db_filter`
+2. else the `X-Odoo-Database` header
+3. else, **only if exactly one database exists**, that one
 
-`rpc()` also now recognises `SessionExpiredException` by `error.data.name` and clears the stored id, and
-`__DEV__` logging prints `cookie: sent | NONE` per request plus the whole non-JSON body — which is what makes
-this diagnosable at all. **A 404 from an `auth='user'` route means no session, never a bad address.**
+This server has **7 databases**, so step 3 never fires. A session whose `db` is stale or filtered out reaches
+none of the three and Odoo answers with an HTML **`404 No database is selected`** — which the app used to
+report as *"That address answered, but it is not an Odoo server."* That is the app blaming a correct URL for
+a stale-session problem. `rpc()` now recognises that page by its wording and says so plainly.
+
+> **Do not "fix" this with the `X-Odoo-Database` header.** It looks right, and Odoo suggests it on that very
+> 404 page, but step 1 above wins whenever a session exists — and if the header names a *different* database
+> than the session, Odoo raises **`403 Cannot use both the session_id cookie and the x-odoo-database header`**.
+> On a device the jar attaches the cookie on its own, so this 403 hit **every call including login**. Tried,
+> reverted, guarded in `rpc()`. Verified: header matching the session db → 200; header disagreeing → 403.
+
+**The real cure for a post-login 404 is a clean session**, not a header — clear app storage / reinstall, or
+sign out so a fresh cookie is issued. `rpc()` also detects `SessionExpiredException` by `error.data.name` and
+clears the stored id so the next attempt starts clean.
+
+**A 404 from an `auth='user'` route means the session, never the address.**
 
 ### Module REST envelope quirks
 - the flag is **`status`**, not `success`; errors carry `message`, no code
@@ -164,7 +182,7 @@ Exact error strings the app maps back onto fields:
 
 **Phone must use the LAN address**, not `localhost`:
 ```
-10.90.130.175:8069
+10.96.160.175:8069
 ```
 Odoo listens there; the app adds `http://` automatically for private ranges.
 
@@ -206,13 +224,14 @@ For Odoo work: `curl` each endpoint **before** wiring a screen. That is what cau
 
 ## 6. State right now
 
-- `sales_test` — addon v**19.0.8.2.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
+- `sales_test` — addon v**19.0.8.3.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
 - Field Settings — company record in **Per employee** mode with every section off, so nobody sees extra fields yet
 - Salary components active: **Basic**, **Special Allowance**
 - App — bundles clean, **35 modules evaluate**, `expo export` exits 0. Home and Leave on live data.
-- `hr_leave_request` and `hr_leave_config` are **empty** — all Phase 2 test data was removed afterwards.
-  With no config row the balance returns `{has_quota: false}` for everyone, so the balance card shows its
-  "no paid-leave quota is configured" state. Both branches were proven by creating a policy row and deleting it.
+- `hr_leave_config` has **one row, paid leave ENABLED** (12/yr, 1/month, unpaid deduction on) and
+  `hr_leave_request` holds **one pending request** (id 23, Marc Demo, 3 Nov) — both left deliberately so the
+  balance card and the list show real data on a device instead of their empty states. Delete them to get the
+  `{has_quota: false}` branch back; both branches are proven.
 - **`demo`'s password is now `demo369`** (set for the security testing; the original hash is not recoverable).
 
 **Backups**: `_db_backup/sales_test_before_8.2.0.dump` (taken before this session's addon change), `_db_backup/sales_test_before_7.3.0.dump`, and `_db_backup/js_backup/` holds pre-change copies of `package.json`, the theme files, `security_rules.xml` and the whole `src/` tree before the polish pass.
@@ -221,10 +240,23 @@ For Odoo work: `curl` each endpoint **before** wiring a screen. That is what cau
 
 ## 7. Next
 
-**Phase 2 — Leave. Done.** See §1 and §3. Not yet exercised on a physical device: the Leave screen's
-appearance, the dark-mode pass, and Android hardware back (Home's `hardwareBackPress` handler was rescoped
-to `useFocusEffect` — unconditional it wins the race on *every* screen pushed above Home and leaves back
-dead there).
+**Phase 2 — Leave. Done, and verified against the live server.** See §1 and §3.
+
+Proven as `demo` (a plain `base.group_user`) on `sales_test`: own create / list / filter / cancel all work;
+the non-sudo create files against the right employee, so the record rule — not `sudo()` — is the boundary;
+spoofing `user_id` is refused as an id, as a string and as garbage; both balance branches return; the overlap
+error maps onto the dates field plus the banner; and a rejected create now leaves nothing behind. The manager
+path was exercised by granting `group_leave_manager` to `demo`, confirming the same probes succeed, then
+revoking and confirming they refuse again.
+
+**Cross-process gotcha:** group changes made from `odoo-bin shell` do NOT reach the running server —
+`has_group` is ormcached per process and the shell never signals the registry. Restart the service after any
+grant/revoke or the manager tests fail for the wrong reason.
+
+**Still not exercised on a physical device**: the Leave screen's appearance, the dark-mode pass, and Android
+hardware back (Home's `hardwareBackPress` handler was rescoped to `useFocusEffect` — unconditional it wins
+the race on *every* screen pushed above Home and leaves back dead there). Sign out first: a stale session in
+the platform cookie jar is what produces the post-login 404 described in §3.
 
 **Phase 3 — Work From Home.** `/wfh/request/*` plus `/wfh/today_status`. Mirror the real state machine; `checked_out` is **not** terminal.
 
