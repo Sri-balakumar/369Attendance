@@ -42,3 +42,9 @@ yarn-error.*
 
 # Odoo side of this project — not part of the app bundle
 /_db_backup/
+
+# Web-driving harness artefacts (tools/test-web.mjs)
+.shots/
+web.log
+proxy.log
+web-bundle.js

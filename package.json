@@ -8,7 +8,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "verify": "node tools/verify-bundle.js"
+    "verify": "node tools/verify-bundle.js",
+    "test:web": "node tools/test-web.mjs",
+    "proxy": "node tools/same-origin-proxy.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

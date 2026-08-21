@@ -149,7 +149,16 @@ export default function LeaveApplySheet({ visible, balance, onClose, onSubmitted
           </View>
 
           {mode === 'dates' ? (
-            <View style={{ paddingHorizontal: spacing.lg }}>
+            // Scrolls for the same reason the form does. The sheet is capped at
+            // 88% of the viewport, and six rows of calendar plus the nav row,
+            // the weekday row and the confirm button do not fit on a short one
+            // -- landscape, a small device, Android split-screen. Without this
+            // the month header and its arrows are pushed above the sheet with
+            // no way to reach them, so the month cannot be changed at all.
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}
+            >
               {/* minDate is left unset on purpose: the server has no past-date
                   constraint, and back-dated sick leave is the ordinary case. */}
               <DateRangeCalendar
@@ -171,7 +180,7 @@ export default function LeaveApplySheet({ visible, balance, onClose, onSubmitted
                 onPress={() => setMode('form')}
                 style={{ marginTop: spacing.base }}
               />
-            </View>
+            </ScrollView>
           ) : (
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -358,7 +367,16 @@ export function mapServerError(message) {
 
 const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject },
-  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  // Spans the whole modal and pushes the sheet to the bottom, rather than being
+  // pinned to the bottom with no height of its own.
+  //
+  // That distinction is the whole ballgame: a percentage maxHeight resolves
+  // against the PARENT's height, so with an auto-height wrapper the sheet's
+  // 88% meant nothing. It grew to fit its content, ran off the top of the
+  // screen, and the ScrollView inside never became scrollable because it was
+  // never bounded -- so the calendar's month header and arrows were simply
+  // unreachable. SelectSheet avoids this by sitting directly in the Modal.
+  sheetWrap: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end' },
   sheet: { maxHeight: '88%' },
   grabber: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 10 },
   header: {

@@ -29,6 +29,11 @@ const AppTextInput = forwardRef(function AppTextInput(
   );
   const focusInput = useCallback(() => innerRef.current?.focus(), []);
 
+  // A multiline field grows tall, and centring its row then floats the icon
+  // down beside the middle of the text block instead of the first line. Pin
+  // both to the top and nudge the icon onto the first line's baseline.
+  const multiline = Boolean(rest.multiline);
+
   const lifted = focused || Boolean(value);
 
   useEffect(() => {
@@ -51,6 +56,7 @@ const AppTextInput = forwardRef(function AppTextInput(
         accessible={false}
         style={[
           styles.field,
+          multiline ? { alignItems: 'flex-start', paddingVertical: spacing.md } : null,
           {
             backgroundColor: colors.surfaceAlt,
             borderColor,
@@ -68,7 +74,7 @@ const AppTextInput = forwardRef(function AppTextInput(
             name={icon}
             size={19}
             color={error ? colors.danger : focused ? colors.primary : colors.faint}
-            style={{ marginRight: spacing.md }}
+            style={{ marginRight: spacing.md, marginTop: multiline ? 18 : 0 }}
           />
         ) : null}
 
