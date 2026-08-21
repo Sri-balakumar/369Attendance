@@ -1,77 +1,141 @@
-# 369 Attendance — mobile app
+# 369 Attendance
 
-React Native (Expo) client for the `hr_attendance_369` Odoo suite that lives in
-[odoo_modules/](odoo_modules/) beside it.
+> Employee-facing attendance and leave app for Odoo 19 — check in and out, watch the month
+> take shape, and apply for leave from the phone.
 
-**This first pass is UI only.** Nothing talks to a server yet: the database list, the
-login and the dashboard data all come from [src/services/mockOdoo.js](src/services/mockOdoo.js),
-with realistic delays and failure paths. That file is the single seam — wiring the app to a
-live Odoo server means replacing three function bodies there, and no screen code changes.
+369 Attendance is an [Expo](https://expo.dev) React Native app for the
+[`hr_attendance_369`](odoo_modules/hr_attendance_369/) Odoo suite that ships beside it. An
+employee picks a server, signs in, and lands on a home screen that shows today's state and the
+month so far; one button handles check-in and check-out. A second screen covers leave — paid
+balance, request history and a range-picker apply sheet.
 
-## Run it
+The app talks to a **live Odoo server** over JSON-RPC. It is not tied to any particular
+deployment: the server address and database are chosen on first launch and remembered.
+
+## Features
+
+**Connect and sign in** — enter a server address, pick a database from the list the server
+returns, then log in. Authentication is a session cookie, captured and persisted so later calls
+survive an app restart.
+
+**Home** — an attendance card whose single button flips between Check In and Check Out based on
+the employee's live `attendance_state`; month stat tiles graded Present / Late / Half Day /
+Absent; recent activity; and quick-action tiles.
+
+**Leave** — paid-leave balance card, request list with state chips and a server-side state
+filter, cancel with a state-aware confirmation, and an apply sheet built on a hand-rolled
+month-grid range calendar ([src/components/DateRangeCalendar.js](src/components/DateRangeCalendar.js)) —
+no extra dependency.
+
+**Theme** — slate and amber with sharp corners, deliberately distinct from the house style.
+Always opens light.
+
+## Tech stack
+
+| | |
+|---|---|
+| Framework | Expo SDK ~54, React Native 0.81.5, React 19.1 |
+| Navigation | React Navigation 7 (native stack) |
+| State | React context — [src/state/SessionContext.js](src/state/) |
+| Styling | Custom token theme in [src/theme/](src/theme/), Inter via `@expo-google-fonts` |
+| Storage | AsyncStorage (session id, server, database) |
+| Transport | `fetch` against Odoo JSON-RPC — no HTTP client dependency |
+
+Fifteen runtime dependencies in total; the app deliberately adds none it can hand-roll.
+
+## Odoo backend
+
+Both modules are in [odoo_modules/](odoo_modules/) and target **Odoo 19**.
+
+| Module | Purpose |
+|---|---|
+| `hr_attendance_369` | Attendance Suite — late tracking & deductions, leave requests, work-from-home, monthly employee reports and device registration in one module. Depends on `base`, `web`, `hr`, `hr_attendance`. |
+| `kra_kpi_attendance_bridge` | Starting a KRA/KPI workday records an HR attendance check-in, and ending it writes the check-out. Depends on `hr_attendance_369` + `kra_kpi_module`; auto-installs only where both are present. |
+
+The bridge is optional — install it only alongside the
+[KRA_KPI](https://github.com/Sri-balakumar/kra_kpi) app's module.
+
+### Two things to know about the transport
+
+Both are documented at the top of [src/services/odoo.js](src/services/odoo.js):
+
+1. **A failed Odoo call still returns HTTP 200.** The failure arrives as an `error` key in the
+   JSON body, so checking `response.ok` proves nothing — every body is inspected.
+2. **Auth is a cookie.** `/web/session/authenticate` replies with `session_id`. React Native's
+   native cookie jar is opaque and clears with the app, so the id is captured and persisted and
+   also sent explicitly on later calls.
+
+## Getting started
+
+**Prerequisites** — Node.js 18+, npm, and the [Expo Go](https://expo.dev/go) app. A reachable
+Odoo 19 server with `hr_attendance_369` installed.
 
 ```bash
-npm install       # first time only
+npm install
 npx expo start
 ```
 
-Then press `a` for an Android emulator, `w` for the browser, or scan the QR code with
-**Expo Go** on your phone. No Odoo server is needed.
+Press `a` for Android, `w` for the browser, or scan the QR code with Expo Go.
 
-## The flow
+On first launch the app asks for a server address. **A phone needs the server's LAN address, not
+`localhost`** — `localhost` on the phone means the phone. The app supplies `http://` automatically
+for private address ranges. Pick the database from the list, then sign in with Odoo credentials.
+
+After changing [metro.config.js](metro.config.js), restart Metro fully rather than reloading:
+
+```bash
+npx expo start -c
+```
+
+## Verifying a build
+
+`expo export` compiles modules but never *evaluates* them, so a module-scope `ReferenceError`
+passes the build and then crashes at launch — which has happened here twice, both times a theme
+value used inside a module-level `StyleSheet.create`. [tools/verify-bundle.js](tools/verify-bundle.js)
+closes that gap by parsing everything, then actually running it against stubbed native modules,
+and only then exporting.
+
+```bash
+npm run verify
+```
+
+## Project structure
 
 ```
-Splash ──▶ Server URL ──▶ Login ──▶ Home
-             (once)      (every launch)
+App.js              entry point
+src/
+  screens/          SplashScreen, ServerScreen, LoginScreen,
+                    home/ (HomeScreen, AttendanceCard, StatTiles, RecentActivity, QuickActions),
+                    leave/ (LeaveScreen, LeaveApplySheet, LeaveBalanceStrip, LeaveRequestCard)
+  services/         odoo.js — the live JSON-RPC client (auth, attendance, leave)
+                    mockOdoo.js — retired; only its DAY_STATUS map is still used
+  components/       AppTextInput, Card, Chip, ConfirmDialog, DateRangeCalendar,
+                    PrimaryButton, SelectSheet, Skeleton, Toast
+  navigation/       RootNavigator.js
+  state/            SessionContext.js
+  theme/            ThemeProvider, colors, tokens
+  utils/            time.js (Odoo's naive-UTC datetimes), url.js
+tools/              verify-bundle.js — the three-part bundle check
+odoo_modules/       hr_attendance_369, kra_kpi_attendance_bridge
 ```
 
-**Server** is asked for exactly once. Type an address and the database list loads by itself
-after a short pause — no connect button. Pick one, press Continue, and you never see this
-screen again unless you tap **Change URL**.
+## Status and roadmap
 
-**Login** is where almost every launch lands. It shows which server and database it will sign
-in to, and carries the **Change URL** button — the only route back to the Server screen.
+Home and Leave both run on live server data.
 
-**Home** stays. Backgrounding the app, killing it, or reopening it days later comes straight
-back here. There is no session timeout: only **Logout** ends the session.
-
-| Action | Clears | Goes to |
-|---|---|---|
-| Logout (Home header) | the signed-in user | Login — server and database kept |
-| Change URL (Login) | user **and** server | Server |
-
-## Demo inputs
-
-Because there is no server, the mock service branches on what you type:
-
-| Input | What happens |
+| Phase | State |
 |---|---|
-| any URL, e.g. `https://demo.odoo.local` | three databases to choose from |
-| URL containing `single` | one database, auto-selected |
-| URL containing `bad` | error card with Retry + manual database entry |
-| URL containing `empty` | "no databases found" |
-| any username + password | signs in |
-| username `fail` | rejected, so the error state is reviewable |
+| 1 — Attendance (check in/out, month tiles, recent activity) | Done |
+| 2 — Leave (balance, list, filter, cancel, apply) | Done |
+| 3 — Work From Home (`/wfh/request/*`, `/wfh/today_status`) | Planned |
+| 4 — Attendance history, and a My Details tile in place of Reports | Planned |
 
-Both light and dark themes follow the phone's appearance setting; the sun/moon button in the
-Home header overrides it so you can review both without leaving the app.
+Not yet exercised on a physical device: the Leave screen's appearance, the dark-mode pass, and
+Android hardware back.
 
-## Layout
+## Documentation
 
-```
-App.js                  providers + font loading
-src/theme/              colour tokens, spacing/radii/shadows, useTheme()
-src/components/         inputs, buttons, sheets, toasts, confirm dialog
-src/state/              SessionContext — the two persisted keys and the routing rules
-src/services/mockOdoo   THE SEAM: fetchDatabases / authenticate / getHomeData
-src/screens/            Splash, Server, Login, home/
-```
-
-`metro.config.js` blocks `odoo_modules/` and `_db_backup/` from Metro's watch set — the dumps
-in `_db_backup` are large enough to make startup crawl otherwise.
-
-## Not built yet
-
-Real `/web/database/list` and `/web/session/authenticate` calls, real check-in through
-`hr.employee.attendance_manual`, and the Leave / WFH / Attendance-history / Profile screens.
-The four quick-action tiles on Home are where those attach.
+- [SESSION.md](SESSION.md) — engineering notes: what the addon added, API behaviour verified
+  against a live server, and the open items behind the roadmap above.
+- [docs/legacy-README.md](docs/legacy-README.md) — the previous README, written while the app
+  still ran on mock data. Kept for reference; its description of the app is out of date.
