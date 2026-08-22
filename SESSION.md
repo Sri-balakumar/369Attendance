@@ -308,12 +308,33 @@ covering both Leave and WFH: login, lists, filters and their empty states, valid
 end-to-end leave submit, the overlap landing on both field and banner, the WFH badge, the today banner and
 the WFH sheet.
 
-**Phase 4 — Attendance history**, and repoint the fourth Quick Action tile from *Reports* to **My Details** — Reports reads the salary-bearing report models, My Details is the surface employees actually own.
+**Phase 4 — Attendance history and My Details. Done, and verified in a browser.**
+
+Attendance history pages a month at a time off `hr.attendance.day.status` — the same graded ladder Home uses,
+never `hr.employee.report`, which carries wage and final_amount. `deduction_amount` is on the day-status model
+too and is deliberately not read. Forward paging stops at the current month.
+
+The fourth tile is now **My Details** rather than Reports, so the salary-bearing report models are no longer
+offered at all.
+
+**My Details reads `res.users`, not `hr.employee`** — and that distinction is the whole story. An employee
+cannot read their own `hr.employee` record: there is no `base.group_user` ACL row in Odoo 19 and the
+`hr.employee.public` fallback refuses everything interesting. Verified field by field: `name`,
+`work_email`, `department_id` and `work_phone` come back; `blood_group`, `emergency_contact`,
+`confirmation_date`, `notice_period_days`, `monthly_wage` and the rest all raise `AccessError`.
+
+The addon already solves this the way core hr does — `SELF_READABLE_FIELDS` / `SELF_WRITEABLE_FIELDS`
+allow-lists on `res.users` plus related fields carrying `related_sudo=False` (load-bearing: the default would
+read as superuser and bypass the very checks that confine an employee to their own record). One read returns
+both the values and the visibility switches, so a section an admin has not enabled is absent rather than
+empty. **A new `/employee/details` route was written for this and then deleted** — it duplicated the existing
+mechanism and used a blanket `sudo()` that undid `related_sudo=False`. Reuse the allow-lists.
+
+Salary cannot appear here even by mistake: those fields are outside the allow-list.
 
 Also open, worth deciding separately:
 - `monthly_wage` duplicates Odoo 19's stock `wage` (`hr.version`); both now show on the Payroll page
 - The Monthly Report has two defects payslips deliberately avoid — leave is selected by **start date only**, so a leave crossing a month boundary is charged to the wrong month, and `present_days + paid_leave_days` can count one day twice
-- `/leave/request/report` and `/wfh/request/list` still have **no group check and run `sudo()`** — any
-  authenticated user gets company-wide data. Deliberately deferred to Phase 3 (which touches WFH anyway);
-  both were re-probed as `demo` after the v8.2.0 fix and confirmed **still open, by decision, not regression**.
-  `/report` needs care: adding a group check could break existing backend callers.
+- ~~`/leave/request/report` and `/wfh/request/list` run `sudo()` ungated~~ — **closed in v19.0.8.4.0.**
+  Both were demonstrated open as `demo` first, then gated and re-probed. The old warning that gating
+  `/report` "could break existing backend callers" was wrong: it has none.

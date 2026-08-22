@@ -8,6 +8,8 @@ import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import LeaveScreen from '../screens/leave/LeaveScreen';
 import WfhScreen from '../screens/wfh/WfhScreen';
+import AttendanceScreen from '../screens/attendance/AttendanceScreen';
+import MyDetailsScreen from '../screens/profile/MyDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -52,6 +54,8 @@ export default function RootNavigator() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Leave" component={LeaveScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Wfh" component={WfhScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="MyDetails" component={MyDetailsScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

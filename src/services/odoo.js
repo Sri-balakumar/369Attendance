@@ -819,3 +819,164 @@ export async function getWfhData(uid, { stateFilter = null } = {}) {
   ]);
   return { today, requests };
 }
+
+/* ------------------------------------------------------------------ *
+ * Attendance history, and My Details
+ * ------------------------------------------------------------------ */
+
+/**
+ * A month of graded days.
+ *
+ * Same source as Home's month tiles -- hr.attendance.day.status, the module's
+ * own ladder -- rather than hr.employee.report, which carries wage and
+ * final_amount. deduction_amount is on this model too and is deliberately not
+ * read: the app has no business showing a person a money figure it cannot
+ * explain.
+ */
+export async function fetchAttendanceMonth(uid, year, month) {
+  const employeeId = await getMyEmployeeId(uid);
+  const pad = (n) => String(n).padStart(2, '0');
+  const from = `${year}-${pad(month + 1)}-01`;
+  const to = `${year}-${pad(month + 1)}-${pad(new Date(year, month + 1, 0).getDate())}`;
+
+  const [statuses, attendances] = await Promise.all([
+    callKw('hr.attendance.day.status', 'search_read', [
+      [['employee_id', '=', employeeId], ['date', '>=', from], ['date', '<=', to]],
+      ['id', 'date', 'status', 'status_display', 'is_wfh'],
+    ], { order: 'date desc' }),
+    callKw('hr.attendance', 'search_read', [
+      [['employee_id', '=', employeeId], ['check_in', '>=', `${from} 00:00:00`],
+       ['check_in', '<=', `${to} 23:59:59`]],
+      ATTENDANCE_FIELDS,
+    ], { order: 'check_in desc', limit: 100 }),
+  ]);
+
+  const byDate = {};
+  for (const a of attendances) {
+    const key = odooUtcToIso(a.check_in)?.slice(0, 10);
+    if (key && !byDate[key]) byDate[key] = a;
+  }
+
+  const totals = { present: 0, late: 0, absent: 0, leave: 0, half_day: 0 };
+  let hours = 0;
+  const days = statuses.map((s) => {
+    if (totals[s.status] !== undefined) totals[s.status] += 1;
+    const row = byDate[s.date];
+    hours += row?.worked_hours || 0;
+    return {
+      id: s.id,
+      date: s.date,                       // date-only: stays a string
+      status: s.status,
+      statusDisplay: s.status_display || '',
+      isWfh: Boolean(s.is_wfh),
+      checkIn: odooUtcToIso(row?.check_in),
+      checkOut: odooUtcToIso(row?.check_out),
+      hours: row?.worked_hours || 0,
+      isLate: Boolean(row?.is_late),
+      lateDisplay: row?.late_minutes_display || '',
+    };
+  });
+
+  return {
+    year,
+    month,
+    label: new Date(year, month, 1).toLocaleDateString([], { month: 'long', year: 'numeric' }),
+    totals,
+    totalHours: hours,
+    days,
+  };
+}
+
+/**
+ * The employee's own details, straight off res.users.
+ *
+ * NOT off hr.employee: that model has no base.group_user ACL row in Odoo 19,
+ * and its public fallback refuses everything interesting -- blood_group,
+ * emergency contacts and the rest all raise for the very person they describe.
+ *
+ * The addon already solves this the way core hr does, with SELF_READABLE_FIELDS
+ * and SELF_WRITEABLE_FIELDS allow-lists on res.users plus related fields
+ * carrying related_sudo=False. Reading through that inherits those access rules
+ * instead of inventing a second set, and returns the visibility switches in the
+ * same call -- so one read gives both the values and whether to show them.
+ */
+const DETAIL_FIELDS = [
+  'name', 'login',
+  'blood_group', 'father_name', 'mother_name',
+  'emergency_contact_relation', 'emergency_contact_2', 'emergency_phone_2',
+  'emergency_contact_relation_2',
+  'show_personal_section', 'show_employment_section', 'show_statutory_section',
+  'show_blood_group', 'show_father_name', 'show_mother_name',
+  'show_emergency_relation', 'show_second_emergency_contact',
+  'show_qualifications', 'show_previous_employment',
+];
+
+const BLOOD_GROUPS = {
+  a_pos: 'A+', a_neg: 'A-', b_pos: 'B+', b_neg: 'B-',
+  ab_pos: 'AB+', ab_neg: 'AB-', o_pos: 'O+', o_neg: 'O-',
+};
+
+export async function getMyDetails(uid) {
+  const rows = await callKw('res.users', 'read', [[uid], DETAIL_FIELDS]);
+  const u = rows?.[0];
+  if (!u) throw new Error('Could not read your profile.');
+
+  const show = (k) => Boolean(u[k]);
+  const val = (v) => (v === false || v === null || v === undefined ? '' : String(v));
+
+  const [qualifications, previous] = await Promise.all([
+    show('show_qualifications')
+      ? callKw('hr.employee.qualification', 'search_read', [
+          [], ['id', 'name', 'specialization', 'institution', 'year_of_passing', 'grade'],
+        ], { order: 'year_of_passing desc' })
+      : Promise.resolve([]),
+    show('show_previous_employment')
+      ? callKw('hr.employee.previous.employment', 'search_read', [
+          // last_drawn_salary is available here and deliberately not requested.
+          [], ['id', 'company_name', 'job_title', 'location', 'date_from', 'date_to', 'duration_display'],
+        ], { order: 'date_from desc' })
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    name: val(u.name),
+    login: val(u.login),
+    sections: {
+      personal: show('show_personal_section'),
+      employment: show('show_employment_section'),
+      statutory: show('show_statutory_section'),
+      qualifications: show('show_qualifications'),
+      previousEmployment: show('show_previous_employment'),
+    },
+    personal: {
+      bloodGroup: show('show_blood_group') ? BLOOD_GROUPS[u.blood_group] || '' : '',
+      fatherName: show('show_father_name') ? val(u.father_name) : '',
+      motherName: show('show_mother_name') ? val(u.mother_name) : '',
+      emergencyRelation: show('show_emergency_relation') ? val(u.emergency_contact_relation) : '',
+      emergency2: show('show_second_emergency_contact')
+        ? {
+            name: val(u.emergency_contact_2),
+            phone: val(u.emergency_phone_2),
+            relation: val(u.emergency_contact_relation_2),
+          }
+        : null,
+    },
+    qualifications: (qualifications || []).map((q) => ({
+      id: q.id,
+      name: val(q.name),
+      specialization: val(q.specialization),
+      institution: val(q.institution),
+      year: val(q.year_of_passing),
+      grade: val(q.grade),
+    })),
+    previousEmployment: (previous || []).map((p) => ({
+      id: p.id,
+      company: val(p.company_name),
+      jobTitle: val(p.job_title),
+      location: val(p.location),
+      from: val(p.date_from),
+      to: val(p.date_to),
+      duration: val(p.duration_display),
+    })),
+  };
+}

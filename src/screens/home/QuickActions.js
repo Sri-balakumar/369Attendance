@@ -12,7 +12,10 @@ const ACTIONS = [
   { key: 'leave', icon: 'calendar-outline', label: 'Apply Leave', caption: 'Casual · Sick · Earned', tone: 'primary' },
   { key: 'wfh', icon: 'home-outline', label: 'Work From Home', caption: 'Request a WFH day', tone: 'accent' },
   { key: 'attendance', icon: 'list-outline', label: 'My Attendance', caption: 'Day-wise history', tone: 'info' },
-  { key: 'reports', icon: 'bar-chart-outline', label: 'Reports', caption: 'Monthly summary', tone: 'success' },
+  // Was "Reports". That screen reads the salary-bearing report models, which
+  // an employee has no access to and no business seeing; My Details is the
+  // surface they actually own.
+  { key: 'details', icon: 'person-outline', label: 'My Details', caption: 'Your profile', tone: 'success' },
 ];
 
 export default function QuickActions({ onPress, style }) {

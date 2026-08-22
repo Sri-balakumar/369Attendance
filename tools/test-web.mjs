@@ -15,6 +15,10 @@ const APP = process.argv[4] || 'http://localhost:8090/';
 const fs = await import('node:fs');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Create the shot directory rather than assume it: it is gitignored, so a
+// clean checkout or a tidy-up leaves it absent and every shot() would throw.
+fs.mkdirSync(OUT, { recursive: true });
+
 let target;
 for (let i = 0; i < 30; i++) {
   try {
@@ -151,7 +155,10 @@ check('Home month tiles present', /Present/.test(home) && /Leave/.test(home));
 
 // ---- 2. navigate to Leave ------------------------------------------------
 check('tap Apply Leave tile', (await tap('Apply Leave')) === 'ok');
-await waitFor('leave', "document.body.innerText.includes('Apply, track and cancel')");
+// Wait for a ROW. 'Apply, track and cancel' is the header and renders before
+// any request has loaded, so waiting on it screenshots skeletons and asserts
+// against an empty list -- the same trap the WFH section already fixed.
+await waitFor('leave', "document.body.innerText.includes('Casual Leave')");
 await shot('11-leave-list');
 const leave = await text();
 check('Leave screen opens', /Apply, track and cancel/.test(leave));
@@ -324,6 +331,7 @@ check('WFH badge sits on the check-in card', badge === 'ok', badge);
 check('tap Work From Home tile', (await tap('Work From Home')) === 'ok');
 // Wait for a ROW, not the header -- the header renders before any data.
 await waitFor('wfh rows', `document.body.innerText.includes(${JSON.stringify(PENDING_ROW)})`);
+await waitFor('wfh today banner', "/working from home today/i.test(document.body.innerText)", 20000);
 await shot('31-wfh-list');
 const wfh = await text();
 check('WFH screen opens', /Request a day, track approvals/.test(wfh));
@@ -358,8 +366,63 @@ check('wfh validation blocks an empty submit',
   (winvalid.match(/Pick the day[^\n]*/) || [''])[0]);
 await shot('34-wfh-validation');
 
+// ================= Attendance history, and My Details =================
+
+await pressLabel('Close');
+await sleep(1200);
+await pressLabel('Back');
+await waitFor('home for phase 4', "/This month|Present/.test(document.body.innerText)");
+
+// ---- Attendance history --------------------------------------------------
+check('tap My Attendance tile', (await tap('My Attendance')) === 'ok');
+await waitFor('attendance screen', "/worked across/.test(document.body.innerText)");
+await shot('40-attendance');
+const att = await text();
+check('attendance screen opens', /Day-wise history/.test(att));
+// The five statuses are the summary strip; "worked across" only exists once
+// the month has actually loaded, so it cannot pass on chrome alone.
+check('summary strip rendered', /worked across/.test(att),
+  (att.match(/[\d.]+h [\dm]+ worked across[^\n]*/) || [''])[0]);
+check('all five day statuses labelled',
+  ['Present', 'Late', 'Half Day', 'Leave', 'Absent'].every((s) => att.includes(s)));
+check('no money figure on the screen', !/deduction|₹|wage|salary/i.test(att));
+
+// Month paging: back a month must change the heading, and forward must be
+// disabled on the current month (nothing is recorded ahead of today).
+const monthBefore = (att.match(/\w+ 20\d\d/) || [''])[0];
+check('page to the previous month', (await pressLabel('Previous month')) === 'ok');
+await sleep(3000);
+const monthAfter = ((await text()).match(/\w+ 20\d\d/) || [''])[0];
+check('month heading changed', monthBefore !== monthAfter, `${monthBefore} -> ${monthAfter}`);
+await shot('41-attendance-prev-month');
+
+// ---- My Details ----------------------------------------------------------
+await pressLabel('Back');
+await waitFor('home again for details', "/This month|Present/.test(document.body.innerText)");
+const homeTiles = await text();
+check('4th tile is My Details, not Reports',
+  /My Details/.test(homeTiles) && !/Reports/.test(homeTiles));
+
+check('tap My Details tile', (await tap('My Details')) === 'ok');
+await waitFor('details screen', "document.body.innerText.includes('Blood group')");
+await shot('42-my-details');
+const det = await text();
+check('My Details opens', /My details/i.test(det));
+check('personal section shown (enabled in Field Settings)', /Blood group/.test(det));
+check('seeded blood group rendered', /O\+/.test(det), (det.match(/Blood group[^\n]*\n[^\n]*/) || [''])[0].replace(/\n/g, ' '));
+check('qualifications section rendered', /B\.Tech|Anna University/.test(det));
+check('previous employment rendered', /Acme Systems/.test(det));
+// Statutory is OFF for this employee in Field Settings, so it must be absent
+// entirely rather than present-and-empty.
+check('disabled section is absent, not empty', !/Statutory/i.test(det));
+// The screen must never be able to show salary -- those fields are outside the
+// res.users self-service allow-list, so this is belt and braces.
+check('nothing salary-bearing on My Details',
+  !/wage|salary|ctc|payment mode|bank/i.test(det));
+
 ws.close();
 const failed = results.filter((r) => !r.pass);
-console.log(`\n  ${results.length - failed.length}/${results.length} checks passed`);
+console.log(`
+  ${results.length - failed.length}/${results.length} checks passed`);
 if (failed.length) { console.log('  failed: ' + failed.map((f) => f.name).join('; ')); process.exit(1); }
 process.exit(0);

@@ -213,6 +213,8 @@ export default function HomeScreen({ navigation }) {
               // cannot stack two Leave screens.
               if (a.key === 'leave') navigation.navigate('Leave');
               else if (a.key === 'wfh') navigation.navigate('Wfh');
+              else if (a.key === 'attendance') navigation.navigate('Attendance');
+              else if (a.key === 'details') navigation.navigate('MyDetails');
               else showToast(`${a.label} is coming in the next update.`, 'info');
             }}
           />
