@@ -29,15 +29,20 @@ export default function StatTiles({ today, style }) {
       key: 'late',
       icon: 'alarm-outline',
       label: 'Late by',
-      value: today?.lateMinutes ? `${today.lateMinutes} min` : 'On time',
-      tone: today?.lateMinutes ? colors.warning : colors.success,
+      // isLate/lateDisplay, not lateMinutes -- getHomeData has never returned
+      // a lateMinutes field, so this tile read undefined every time and said
+      // "On time" even for someone who arrived late.
+      value: today?.isLate ? today?.lateDisplay || 'Late' : 'On time',
+      tone: today?.isLate ? colors.warning : colors.success,
     },
   ];
 
   return (
     <View style={[styles.row, style]}>
-      {tiles.map((t) => (
-        <Tile key={t.key} {...t} />
+      {/* key is destructured OUT of the spread: React 19 warns when a key
+          arrives via {...props}, and it is identity rather than a prop. */}
+      {tiles.map(({ key, ...tile }) => (
+        <Tile key={key} {...tile} />
       ))}
     </View>
   );

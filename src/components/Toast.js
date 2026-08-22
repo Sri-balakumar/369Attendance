@@ -22,7 +22,8 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={showToast}>
       {children}
-      {toast ? <ToastView key={toast.key} {...toast} /> : null}
+      {/* key kept out of the spread, as in StatTiles. */}
+      {toast ? <ToastView key={toast.key} message={toast.message} tone={toast.tone} /> : null}
     </ToastContext.Provider>
   );
 }

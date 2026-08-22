@@ -187,6 +187,12 @@ a stale-session problem. `rpc()` now recognises that page by its wording and say
 > On a device the jar attaches the cookie on its own, so this 403 hit **every call including login**. Tried,
 > reverted, guarded in `rpc()`. Verified: header matching the session db → 200; header disagreeing → 403.
 
+**Settled on a device (22 Aug):** the platform DOES expose `Set-Cookie` here. The transport log shows
+`captured session_id from Set-Cookie` then `session_stored: yes`, and every later call reports
+`cookie: sent (explicit)`. So the app holds its own session id after all and the 404 is gone. The mechanism
+is still worth knowing, because the *capture* is what makes it work -- if it ever comes up empty the platform
+jar is the only thing left holding the session.
+
 **The real cure for a post-login 404 is a clean session**, not a header — clear app storage / reinstall, or
 sign out so a fresh cookie is issued. `rpc()` also detects `SessionExpiredException` by `error.data.name` and
 clears the stored id so the next attempt starts clean.
