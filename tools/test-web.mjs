@@ -19,7 +19,11 @@ let target;
 for (let i = 0; i < 30; i++) {
   try {
     const list = await (await fetch(`http://localhost:${PORT}/json/list`)).json();
-    target = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl);
+    // Pick the app's own tab. Edge can raise a sync/first-run dialog that is
+    // itself a page target, and attaching to that drives the wrong window.
+    const pages = list.filter((t) => t.type === 'page' && t.webSocketDebuggerUrl);
+    target = pages.find((t) => /localhost:(8090|8081)/.test(t.url || '')) ||
+             pages.find((t) => !/^edge:|^chrome:|^devtools:/.test(t.url || ''));
     if (target) break;
   } catch {}
   await sleep(1000);
@@ -63,10 +67,16 @@ const waitFor = async (label, expr, ms = 60000) => {
 const tap = (text, exact = true) => ev(`
   (() => {
     const want = ${JSON.stringify(text)};
-    const hit = [...document.querySelectorAll('div,span')].find(el =>
-      el.children.length === 0 &&
-      (${exact} ? el.textContent.trim() === want : el.textContent.includes(want)));
-    if (!hit) return 'NOT FOUND: ' + want;
+    // Must be VISIBLE. React Native Web renders zero-size duplicates of some
+    // labels, and taking the first text match silently clicked a 0x0 phantom --
+    // the dispatch "succeeded" while nothing happened, which cost a long
+    // detour hunting a non-existent app bug.
+    const hit = [...document.querySelectorAll('div,span')]
+      .filter(el =>
+        el.children.length === 0 &&
+        (${exact} ? el.textContent.trim() === want : el.textContent.includes(want)))
+      .find(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+    if (!hit) return 'NOT FOUND (or not visible): ' + want;
     let n = hit;
     for (let i = 0; i < 8 && n; i++, n = n.parentElement) {
       if (n.getAttribute && n.getAttribute('tabindex') !== null) {
@@ -265,54 +275,88 @@ check('overlap shows the full server message in the banner',
 await shot('20-overlap');
 
 // ================= WFH =================
-// Appended to test-web.mjs. Kept in its own file only because writing it
-// through a shell heredoc kept eating the backslashes in these regexes.
+//
+// Every predicate below is chosen so it CANNOT be satisfied by chrome that is
+// always on screen. The first draft of this section passed on strings that also
+// appear in the header and the filter row -- "Approved" and "Pending" are filter
+// chips, "WFH" is the Work From Home tile, and "Work from home" is the screen
+// title -- so four checks were green while the sheet had never opened. The
+// seeded rows carry deliberately unmistakable reasons for the same reason.
 
-// Back to Home. The overlap sheet may still be open, so close it first.
-await tap('Close', false);
-await sleep(1000);
-await ev('history.back()');
+const APPROVED_ROW = 'SEEDED-APPROVED-TODAY';
+const PENDING_ROW = 'SEEDED-PENDING-FUTURE';
+
+// Close the apply sheet, then leave via the screen's own Back control.
+// history.back() is unreliable here: an open Modal swallows it.
+const pressLabel = (label) => ev(`
+  (() => {
+    const el = [...document.querySelectorAll('[aria-label]')]
+      .find(e => e.getAttribute('aria-label') === ${JSON.stringify(label)});
+    if (!el) return 'not found';
+    ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(t =>
+      el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })));
+    return 'ok';
+  })()
+`);
+
+await pressLabel('Close');
+await sleep(1500);
+await pressLabel('Back');
 await waitFor('home again', "/Good (morning|afternoon|evening)/.test(document.body.innerText)");
 await waitFor('home data again', "/This month|Present/.test(document.body.innerText)");
 await shot('30-home-wfh-badge');
-const homeWfh = await text();
-check('WFH badge on the check-in card', /WFH/.test(homeWfh),
-  (homeWfh.match(/Not checked in[^\n]*/) || [''])[0]);
+
+// Scoped to the attendance card, so the "Work From Home" tile lower down the
+// page cannot satisfy it.
+const badge = await ev(`
+  (() => {
+    const chip = [...document.querySelectorAll('div,span')].find(el =>
+      el.children.length === 0 && el.textContent.trim() === 'WFH');
+    if (!chip) return 'no WFH chip';
+    // Walk up a few levels: the attendance card nests deeply in RNW.
+    let n = chip, near = '';
+    for (let i = 0; i < 6 && n; i++, n = n.parentElement) near = n.textContent || '';
+    return /checked in|Check In/i.test(near) ? 'ok' : 'chip found but not on the attendance card';
+  })()
+`);
+check('WFH badge sits on the check-in card', badge === 'ok', badge);
 
 check('tap Work From Home tile', (await tap('Work From Home')) === 'ok');
-await waitFor('wfh screen', "document.body.innerText.includes('Request a day, track approvals')");
+// Wait for a ROW, not the header -- the header renders before any data.
+await waitFor('wfh rows', `document.body.innerText.includes(${JSON.stringify(PENDING_ROW)})`);
 await shot('31-wfh-list');
 const wfh = await text();
 check('WFH screen opens', /Request a day, track approvals/.test(wfh));
-check('today banner shows for an approved WFH day', /working from home today/i.test(wfh));
-check('approved request rendered', /Approved/.test(wfh));
-check('pending request rendered', /Pending/.test(wfh));
-check('WFH filters present',
-  ['All', 'Pending', 'Approved', 'Done', 'Rejected'].every((f) => wfh.includes(f)));
+check('approved row rendered', wfh.includes(APPROVED_ROW));
+check('pending row rendered', wfh.includes(PENDING_ROW));
+check('today banner for the approved day', /working from home today/i.test(wfh));
+check('eight-state vocabulary in use (Done, not leave labels)', /\bDone\b/.test(wfh));
 
 check('tap Rejected filter (wfh)', (await tap('Rejected')) === 'ok');
-await sleep(3000);
-check('wfh empty state', /No rejected requests/i.test(await text()));
+await waitFor('wfh filtered', "/No rejected requests/i.test(document.body.innerText)", 25000);
+check('wfh empty state for a filter with no rows', /No rejected requests/i.test(await text()));
+await shot('32-wfh-filter-empty');
 await tap('Show all');
-await sleep(2500);
+await waitFor('wfh list back', `document.body.innerText.includes(${JSON.stringify(PENDING_ROW)})`);
 
+// The sheet's own field label, which appears nowhere else on the screen.
 check('open WFH sheet', (await tap('Request a WFH day', false)) === 'ok');
-await waitFor('wfh sheet', "document.body.innerText.includes('Work from home')");
-await shot('32-wfh-sheet');
+await waitFor('wfh sheet open', "document.body.innerText.includes('Submit request')");
+await shot('33-wfh-sheet');
 const wsheet = (await text()).replace(/\n/g, ' ');
 check('sheet explains there is no separate WFH button',
   /no separate\s*WFH button/i.test(wsheet));
-// The WFH form must NOT carry leave's type chips -- different feature, and the
-// route accepts no leave_type at all.
+// The WFH route accepts no leave_type at all, so leave's chips must not appear.
 check('no leave-type chips on the WFH form',
   !/Casual/.test(wsheet) && !/Emergency/.test(wsheet));
 
 await tap('Submit request', false);
-await sleep(1500);
+await sleep(2000);
 const winvalid = await text();
 check('wfh validation blocks an empty submit',
-  /Pick the day/.test(winvalid) && /Give a reason/.test(winvalid));
-await shot('33-wfh-validation');
+  /Pick the day/.test(winvalid) && /Give a reason/.test(winvalid),
+  (winvalid.match(/Pick the day[^\n]*/) || [''])[0]);
+await shot('34-wfh-validation');
 
 ws.close();
 const failed = results.filter((r) => !r.pass);

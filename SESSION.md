@@ -28,6 +28,13 @@ Every field ships but stays **off until an admin ticks it on**, because this com
 - Net rounded to the rupee, plus **net in words** (Indian lakh/crore) and a leave summary.
 - Confirming is **blocked** when component earnings disagree with `monthly_wage`, naming the employees — paying one figure while deducting against another is the worst outcome.
 
+### WFH: stray rows on a rejected create (v19.0.8.5.0)
+Identical to the leave bug, and worse. `/wfh/request/create` caught the duplicate-date constraint and
+returned `status: False` without rolling back, so the row was still committed. Leave's ghost landed in
+`draft`; this route sets `state` directly to **`pending`**, so the phantom went straight into a manager's
+approval queue for a request the employee had just been told was refused. Fixed with `cr.rollback()`;
+demonstrated before and after.
+
 ### The sudo() leak class, closed (v19.0.8.4.0)
 The last two ungated `sudo()` routes were gated. **Demonstrated open first**, as `demo` (a plain
 `base.group_user`): `/wfh/request/list` returned Mitchell Admin's WFH row — `reason`, `rejection_reason`,
@@ -157,6 +164,19 @@ clears the stored id so the next attempt starts clean.
 
 **A 404 from an `auth='user'` route means the session, never the address.**
 
+### Two datetime converters, chosen per endpoint
+
+The WFH API is inconsistent **within itself**, and nothing in the payload distinguishes the two:
+
+| Endpoint | Produced by | Meaning |
+|---|---|---|
+| `/wfh/today_status` | `convert_to_user_tz()` | already the **user's** zone |
+| `/wfh/request/my_requests` | `str(field)` | raw **UTC**, like everything else |
+
+Both arrive as `'2026-08-22 14:30:00'` with no marker. `odooUtcToIso()` appends `Z`; `odooLocalToIso()`
+(added for this) only swaps the space for `T`. Using the wrong one is a silent **five-and-a-half hour**
+error here — measured, not assumed. Pick by endpoint, never by inspecting the value.
+
 ### Module REST envelope quirks
 - the flag is **`status`**, not `success`; errors carry `message`, no code
 - list key differs: leave → **`data`**, WFH → **`requests`**, dashboard → **`wfh_employees`**
@@ -238,7 +258,7 @@ For Odoo work: `curl` each endpoint **before** wiring a screen. That is what cau
 
 ## 6. State right now
 
-- `sales_test` — addon v**19.0.8.4.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
+- `sales_test` — addon v**19.0.8.5.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
 - Field Settings — company record in **Per employee** mode with every section off, so nobody sees extra fields yet
 - Salary components active: **Basic**, **Special Allowance**
 - App — bundles clean, **35 modules evaluate**, `expo export` exits 0. Home and Leave on live data.
@@ -272,7 +292,21 @@ hardware back (Home's `hardwareBackPress` handler was rescoped to `useFocusEffec
 the race on *every* screen pushed above Home and leaves back dead there). Sign out first: a stale session in
 the platform cookie jar is what produces the post-login 404 described in §3.
 
-**Phase 3 — Work From Home.** `/wfh/request/*` plus `/wfh/today_status`. Mirror the real state machine; `checked_out` is **not** terminal.
+**Phase 3 — Work From Home. Done, and verified in a browser against live Odoo.**
+
+Screen, request card, apply sheet and constants, plus the Home integration. The envelope differs from leave
+at every turn — list key `requests` not `data`, filter param `state` not `state_filter`,
+`request_id`/`state` at the top level rather than nested under `data`, a single `request_date` rather than a
+range, and eight states rather than five. `checked_out` is **not** terminal.
+
+Per the module's own docstring, WFH does **not** get its own check-in control: there is one attendance
+button, and an approved day only badges it and skips the geo-fence. Home shows a "WFH" chip beside the
+status chip; the check-in stays where it was.
+
+**Verified by `npm run test:web`** — 38 checks driving the real UI in Edge over CDP against real data,
+covering both Leave and WFH: login, lists, filters and their empty states, validation, the calendar, an
+end-to-end leave submit, the overlap landing on both field and banner, the WFH badge, the today banner and
+the WFH sheet.
 
 **Phase 4 — Attendance history**, and repoint the fourth Quick Action tile from *Reports* to **My Details** — Reports reads the salary-bearing report models, My Details is the surface employees actually own.
 
