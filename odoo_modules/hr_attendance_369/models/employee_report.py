@@ -318,11 +318,20 @@ class EmployeeReport(models.Model):
                 late_times_charged += 1
 
             # ── LEAVE DATA ───────────────────────────────────
+            # Leaves that OVERLAP this month, not merely those that START in
+            # it. Selecting on from_date alone charged a leave crossing a month
+            # boundary entirely to the month it began in, and made it vanish
+            # from the next month's report altogether.
+            #
+            # to_date is optional -- empty means a single day -- so the second
+            # half of the overlap test has to allow for that.
             leave_records = self.env['hr.leave.request'].search([
                 ('hr_employee_id', '=', emp.id),
                 ('state', '=', 'approved'),
-                ('from_date', '>=', str(d_from)),
                 ('from_date', '<=', str(d_to)),
+                '|',
+                '&', ('to_date', '=', False), ('from_date', '>=', str(d_from)),
+                ('to_date', '>=', str(d_from)),
             ], order='from_date asc')
 
             # Leave Policy changes (e.g. unchecking Paid Leave) are NOT
@@ -343,21 +352,55 @@ class EmployeeReport(models.Model):
                 self.env['hr.leave.request']._fields['leave_type'].selection
             )
 
-            for lr in leave_records:
-                total_paid_days += lr.paid_days
-                total_unpaid_days += lr.unpaid_days
-                _lr_ded = calc_leave_deduction_live(lr)
-                total_leave_deduction += _lr_ded
-                total_leave_only_ded += _lr_ded  # leave-request deductions only
+            # Paid portion of each leave day inside this month, keyed by date.
+            # Needed twice below: to total the month's paid days, and to net off
+            # days that are ALSO present days.
+            paid_leave_by_date = {}
 
-                # Map leave to each day it covers
+            for lr in leave_records:
                 lr_start = lr.from_date
                 lr_end = lr.to_date or lr.from_date
+                span = (lr_end - lr_start).days + 1
+
+                # A leave can be worth less than one day per day (a half day is
+                # number_of_days 0.5 over a single date), so spread its value
+                # evenly rather than assuming 1.0 per date.
+                per_day = (lr.number_of_days / span) if span > 0 else 0.0
+
+                # Quota is consumed chronologically -- the first paid_days of a
+                # leave are the paid ones and the remainder is unpaid -- so walk
+                # the whole leave in order and only COUNT the days that fall
+                # inside this month. Apportioning by proportion instead would
+                # split a part-paid leave across a boundary incorrectly.
+                paid_budget = lr.paid_days
+                paid_in_range = 0.0
+                unpaid_in_range = 0.0
+
                 lr_current = lr_start
                 while lr_current <= lr_end:
+                    day_paid = min(per_day, paid_budget)
+                    paid_budget -= day_paid
                     if d_from <= lr_current <= d_to:
                         leave_date_info[lr_current] = lr
+                        paid_in_range += day_paid
+                        unpaid_in_range += (per_day - day_paid)
+                        if day_paid:
+                            paid_leave_by_date[lr_current] = (
+                                paid_leave_by_date.get(lr_current, 0.0) + day_paid)
                     lr_current += timedelta(days=1)
+
+                total_paid_days += paid_in_range
+                total_unpaid_days += unpaid_in_range
+
+                # The deduction is unpaid_days x daily rate, so apportioning it
+                # by unpaid days is exact rather than approximate.
+                _lr_ded = calc_leave_deduction_live(lr)
+                if lr.unpaid_days:
+                    _lr_ded = round(_lr_ded * (unpaid_in_range / lr.unpaid_days), 2)
+                else:
+                    _lr_ded = 0.0
+                total_leave_deduction += _lr_ded
+                total_leave_only_ded += _lr_ded  # leave-request deductions only
 
             # Days the ladder graded as half, netted off earned_days below.
             #
@@ -592,8 +635,16 @@ class EmployeeReport(models.Model):
             # A half day is still a present day (they did check in), so
             # total_present_days counted it as a whole one. Net off the other
             # half here.
+            # A day that is BOTH a present day and a paid-leave day was being
+            # earned twice -- once through total_present_days, once through
+            # total_paid_days. Net the overlap off rather than dropping either,
+            # because both totals are reported in their own right and must stay
+            # true individually.
+            double_counted = sum(
+                paid_leave_by_date.get(_d, 0.0) for _d in present_dates)
             earned_days = max(0.0, total_present_days + total_paid_days
-                              - 0.5 * len(ladder_half_dates))
+                              - 0.5 * len(ladder_half_dates)
+                              - double_counted)
             earned = round(daily_rate * earned_days, 2)
             # Rounding the rate up can make a full month's earnings exceed the wage
             # by a few paise — cap so 100% attendance pays exactly the wage.

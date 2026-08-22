@@ -28,6 +28,35 @@ Every field ships but stays **off until an admin ticks it on**, because this com
 - Net rounded to the rupee, plus **net in words** (Indian lakh/crore) and a leave summary.
 - Confirming is **blocked** when component earnings disagree with `monthly_wage`, naming the employees — paying one figure while deducting against another is the worst outcome.
 
+### Monthly Report: two payroll defects (v19.0.8.6.0)
+
+**Leave was selected by start date only.** The query filtered `from_date` inside the month, so a leave
+crossing a boundary was charged entirely to the month it began in and vanished from the next one. Now selects
+leaves that **overlap** the month (allowing for `to_date` being empty, which means a single day), and counts
+only the days that fall inside it.
+
+Apportionment follows the quota's own semantics: paid days are consumed **chronologically**, so the leave is
+walked in order and the first `paid_days` are the paid ones. Splitting proportionally would divide a
+part-paid leave wrongly across a boundary. The deduction is apportioned by unpaid days, which is exact
+because the deduction *is* unpaid days x daily rate.
+
+Proven on a 30 Aug -> 3 Sep leave (5 days, 1 paid / 4 unpaid):
+
+| Month | paid | unpaid | days |
+|---|---|---|---|
+| August (30–31) | 1.0 | 1.0 | 2 |
+| September (1–3) | 0.0 | 3.0 | 3 |
+| **total** | **1.0** | **4.0** | **5** |
+
+**`present_days + paid_leave_days` double-counted.** A day that was both a present day and a paid-leave day
+earned twice. The overlap is now netted off `earned_days`, while both totals keep their own true values
+because both are reported in their own right. Proven with wage 27000 (daily 1080):
+
+| Attendance | final |
+|---|---|
+| **on** the paid-leave day | **1080** — netted |
+| on a different day | **2160** — both correctly earned |
+
 ### WFH: stray rows on a rejected create (v19.0.8.5.0)
 Identical to the leave bug, and worse. `/wfh/request/create` caught the duplicate-date constraint and
 returned `status: False` without rolling back, so the row was still committed. Leave's ghost landed in
@@ -258,7 +287,7 @@ For Odoo work: `curl` each endpoint **before** wiring a screen. That is what cau
 
 ## 6. State right now
 
-- `sales_test` — addon v**19.0.8.5.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
+- `sales_test` — addon v**19.0.8.6.0**, 21 employees, one draft payroll run `PAY/2026/0008`, no payslips generated
 - Field Settings — company record in **Per employee** mode with every section off, so nobody sees extra fields yet
 - Salary components active: **Basic**, **Special Allowance**
 - App — bundles clean, **35 modules evaluate**, `expo export` exits 0. Home and Leave on live data.
@@ -334,7 +363,9 @@ Salary cannot appear here even by mistake: those fields are outside the allow-li
 
 Also open, worth deciding separately:
 - `monthly_wage` duplicates Odoo 19's stock `wage` (`hr.version`); both now show on the Payroll page
-- The Monthly Report has two defects payslips deliberately avoid — leave is selected by **start date only**, so a leave crossing a month boundary is charged to the wrong month, and `present_days + paid_leave_days` can count one day twice
+- ~~The Monthly Report has two defects~~ — **both fixed in v19.0.8.6.0**, see §1. Boundary-crossing leave now
+  splits across months by chronological quota consumption, and a day that is both present and paid leave is
+  no longer earned twice.
 - ~~`/leave/request/report` and `/wfh/request/list` run `sudo()` ungated~~ — **closed in v19.0.8.4.0.**
   Both were demonstrated open as `demo` first, then gated and re-probed. The old warning that gating
   `/report` "could break existing backend callers" was wrong: it has none.
