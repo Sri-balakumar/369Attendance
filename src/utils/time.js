@@ -170,3 +170,40 @@ export function odooLocalToIso(value) {
   if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)) return s;
   return s.replace(' ', 'T');
 }
+
+/**
+ * A Float hour field as a clock time: 8.5 -> '08:30'.
+ *
+ * This is what Odoo renders with widget="float_time". It is NOT a duration --
+ * formatHours() above turns 8.5 into '8h 30m', which is right for "time worked"
+ * and quite wrong for "office starts at". Keep the two apart.
+ *
+ * 0.0 is a real midnight here; callers that use 0 to mean "switched off" decide
+ * that for themselves rather than having it decided in the formatter.
+ */
+export function formatHourFloat(value) {
+  const v = Number(value);
+  if (!Number.isFinite(v) || v < 0) return '--:--';
+  const total = Math.round(v * 60);
+  const h = Math.floor(total / 60) % 24;
+  const m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * '08:30' -> 8.5, for writing a Float hour field back.
+ *
+ * Returns null on anything it cannot read, so a caller can tell "not a time"
+ * from a legitimate 0. Accepts '8:30' as well as '08:30', and rejects out-of-
+ * range values rather than quietly wrapping them.
+ */
+export function parseHourFloat(text) {
+  if (text === 0) return 0;
+  if (!text) return null;
+  const m = /^\s*(\d{1,2})\s*:\s*(\d{1,2})\s*$/.exec(String(text));
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h + min / 60;
+}

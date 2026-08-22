@@ -10,7 +10,7 @@ import { radii } from '../../theme/tokens';
 import { Card, Skeleton, ConfirmDialog, useToast } from '../../components';
 import { useSession } from '../../state/SessionContext';
 import { getHomeData, toggleAttendance } from '../../services/odoo';
-import { greeting, formatLongDate } from '../../utils/time';
+import { greeting, formatLongDate, formatHourFloat } from '../../utils/time';
 import AttendanceCard from './AttendanceCard';
 import StatTiles from './StatTiles';
 import QuickActions from './QuickActions';
@@ -165,6 +165,11 @@ export default function HomeScreen({ navigation }) {
                 badge
                 onPress={() => showToast('No new notifications.', 'info')}
               />
+              <IconButton
+                icon="settings-outline"
+                label="Settings"
+                onPress={() => navigation.navigate('Settings')}
+              />
               <IconButton icon="log-out-outline" label="Log out" onPress={() => setConfirmLogout(true)} />
             </View>
           </View>
@@ -199,6 +204,27 @@ export default function HomeScreen({ navigation }) {
           ) : (
             <AttendanceCard today={data?.today} onToggle={onToggleAttendance} wfhToday={data?.wfh?.today} />
           )}
+
+          {/* The rules, where they are actually useful: before you check in,
+              not after the day has been graded against them. getHomeData has
+              always fetched this and thrown it away. */}
+          {!loading && data?.config ? (
+            <Text
+              style={{
+                color: colors.muted,
+                fontFamily: fonts.regular,
+                fontSize: fontSize.xs,
+                marginTop: spacing.sm,
+                textAlign: 'center',
+              }}
+            >
+              Office {formatHourFloat(data.config.office_start_hour)}–
+              {formatHourFloat(data.config.office_end_hour)}
+              {data.config.late_threshold_minutes
+                ? ` · ${data.config.late_threshold_minutes} min grace`
+                : ''}
+            </Text>
+          ) : null}
 
           {!loading && data ? <StatTiles today={data.today} style={{ marginTop: spacing.md }} /> : null}
 

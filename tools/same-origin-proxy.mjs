@@ -10,13 +10,15 @@
  * Everything Odoo owns is proxied to :8069, everything else to Metro on :8081,
  * so to the page it is all http://localhost:8090.
  *
- * Usage: node tools/same-origin-proxy.mjs [port]
+ * Usage: node tools/same-origin-proxy.mjs [proxyPort] [metroPort]
  */
 import http from 'node:http';
 
 const PORT = Number(process.argv[2] || 8090);
 const ODOO = { host: 'localhost', port: 8069 };
-const METRO = { host: 'localhost', port: 8081 };
+// Metro's port is an argument: 8081 is often taken by another project on the
+// same machine, and stealing it would kill someone else's dev server.
+const METRO = { host: 'localhost', port: Number(process.argv[3] || 8081) };
 
 // Prefixes Odoo owns. Everything else is the app bundle.
 const ODOO_PREFIXES = ['/web/', '/leave/', '/wfh/', '/hr_attendance/', '/longpolling/', '/websocket'];

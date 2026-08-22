@@ -10,6 +10,7 @@ import LeaveScreen from '../screens/leave/LeaveScreen';
 import WfhScreen from '../screens/wfh/WfhScreen';
 import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 import MyDetailsScreen from '../screens/profile/MyDetailsScreen';
+import SettingsScreen from '../screens/settings/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +57,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Wfh" component={WfhScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="MyDetails" component={MyDetailsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

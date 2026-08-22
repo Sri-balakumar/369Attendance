@@ -450,13 +450,83 @@ export async function getMyEmployeeId(uid) {
 }
 
 /** Office hours, grace and timezone. Read off the model, never via the method. */
+const ATTENDANCE_CONFIG_FIELDS = [
+  'id', 'company_id', 'department_id',
+  'late_tracking_enabled', 'late_reason_required',
+  'office_start_hour', 'office_end_hour', 'daily_work_hours',
+  'late_threshold_minutes',
+  'late_until_hour', 'half_day_after_hour', 'half_day_min_hours_ratio',
+  'timezone',
+  'work_monday', 'work_tuesday', 'work_wednesday', 'work_thursday',
+  'work_friday', 'work_saturday', 'work_sunday',
+];
+
+/**
+ * Office hours, grace and timezone. Read off the model, never via the method.
+ *
+ * get_config_for_employee() and its siblings all browse hr.employee, which an
+ * ordinary employee cannot read in Odoo 19, so they raise AccessError. Reading
+ * the fields directly is the supported path and works for everybody.
+ *
+ * Returns the COMPANY-WIDE row -- department_id false. Department rows exist
+ * and take precedence on the server, so they are fetched separately rather than
+ * silently collapsed into one figure here.
+ */
 export async function fetchAttendanceConfig() {
   const rows = await callKw('hr.attendance.late.config', 'search_read', [
-    [],
-    ['office_start_hour', 'office_end_hour', 'late_threshold_minutes',
-     'daily_work_hours', 'late_until_hour', 'half_day_after_hour', 'timezone'],
+    [['department_id', '=', false]],
+    ATTENDANCE_CONFIG_FIELDS,
   ], { limit: 1 });
   return rows?.[0] || null;
+}
+
+/** Department overrides, which beat the company-wide row for their people. */
+export async function fetchAttendanceConfigOverrides() {
+  const rows = await callKw('hr.attendance.late.config', 'search_read', [
+    [['department_id', '!=', false]],
+    ATTENDANCE_CONFIG_FIELDS,
+  ], { order: 'department_id' });
+  return rows || [];
+}
+
+/**
+ * May this user edit the attendance rules?
+ *
+ * Asks the permission question directly rather than testing group membership.
+ * It stays correct if the ACL is re-cut, and it is the question the screen
+ * actually has: show an Edit control, or do not. (has_group works too, but must
+ * be called as [[uid], 'xml.id'] -- passing the id alone raises a TypeError.)
+ */
+export async function canEditAttendanceConfig() {
+  try {
+    return Boolean(
+      await callKw('hr.attendance.late.config', 'check_access_rights', ['write'], {
+        raise_exception: false,
+      })
+    );
+  } catch (e) {
+    // A refusal is an answer, not a failure: treat it as "read only".
+    return false;
+  }
+}
+
+/** Write changed fields, then hand back the server's own version of the row. */
+export async function saveAttendanceConfig(id, values) {
+  await callKw('hr.attendance.late.config', 'write', [[Number(id)], values]);
+  const rows = await callKw('hr.attendance.late.config', 'read', [
+    [Number(id)], ATTENDANCE_CONFIG_FIELDS,
+  ]);
+  return rows?.[0] || null;
+}
+
+/** Everything the Settings screen's attendance section needs. */
+export async function getAttendanceSettings() {
+  const [config, overrides, canEdit] = await Promise.all([
+    fetchAttendanceConfig(),
+    fetchAttendanceConfigOverrides().catch(() => []),
+    canEditAttendanceConfig(),
+  ]);
+  return { config, overrides, canEdit };
 }
 
 /**
