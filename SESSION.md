@@ -322,7 +322,24 @@ revoking and confirming they refuse again.
 `has_group` is ormcached per process and the shell never signals the registry. Restart the service after any
 grant/revoke or the manager tests fail for the wrong reason.
 
-**Still not exercised on a physical device**: the Leave screen's appearance, the dark-mode pass, and Android
+**Verified on a physical device (Samsung SM-T510, 22 Aug)** by driving Back over adb:
+
+| Action | Result |
+|---|---|
+| Back on **Home** | app does not exit |
+| Leave / WFH / Attendance / My Details -> Back | returns to Home |
+| apply sheet open -> Back | sheet closes, stays on the screen |
+| then Back again | Home |
+
+So the `useFocusEffect` scoping holds: the swallow protects Home and nothing else, and `Modal`'s
+`onRequestClose` takes Back before any subscriber sees it.
+
+**Note for anyone repeating this:** `uiautomator dump` returns a STALE file if one already exists, which
+made two screens look as though Back had done nothing. Delete `/sdcard/u.xml` before every dump, and confirm
+against a screenshot. Also, Git Bash rewrites `/sdcard/...` into a Windows path -- set `MSYS_NO_PATHCONV=1`
+-- and PowerShell's `>` corrupts `adb exec-out screencap` with a BOM, so capture on-device and `adb pull`.
+
+**Previously not exercised on a physical device**: the Leave screen's appearance, the dark-mode pass, and Android
 hardware back (Home's `hardwareBackPress` handler was rescoped to `useFocusEffect` — unconditional it wins
 the race on *every* screen pushed above Home and leaves back dead there). Sign out first: a stale session in
 the platform cookie jar is what produces the post-login 404 described in §3.

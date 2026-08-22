@@ -48,3 +48,4 @@ yarn-error.*
 web.log
 proxy.log
 web-bundle.js
+.device/
