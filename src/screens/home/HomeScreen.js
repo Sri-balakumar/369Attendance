@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { Card, Skeleton, ConfirmDialog, useToast } from '../../components';
+import { Card, Skeleton, ConfirmDialog, useToast, useTabBarLift } from '../../components';
 import { useSession } from '../../state/SessionContext';
 import { getHomeData, toggleAttendance } from '../../services/odoo';
 import { greeting, formatLongDate, formatHourFloat } from '../../utils/time';
@@ -19,6 +19,7 @@ import RecentActivity from './RecentActivity';
 export default function HomeScreen({ navigation }) {
   const { colors, fonts, fontSize, spacing, isDark, toggleTheme, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
+  const lift = useTabBarLift();
   const showToast = useToast();
   const { user, signOut } = useSession();
 
@@ -45,17 +46,20 @@ export default function HomeScreen({ navigation }) {
     load();
   }, [load]);
 
-  // Home is the root of a reset stack, so Android's back button would otherwise
-  // exit straight out mid-gesture without confirming. Swallow it here -- but
-  // ONLY while Home is the focused screen.
+  // Home is the first tab of Main, which is the root of a reset stack, so
+  // Android's back button would otherwise exit straight out mid-gesture
+  // without confirming. Swallow it here -- but ONLY while Home is focused.
   //
   // BackHandler runs its subscribers last-registered-first and stops at the
   // first one returning true. NavigationContainer registers its own goBack()
   // handler when the container mounts, which is before this component, and Home
-  // stays mounted underneath anything pushed on top of it. An unconditional
-  // handler here therefore wins the race on EVERY screen above Home and leaves
-  // hardware back dead there. Re-subscribing on focus puts this last in the
-  // array again, so the ordering self-heals on every pop.
+  // stays mounted underneath anything pushed on top of it -- and now also
+  // while a sibling tab is showing. An unconditional handler here would
+  // therefore win the race everywhere and leave hardware back dead on Leave,
+  // on Settings, and on the Config and Profile tabs. Scoped to focus, each of
+  // those keeps the handler it should have: the stack pops, and the tab
+  // navigator's own backBehavior returns to Home. Re-subscribing on focus puts
+  // this last in the array again, so the ordering self-heals every time.
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -102,10 +106,15 @@ export default function HomeScreen({ navigation }) {
 
   // Logout clears the user only — the server and database stay, so Login can
   // ask for username and password alone.
+  //
+  // Asks the ROOT stack by name. Home is inside a tab navigator now, and
+  // unlike navigate(), reset() does not bubble to a parent -- called on this
+  // screen's own navigation object it would reset which TAB is selected and
+  // leave the session standing.
   const onLogout = async () => {
     setConfirmLogout(false);
     await signOut();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    navigation.getParent('RootStack')?.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
   return (
@@ -114,7 +123,7 @@ export default function HomeScreen({ navigation }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
+        contentContainerStyle={{ paddingBottom: lift }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -236,11 +245,13 @@ export default function HomeScreen({ navigation }) {
             style={{ marginTop: spacing.xl }}
             onPress={(a) => {
               // navigate rather than push: it is idempotent, so a double tap
-              // cannot stack two Leave screens.
+              // cannot stack two Leave screens. The first three bubble up to
+              // the root stack; details is a sibling TAB, so it switches
+              // rather than pushing -- and the bottom bar follows.
               if (a.key === 'leave') navigation.navigate('Leave');
               else if (a.key === 'wfh') navigation.navigate('Wfh');
               else if (a.key === 'attendance') navigation.navigate('Attendance');
-              else if (a.key === 'details') navigation.navigate('MyDetails');
+              else if (a.key === 'details') navigation.navigate('Profile');
               else showToast(`${a.label} is coming in the next update.`, 'info');
             }}
           />

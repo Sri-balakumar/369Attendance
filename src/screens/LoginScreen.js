@@ -75,7 +75,7 @@ export default function LoginScreen({ navigation }) {
         password,
       });
       await signIn(user);
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (e) {
       setFormError(e?.message || 'Sign in failed.');
       runShake();

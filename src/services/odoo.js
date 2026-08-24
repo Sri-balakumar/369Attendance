@@ -459,6 +459,9 @@ const ATTENDANCE_CONFIG_FIELDS = [
   'timezone',
   'work_monday', 'work_tuesday', 'work_wednesday', 'work_thursday',
   'work_friday', 'work_saturday', 'work_sunday',
+  'kra_workday_creates_attendance',
+  // _rec_name on the model: 'Company (Company-wide)' or 'Company / Dept'.
+  'display_name',
 ];
 
 /**
@@ -480,6 +483,26 @@ export async function fetchAttendanceConfig() {
   return rows?.[0] || null;
 }
 
+/**
+ * EVERY rules row -- company-wide first, then one per department.
+ *
+ * The Config screen lists them all rather than fetching the company-wide row
+ * alone, mirroring the backend action's `view_mode: list,form`. That is not
+ * cosmetic: department_id is editable, and a screen that queried
+ * department_id = false would make a row it just re-scoped disappear -- taking
+ * the company's only rules with it, silently, with every employee dropping to
+ * get_config_for_employee's hardcoded fallback. Listing every row is what
+ * makes the scope safe to edit.
+ *
+ * order: 'department_id' puts the NULL department (company-wide) first.
+ */
+export async function fetchAttendanceConfigs() {
+  const rows = await callKw('hr.attendance.late.config', 'search_read', [
+    [], ATTENDANCE_CONFIG_FIELDS,
+  ], { order: 'department_id' });
+  return rows || [];
+}
+
 /** Department overrides, which beat the company-wide row for their people. */
 export async function fetchAttendanceConfigOverrides() {
   const rows = await callKw('hr.attendance.late.config', 'search_read', [
@@ -490,24 +513,56 @@ export async function fetchAttendanceConfigOverrides() {
 }
 
 /**
- * May this user edit the attendance rules?
+ * May this user perform `operation` on `model`?
  *
  * Asks the permission question directly rather than testing group membership.
  * It stays correct if the ACL is re-cut, and it is the question the screen
- * actually has: show an Edit control, or do not. (has_group works too, but must
- * be called as [[uid], 'xml.id'] -- passing the id alone raises a TypeError.)
+ * actually has: show the control, or do not. (has_group works too, but must be
+ * called as [[uid], 'xml.id'] -- passing the id alone raises a TypeError.)
  */
-export async function canEditAttendanceConfig() {
+export async function canDo(model, operation) {
   try {
     return Boolean(
-      await callKw('hr.attendance.late.config', 'check_access_rights', ['write'], {
-        raise_exception: false,
-      })
+      await callKw(model, 'check_access_rights', [operation], { raise_exception: false })
     );
   } catch (e) {
-    // A refusal is an answer, not a failure: treat it as "read only".
+    // A refusal is an answer, not a failure: treat it as "no".
     return false;
   }
+}
+
+/** May this user edit the attendance rules? */
+export const canEditAttendanceConfig = () => canDo('hr.attendance.late.config', 'write');
+
+/**
+ * The three manager capabilities behind the Config tab, in one round trip.
+ *
+ * The two probes below are deliberately NOT the obvious ones. Both
+ * hr.leave.request and hr.wfh.request grant base.group_user 1,1,1,0 -- every
+ * employee may write their OWN requests -- so a write probe on either answers
+ * true for everybody and would put the managers' approval queues in front of
+ * staff. What separates a manager is:
+ *
+ *   leave -> write on hr.leave.config   (manager 1,1,1,1 / user 1,0,0,0)
+ *   wfh   -> UNLINK on hr.wfh.request   (there is no wfh config model, and
+ *                                        unlink is the one permission only
+ *                                        group_wfh_manager holds)
+ *
+ * The three are independent: attendance_groups.xml gives group_leave_manager
+ * and group_wfh_manager implied_ids = [base.group_user] only, so neither
+ * implies hr.group_hr_manager and a user can hold any combination.
+ */
+export async function fetchCapabilities() {
+  const [attendance, leave, wfh, payroll] = await Promise.all([
+    canDo('hr.attendance.late.config', 'write'),
+    canDo('hr.leave.config', 'write'),
+    canDo('hr.wfh.request', 'unlink'),
+    // Payroll resolves to hr.group_hr_manager today, the same as attendance.
+    // Kept separate because they are different jobs, and the ACL could be
+    // re-cut to hand payroll to somebody who does not set office hours.
+    canDo('hr.payslip', 'write'),
+  ]);
+  return { attendance, leave, wfh, payroll };
 }
 
 /** Write changed fields, then hand back the server's own version of the row. */
@@ -519,14 +574,700 @@ export async function saveAttendanceConfig(id, values) {
   return rows?.[0] || null;
 }
 
-/** Everything the Settings screen's attendance section needs. */
+/**
+ * The office-timezone options, straight off the field definition.
+ *
+ * The model builds this Selection from pytz.all_timezones, so it is ~600
+ * entries -- hardcoding a shortlist here would quietly make zones
+ * unreachable from the app that the backend accepts. Asking the server keeps
+ * the two in step for free.
+ *
+ * Memoised for the life of the session: it cannot change under us, and it is
+ * the largest single payload this screen fetches.
+ */
+let timezoneOptionsCache = null;
+export async function fetchTimezoneOptions() {
+  if (timezoneOptionsCache) return timezoneOptionsCache;
+  const fields = await callKw('hr.attendance.late.config', 'fields_get', [
+    ['timezone'], ['selection'],
+  ]);
+  const pairs = fields?.timezone?.selection || [];
+  timezoneOptionsCache = pairs.map(([value, label]) => ({ value, label }));
+  return timezoneOptionsCache;
+}
+
+/** Companies and departments, for the two scope pickers. */
+export async function fetchCompanies() {
+  const rows = await callKw('res.company', 'search_read', [[], ['id', 'name']], { order: 'name' });
+  return (rows || []).map((r) => ({ value: r.id, label: r.name }));
+}
+
+/** Every employee, for the report's "selected employees" filter. */
+export async function fetchEmployeeOptions() {
+  const rows = await callKw('hr.employee', 'search_read', [[], ['id', 'name']], { order: 'name' });
+  return (rows || []).map((r) => ({ value: r.id, label: r.name }));
+}
+
+export async function fetchDepartments() {
+  const rows = await callKw('hr.department', 'search_read', [[], ['id', 'name']], { order: 'name' });
+  return (rows || []).map((r) => ({ value: r.id, label: r.name }));
+}
+
+/**
+ * Re-grade the last three months for this rules row.
+ *
+ * write() already calls this itself whenever a rule-affecting field changes,
+ * so the button matters mainly after switching late tracking back on -- the
+ * figures it zeroed do not come back on their own. Answers with an
+ * ir.actions.client notification dict, which is of no use to a native app and
+ * is dropped.
+ */
+export async function recomputeAttendanceConfig(id) {
+  await callKw('hr.attendance.late.config', 'action_recompute_records', [[Number(id)]]);
+}
+
+/**
+ * Everything the Config screen needs: every rules row, and whether this user
+ * may write them. The pickers are fetched by the form screen instead, so
+ * opening the list does not pay for ~600 timezones nobody asked for.
+ */
 export async function getAttendanceSettings() {
-  const [config, overrides, canEdit] = await Promise.all([
-    fetchAttendanceConfig(),
-    fetchAttendanceConfigOverrides().catch(() => []),
+  const [configs, canEdit] = await Promise.all([
+    fetchAttendanceConfigs(),
     canEditAttendanceConfig(),
   ]);
-  return { config, overrides, canEdit };
+  return { configs, canEdit };
+}
+
+/* ------------------------------------------------------------------ *
+ * Attendance Status -- the admin menu behind the Config tab.
+ *
+ * Six destinations mirroring menu_late_tracking_root in the addon's
+ * menu.xml. Every model below grants hr.group_hr_manager 1,1,1,1 and
+ * base.group_user 1,0,0,0, so the tab's existing canManage gate (write
+ * access on the late config) already covers the whole hub.
+ * ------------------------------------------------------------------ */
+
+const DAY_STATUS_FIELDS = [
+  'id', 'employee_id', 'date', 'status', 'status_display',
+  'is_wfh', 'leave_request_id', 'stamped_by_cron', 'deduction_amount',
+];
+
+/** 1-12 month -> the { from, to } the existing monthBounds() speaks. */
+const monthRange = (year, month) => monthBounds(new Date(year, month - 1, 1));
+
+/** Late check-ins across everybody -- the Late Records list. */
+export async function fetchLateRecords({ year, month, limit = 200 } = {}) {
+  const domain = [['is_late', '=', true]];
+  if (year && month) {
+    const { from, to } = monthRange(year, month);
+    domain.push(['date', '>=', from], ['date', '<=', to]);
+  }
+  const rows = await callKw('hr.attendance', 'search_read', [
+    domain,
+    ['id', 'employee_id', 'date', 'check_in', 'check_out',
+     'is_late', 'late_minutes', 'late_minutes_display', 'worked_hours'],
+  ], { limit, order: 'date desc, check_in desc' });
+  return rows || [];
+}
+
+/** Graded days for a month -- the Day Status list. */
+export async function fetchDayStatuses({ year, month, limit = 300 } = {}) {
+  const { from, to } = monthRange(year, month);
+  const rows = await callKw('hr.attendance.day.status', 'search_read', [
+    [['date', '>=', from], ['date', '<=', to]],
+    DAY_STATUS_FIELDS,
+  ], { limit, order: 'date desc, employee_id' });
+  return rows || [];
+}
+
+/** Today's absentees. The backend menu gates this one to managers explicitly. */
+export async function fetchAbsentToday() {
+  const rows = await callKw('hr.attendance.day.status', 'search_read', [
+    [['date', '=', todayKey()], ['status', '=', 'absent']],
+    DAY_STATUS_FIELDS,
+  ], { order: 'employee_id' });
+  return rows || [];
+}
+
+/**
+ * Just the count, for the badge on the hub.
+ *
+ * search_count rather than reading the rows: this runs on every visit to the
+ * Config tab and the number is the only part used.
+ */
+export async function countAbsentToday() {
+  try {
+    const n = await callKw('hr.attendance.day.status', 'search_count', [
+      [['date', '=', todayKey()], ['status', '=', 'absent']],
+    ]);
+    return Number(n) || 0;
+  } catch (e) {
+    // A badge is decoration -- never let it take the menu down with it.
+    return 0;
+  }
+}
+
+const HOLIDAY_FIELDS = ['id', 'name', 'date', 'company_id', 'year', 'day_name', 'affects_working_days'];
+
+export async function fetchPublicHolidays(year) {
+  const domain = year ? [['year', '=', Number(year)]] : [];
+  const rows = await callKw('hr.public.holiday', 'search_read', [domain, HOLIDAY_FIELDS], {
+    order: 'date asc',
+  });
+  return rows || [];
+}
+
+/** Create when id is null, write otherwise. Returns the server's own row. */
+export async function savePublicHoliday(id, values) {
+  let recordId = id;
+  if (recordId) {
+    await callKw('hr.public.holiday', 'write', [[Number(recordId)], values]);
+  } else {
+    recordId = await callKw('hr.public.holiday', 'create', [values]);
+  }
+  const rows = await callKw('hr.public.holiday', 'read', [[Number(recordId)], HOLIDAY_FIELDS]);
+  return rows?.[0] || null;
+}
+
+/**
+ * Remove a holiday.
+ *
+ * Not a neutral delete: holidays are excluded from the working-day count that
+ * divides the monthly wage, so dropping one LOWERS everybody's daily rate and
+ * makes that month's absences cost less. The caller confirms first.
+ */
+export async function deletePublicHoliday(id) {
+  await callKw('hr.public.holiday', 'unlink', [[Number(id)]]);
+}
+
+/**
+ * Monthly late summary.
+ *
+ * A transient wizard: create it, run action_generate_summary, then read the
+ * lines back. The action's own return is an act_window a native app cannot
+ * use, so the lines are read directly.
+ *
+ * Read with an EMPTY domain deliberately. The lines carry no link back to
+ * the wizard that made them -- action_generate_summary starts by unlinking
+ * every existing line and then creates a fresh set -- so the whole table IS
+ * this run's result. That also means the table is global: two people
+ * generating at once overwrite each other. It is the server's design and
+ * cannot be fixed from here, but it is why this must not be cached.
+ *
+ * Ordering comes from the model's own _order (total_late_days desc).
+ */
+export async function generateLateSummary({ month, year, departmentId = null }) {
+  const values = { month: String(month), year: Number(year) };
+  if (departmentId) values.department_id = Number(departmentId);
+  const wizardId = await callKw('hr.attendance.late.summary.wizard', 'create', [values]);
+  await callKw('hr.attendance.late.summary.wizard', 'action_generate_summary', [[wizardId]]);
+  const rows = await callKw('hr.attendance.late.summary.line', 'search_read', [
+    [],
+    ['id', 'employee_name', 'department_name', 'total_late_days',
+     'total_late_minutes', 'total_late_time_display'],
+  ]);
+  return rows || [];
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Leave / WFH manager queues, and the configuration behind them.
+ *
+ * The employee's own requests already live in getLeaveData/getWfhData.
+ * These are the MANAGER surfaces: everybody's requests, plus approve
+ * and reject. Both models grant base.group_user write on their own
+ * rows, which is why the capability probes in fetchCapabilities() use
+ * hr.leave.config and unlink instead.
+ * ------------------------------------------------------------------ */
+
+const LEAVE_QUEUE_FIELDS = [
+  'id', 'hr_employee_id', 'employee_name', 'leave_type',
+  'from_date', 'to_date', 'number_of_days', 'is_half_day', 'reason',
+  'state', 'is_paid', 'paid_days', 'unpaid_days', 'deduction_amount',
+  'approved_by', 'approval_date', 'submitted_on', 'auto_approved',
+  'rejection_reason',
+];
+
+const WFH_QUEUE_FIELDS = [
+  'id', 'hr_employee_id', 'employee_name', 'request_date', 'reason',
+  'state', 'approved_by', 'approval_date', 'submitted_on',
+  'auto_approved', 'rejection_reason',
+  'checkin_time', 'checkout_time', 'worked_hours_display',
+];
+
+/** Everybody's leave requests. A null state means every state. */
+export async function fetchLeaveQueue({ state = null, limit = 200 } = {}) {
+  const domain = state ? [['state', '=', state]] : [];
+  const rows = await callKw('hr.leave.request', 'search_read', [domain, LEAVE_QUEUE_FIELDS], {
+    limit,
+    order: 'from_date desc, id desc',
+  });
+  return rows || [];
+}
+
+/** Everybody's WFH requests. */
+export async function fetchWfhQueue({ state = null, limit = 200 } = {}) {
+  const domain = state ? [['state', '=', state]] : [];
+  const rows = await callKw('hr.wfh.request', 'search_read', [domain, WFH_QUEUE_FIELDS], {
+    limit,
+    order: 'request_date desc, id desc',
+  });
+  return rows || [];
+}
+
+/** Badge counts for the hub. A badge must never take the menu down with it. */
+async function countPending(model) {
+  try {
+    const n = await callKw(model, 'search_count', [[['state', '=', 'pending']]]);
+    return Number(n) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+export const countPendingLeave = () => countPending('hr.leave.request');
+export const countPendingWfh = () => countPending('hr.wfh.request');
+
+/** Approved leave overlapping a month -- the Approved Leaves Report. */
+export async function fetchApprovedLeaves({ year, month } = {}) {
+  const domain = [['state', '=', 'approved']];
+  if (year && month) {
+    const { from, to } = monthRange(year, month);
+    domain.push(['from_date', '<=', to], ['to_date', '>=', from]);
+  }
+  const rows = await callKw('hr.leave.request', 'search_read', [domain, LEAVE_QUEUE_FIELDS], {
+    order: 'from_date desc',
+  });
+  return rows || [];
+}
+
+/*
+ * Approve / reject.
+ *
+ * Reading goes through search_read above, because the manager record rule is
+ * [(1,'=',1)] and search_read returns the FULL row -- the module's own
+ * /leave/request/pending returns a reduced payload with no paid/unpaid days
+ * and no deduction, and only ever the pending ones.
+ *
+ * Writing goes through the module's routes instead, because those are the
+ * purpose-built API and are correctly guarded: leave_api._is_leave_manager()
+ * and wfh_api._is_wfh_manager() run BEFORE the .sudo(), so the group is
+ * checked and only then is the record rule bypassed -- which is what lets a
+ * manager act on somebody else's row.
+ *
+ * Those same two checks are why fetchCapabilities() probes what it does:
+ *   _is_leave_manager() == group_leave_manager or base.group_system
+ *                       == exactly who holds write on hr.leave.config
+ *   _is_wfh_manager()   == group_wfh_manager or base.group_system
+ *                       == exactly who holds unlink on hr.wfh.request
+ * so the row the app shows and the action the server will accept cannot drift
+ * apart.
+ *
+ * The routes also settle the reject ordering. action_reject() does NOT take or
+ * set rejection_reason -- the field is readonly on the model and the docstring
+ * mentions a wizard that does not exist -- so leave_api rejects FIRST and
+ * writes the reason second. Doing it the other way round would leave a reason
+ * stranded on a still-pending request whenever the reject is refused.
+ *
+ * Note the two routes disagree about whether a reason is optional: WFH refuses
+ * an empty one outright. The app asks for it in both cases.
+ */
+export async function approveLeave(id) {
+  await moduleCall('/leave/request/approve', { request_id: Number(id) });
+}
+
+export async function rejectLeave(id, reason = '') {
+  await moduleCall('/leave/request/reject', {
+    request_id: Number(id),
+    rejection_reason: String(reason || '').trim(),
+  });
+}
+
+export async function approveWfh(id) {
+  await moduleCall('/wfh/request/approve', { request_id: Number(id) });
+}
+
+export async function rejectWfh(id, reason = '') {
+  await moduleCall('/wfh/request/reject', {
+    request_id: Number(id),
+    reason: String(reason || '').trim(),
+  });
+}
+
+/* --- Leave policy (hr.leave.config) --- */
+
+const LEAVE_CONFIG_FIELDS = [
+  'id', 'company_id', 'paid_leave_enabled', 'paid_leave_days_per_year',
+  'paid_leave_days_per_month', 'unpaid_leave_deduction_enabled',
+  'carry_forward_enabled', 'max_carry_forward_days', 'display_name',
+];
+
+export async function fetchLeaveConfig() {
+  const rows = await callKw('hr.leave.config', 'search_read', [[], LEAVE_CONFIG_FIELDS], { limit: 1 });
+  return rows?.[0] || null;
+}
+
+export async function saveLeaveConfig(id, values) {
+  await callKw('hr.leave.config', 'write', [[Number(id)], values]);
+  const rows = await callKw('hr.leave.config', 'read', [[Number(id)], LEAVE_CONFIG_FIELDS]);
+  return rows?.[0] || null;
+}
+
+/* --- Auto-approval (hr.request.auto.approve.config) ---
+ *
+ * ONE record carrying both the leave_* and the wfh_* fields, which is why the
+ * hub shows a single row rather than mirroring Odoo's two menu entries.
+ *
+ * Its ACL grants write to hr.group_hr_manager only, while the two menuitems
+ * that reach it in Odoo are gated on the leave/wfh manager groups -- so a
+ * Leave Manager can open it there and then fail to save. The hub gates this
+ * row on the ACL instead, which is the truth.
+ */
+const AUTO_APPROVE_FIELDS = [
+  'id', 'company_id', 'display_name',
+  'leave_auto_approve', 'leave_delay_number', 'leave_delay_unit', 'leave_delay_minutes',
+  'wfh_auto_approve', 'wfh_delay_number', 'wfh_delay_unit', 'wfh_delay_minutes',
+];
+
+export async function fetchAutoApproveConfig() {
+  const rows = await callKw('hr.request.auto.approve.config', 'search_read', [[], AUTO_APPROVE_FIELDS], {
+    limit: 1,
+  });
+  return rows?.[0] || null;
+}
+
+/**
+ * Write, or create the row if the company has none.
+ *
+ * A company can legitimately have no auto-approval row: the model's own
+ * get_config_for_company() answers with everything switched OFF rather than
+ * raising, so "not configured" and "configured to do nothing" mean the same
+ * thing. Nothing creates the row on install, so the first time somebody turns
+ * a switch on in the app is the moment it has to exist.
+ */
+export async function saveAutoApproveConfig(id, values) {
+  let recordId = id;
+  if (recordId) {
+    await callKw('hr.request.auto.approve.config', 'write', [[Number(recordId)], values]);
+  } else {
+    recordId = await callKw('hr.request.auto.approve.config', 'create', [values]);
+  }
+  const rows = await callKw('hr.request.auto.approve.config', 'read', [[Number(recordId)], AUTO_APPROVE_FIELDS]);
+  return rows?.[0] || null;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Employee Details -- the three configuration models behind the
+ * "Employee Details" menu. All three are hr.group_hr_manager 1,1,1,1
+ * and base.group_user read-only, so they sit under the attendance
+ * capability like the rest of Configuration.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Which sections and fields My Details shows.
+ *
+ * NOT a singleton. A record with config_scope 'global' holds the company
+ * defaults, and each 'employee' record is a SIBLING -- same model, employee_id
+ * set, parent_config_id pointing back -- that REPLACES the defaults for that
+ * person rather than merging with them. So this is a list, like the attendance
+ * rules, not one form.
+ */
+const DETAILS_CONFIG_FIELDS = [
+  'id', 'company_id', 'employee_id', 'config_scope', 'parent_config_id', 'active',
+  'show_salary_section', 'show_statutory_section', 'show_bank_section',
+  'show_personal_section', 'show_employment_section',
+  'show_salary_effective_date', 'show_annual_ctc', 'show_payment_mode',
+  'show_tax_regime', 'show_professional_tax_state',
+  'show_bank_ifsc', 'show_bank_branch', 'show_bank_account_category',
+  'show_blood_group', 'show_father_name', 'show_mother_name',
+  'show_emergency_relation', 'show_second_emergency_contact',
+  'show_confirmation_date', 'show_notice_period', 'show_previous_employment',
+];
+
+export const DETAILS_CONFIG_FIELD_LIST = DETAILS_CONFIG_FIELDS;
+
+export async function fetchDetailsConfigs() {
+  const rows = await callKw('hr.employee.details.config', 'search_read', [[], DETAILS_CONFIG_FIELDS], {
+    order: 'config_scope, employee_id',
+  });
+  return rows || [];
+}
+
+export async function saveDetailsConfig(id, values) {
+  await callKw('hr.employee.details.config', 'write', [[Number(id)], values]);
+  const rows = await callKw('hr.employee.details.config', 'read', [[Number(id)], DETAILS_CONFIG_FIELDS]);
+  return rows?.[0] || null;
+}
+
+/* --- Salary components --- */
+
+const SALARY_COMPONENT_FIELDS = [
+  'id', 'name', 'code', 'component_type', 'computation',
+  'base_component_id', 'percentage', 'default_amount', 'sequence',
+  'company_id', 'active',
+];
+
+export async function fetchSalaryComponents() {
+  const rows = await callKw('hr.salary.component', 'search_read', [[], SALARY_COMPONENT_FIELDS], {
+    order: 'sequence, name',
+  });
+  return rows || [];
+}
+
+export async function saveSalaryComponent(id, values) {
+  let recordId = id;
+  if (recordId) {
+    await callKw('hr.salary.component', 'write', [[Number(recordId)], values]);
+  } else {
+    recordId = await callKw('hr.salary.component', 'create', [values]);
+  }
+  const rows = await callKw('hr.salary.component', 'read', [[Number(recordId)], SALARY_COMPONENT_FIELDS]);
+  return rows?.[0] || null;
+}
+
+export async function deleteSalaryComponent(id) {
+  await callKw('hr.salary.component', 'unlink', [[Number(id)]]);
+}
+
+/* --- Statutory ID types --- */
+
+const STATUTORY_TYPE_FIELDS = [
+  'id', 'name', 'code', 'validation_regex', 'validation_message',
+  'is_required', 'is_confidential', 'sequence', 'company_id', 'active',
+];
+
+export async function fetchStatutoryIdTypes() {
+  const rows = await callKw('hr.statutory.id.type', 'search_read', [[], STATUTORY_TYPE_FIELDS], {
+    order: 'sequence, name',
+  });
+  return rows || [];
+}
+
+export async function saveStatutoryIdType(id, values) {
+  let recordId = id;
+  if (recordId) {
+    await callKw('hr.statutory.id.type', 'write', [[Number(recordId)], values]);
+  } else {
+    recordId = await callKw('hr.statutory.id.type', 'create', [values]);
+  }
+  const rows = await callKw('hr.statutory.id.type', 'read', [[Number(recordId)], STATUTORY_TYPE_FIELDS]);
+  return rows?.[0] || null;
+}
+
+export async function deleteStatutoryIdType(id) {
+  await callKw('hr.statutory.id.type', 'unlink', [[Number(id)]]);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Payroll and Employee Report -- the last two admin menus.
+ *
+ * Everything here is hr.group_hr_manager 1,1,1,1 with hr.group_hr_user
+ * read-only, and everything here is money. That is the standing rule
+ * for this tab: manager-only, so figures are shown; none of it goes
+ * near the employee-facing screens.
+ *
+ * No module HTTP routes exist for payroll or reports -- controllers/
+ * holds only help, leave and wfh -- so it is call_kw throughout.
+ * ------------------------------------------------------------------ */
+
+const PAYROLL_RUN_FIELDS = [
+  'id', 'name', 'month', 'year', 'date_from', 'date_to', 'pay_date',
+  'state', 'company_id', 'currency_id',
+  // These five are NON-STORED computes. They can be read per record but
+  // never searched, sorted or grouped over RPC.
+  'employee_count', 'total_gross', 'total_deductions', 'total_net', 'mismatch_count',
+];
+
+export async function fetchPayrollRuns() {
+  const rows = await callKw('hr.payslip.run', 'search_read', [[], PAYROLL_RUN_FIELDS], {
+    order: 'year desc, month desc',
+  });
+  return rows || [];
+}
+
+export async function fetchPayrollRun(id) {
+  const rows = await callKw('hr.payslip.run', 'read', [[Number(id)], PAYROLL_RUN_FIELDS]);
+  return rows?.[0] || null;
+}
+
+/**
+ * A new run for a month.
+ *
+ * Sends only month, year and company. `name` comes from an ir.sequence inside
+ * create(), and date_from/date_to are stored computes off month+year --
+ * supplying either would be wrong, and the model carries a comment about a
+ * real bug where a shared compute got skipped for exactly that reason.
+ *
+ * month is a STRING ('1'..'12'), not an integer.
+ *
+ * A UNIQUE(company_id, year, month) SQL constraint means the second run for a
+ * month fails at the database. The caller checks first so it can say so
+ * properly, but the constraint is the real guard.
+ */
+export async function createPayrollRun({ month, year, companyId }) {
+  const id = await callKw('hr.payslip.run', 'create', [{
+    month: String(month),
+    year: Number(year),
+    company_id: Number(companyId),
+  }]);
+  return fetchPayrollRun(id);
+}
+
+/** Runs still in draft, for the hub badge. `state` is stored, so this is cheap. */
+export async function countDraftRuns() {
+  try {
+    const n = await callKw('hr.payslip.run', 'search_count', [[['state', '=', 'draft']]]);
+    return Number(n) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/*
+ * The four run actions. Each takes no argument and returns true.
+ *
+ * Three of them guard their own state and raise a UserError the caller should
+ * surface verbatim -- action_confirm's in particular lists every mismatched
+ * payslip with both figures, which is the most useful thing on the screen when
+ * it happens.
+ *
+ * action_confirm is the exception, and it is why the UI gates that one itself:
+ * it has NO state guard of its own. In the web client only the button's
+ * invisible= attribute stops it, so calling it over RPC on a run already
+ * marked PAID silently moves that run back to confirmed. The screen therefore
+ * offers Confirm only for a draft run that has payslips, rather than trusting
+ * the server to refuse.
+ */
+export async function generatePayrollRun(id) {
+  await callKw('hr.payslip.run', 'action_generate', [[Number(id)]]);
+}
+
+export async function confirmPayrollRun(id) {
+  await callKw('hr.payslip.run', 'action_confirm', [[Number(id)]]);
+}
+
+export async function markPayrollRunPaid(id) {
+  await callKw('hr.payslip.run', 'action_mark_paid', [[Number(id)]]);
+}
+
+export async function reopenPayrollRun(id) {
+  await callKw('hr.payslip.run', 'action_reset_to_draft', [[Number(id)]]);
+}
+
+const PAYSLIP_FIELDS = [
+  'id', 'run_id', 'employee_id', 'employee_name', 'department_name', 'job_title',
+  'date_from', 'date_to', 'pay_date', 'state', 'currency_id',
+  'working_days', 'present_days', 'half_days', 'absent_days',
+  'leave_days_paid', 'leave_days_unpaid', 'lop_days', 'paid_days',
+  'gross_earnings', 'total_deductions', 'net_pay', 'net_pay_rounded',
+  'net_in_words', 'monthly_wage', 'wage_mismatch',
+  'leave_opening', 'leave_taken', 'leave_closing',
+];
+
+/** A run's payslips, or every payslip when runId is null. */
+export async function fetchPayslips({ runId = null, limit = 300 } = {}) {
+  const domain = runId ? [['run_id', '=', Number(runId)]] : [];
+  const rows = await callKw('hr.payslip', 'search_read', [domain, PAYSLIP_FIELDS], {
+    limit,
+    order: 'employee_name',
+  });
+  return rows || [];
+}
+
+/**
+ * The earnings and deductions printed on one payslip.
+ *
+ * These are SNAPSHOTS, not live links: name and code were copied off the
+ * salary component when the payslip was generated, precisely so a payslip an
+ * employee already holds cannot change when somebody renames a component next
+ * year. Never resolve a line back to its component for display.
+ */
+export async function fetchPayslipLines(payslipId) {
+  const rows = await callKw('hr.payslip.line', 'search_read', [
+    [['payslip_id', '=', Number(payslipId)]],
+    ['id', 'name', 'code', 'category', 'sequence', 'amount'],
+  ], { order: 'category desc, sequence, id' });
+  return rows || [];
+}
+
+/* --- Employee Report --- */
+
+const REPORT_FIELDS = [
+  'id', 'name', 'month', 'year', 'date_from', 'date_to', 'company_id', 'currency_id',
+  'employee_select', 'employee_ids', 'department_id',
+  'grand_leave_deduction', 'grand_total_deduction', 'grand_wage', 'grand_final_amount',
+];
+
+export async function fetchEmployeeReports() {
+  const rows = await callKw('hr.employee.report', 'search_read', [[], REPORT_FIELDS], {
+    order: 'year desc, month desc, id desc',
+  });
+  return rows || [];
+}
+
+export async function fetchEmployeeReport(id) {
+  const rows = await callKw('hr.employee.report', 'read', [[Number(id)], REPORT_FIELDS]);
+  return rows?.[0] || null;
+}
+
+/**
+ * Generate a report, and find out which one it made.
+ *
+ * The wizard is transient: create it, call action_generate_report, and it
+ * creates a PERSISTENT hr.employee.report, refreshes it, and hands back an
+ * ir.actions.act_window pointing at the result. A native client cannot
+ * dispatch that action -- but its res_id is exactly the new report's id, and
+ * that is the only handle there is. Everything else in the dict is discarded.
+ *
+ * Slow: action_refresh recomputes the whole month for every employee in scope.
+ */
+export async function generateEmployeeReport({
+  month, year, companyId, employeeSelect = 'all', employeeIds = [], departmentId = null,
+}) {
+  const values = {
+    month: String(month),
+    year: Number(year),
+    company_id: Number(companyId),
+    employee_select: employeeSelect,
+    employee_ids: employeeSelect === 'selected' ? [[6, 0, employeeIds.map(Number)]] : [[5]],
+  };
+  if (departmentId) values.department_id = Number(departmentId);
+
+  const wizardId = await callKw('hr.employee.report.wizard', 'create', [values]);
+  const action = await callKw('hr.employee.report.wizard', 'action_generate_report', [[wizardId]]);
+  const reportId = action?.res_id;
+  if (!reportId) throw new Error('The report was generated, but the server did not say which one.');
+  return fetchEmployeeReport(reportId);
+}
+
+/** Recompute an existing report in place. */
+export async function refreshEmployeeReport(id) {
+  await callKw('hr.employee.report', 'action_refresh', [[Number(id)]]);
+  return fetchEmployeeReport(id);
+}
+
+export async function fetchReportSummaryLines(reportId) {
+  const rows = await callKw('hr.employee.report.summary.line', 'search_read', [
+    [['report_id', '=', Number(reportId)]],
+    ['id', 'employee_id', 'employee_name', 'department_name',
+     'total_working_days', 'total_present_days', 'late_days', 'total_late_days_raw',
+     'late_minutes', 'late_minutes_display', 'paid_leave_days', 'unpaid_leave_days',
+     'leave_deduction', 'wage', 'total_deduction', 'final_amount'],
+  ], { order: 'employee_name' });
+  return rows || [];
+}
+
+/** One employee's day-by-day lines, or the whole report's. */
+export async function fetchReportDetailLines(reportId, employeeId = null) {
+  const domain = [['report_id', '=', Number(reportId)]];
+  if (employeeId) domain.push(['employee_id', '=', Number(employeeId)]);
+  const rows = await callKw('hr.employee.report.detail.line', 'search_read', [domain, []], {
+    order: 'id',
+  });
+  return rows || [];
 }
 
 /**

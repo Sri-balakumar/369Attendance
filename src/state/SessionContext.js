@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearSession } from '../services/odoo';
+import { clearSession, fetchCapabilities } from '../services/odoo';
 
 /**
  * Two independently persisted things, because they have different lifetimes:
@@ -10,8 +10,9 @@ import { clearSession } from '../services/odoo';
  *
  * That separation is the whole point. Backgrounding the app, killing it, or
  * relaunching days later does not sign anyone out and never re-asks for the
- * server: the user comes back to Home. Logging out drops the user but keeps
- * the server, so the next screen asks for username and password alone.
+ * server: the user comes back to the Home tab. Logging out drops the user
+ * but keeps the server, so the next screen asks for username and password
+ * alone.
  */
 const SERVER_KEY = '@369att:server';
 const USER_KEY = '@369att:user';
@@ -22,6 +23,13 @@ export function SessionProvider({ children }) {
   const [server, setServer] = useState(null); // { url, db }
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  // Which manager surfaces this user gets. Drives whether the Config tab
+  // exists at all AND which sections it shows -- the three are independent,
+  // because a Leave Manager is not an HR Manager and vice versa.
+  //
+  // Never persisted: an ACL can be re-cut between launches, and a stale `true`
+  // would mount a section whose every write then fails.
+  const [caps, setCaps] = useState({ attendance: false, leave: false, wfh: false, payroll: false });
 
   // Read both keys once at startup. Splash waits for this before routing.
   useEffect(() => {
@@ -42,6 +50,32 @@ export function SessionProvider({ children }) {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * Ask the server the permission questions once per signed-in user.
+   *
+   * Each probe answers false rather than throwing when Odoo refuses -- a
+   * refusal IS the answer -- so there is nothing to catch here. All three
+   * start false and stay false until the reply lands, so the Config tab
+   * appears a beat late rather than flashing in and vanishing.
+   */
+  useEffect(() => {
+    if (!user) {
+      setCaps({ attendance: false, leave: false, wfh: false, payroll: false });
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      const next = await fetchCapabilities();
+      if (!cancelled) setCaps(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // The tab itself: any one surface is enough to earn it.
+  const canManage = caps.attendance || caps.leave || caps.wfh || caps.payroll;
 
   const saveServer = useCallback(async (next) => {
     setServer(next);
@@ -88,8 +122,8 @@ export function SessionProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ server, user, hydrated, saveServer, signIn, signOut, changeServer }),
-    [server, user, hydrated, saveServer, signIn, signOut, changeServer]
+    () => ({ server, user, hydrated, caps, canManage, saveServer, signIn, signOut, changeServer }),
+    [server, user, hydrated, caps, canManage, saveServer, signIn, signOut, changeServer]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
@@ -105,5 +139,5 @@ export function useSession() {
 export function routeFor({ server, user }) {
   if (!server?.url || !server?.db) return 'Server';
   if (!user) return 'Login';
-  return 'Home';
+  return 'Main';
 }

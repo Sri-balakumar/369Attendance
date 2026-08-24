@@ -138,6 +138,15 @@ class PayslipRun(models.Model):
 
     def action_confirm(self):
         for run in self:
+            # Its three siblings all guard their state; this one did not, and
+            # in the web client only the button's invisible= attribute stood
+            # between a PAID run and being silently reopened. Anything calling
+            # the method directly -- RPC, a mobile client, a scheduled action --
+            # bypassed that and moved the run back to Confirmed without error.
+            if run.state != 'draft':
+                raise UserError(_(
+                    'This run is %s. Only a draft run can be confirmed.',
+                    dict(self._fields['state'].selection)[run.state]))
             if not run.payslip_ids:
                 raise UserError(_('Generate the payslips before confirming.'))
             mismatched = run.payslip_ids.filtered('wage_mismatch')

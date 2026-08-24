@@ -1,87 +1,32 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { Card, Skeleton, useToast } from '../../components';
+import { Card } from '../../components';
 import { useSession } from '../../state/SessionContext';
-import { getAttendanceSettings, saveAttendanceConfig } from '../../services/odoo';
 import { prettyHost } from '../../utils/url';
-import AttendanceRulesSection from './AttendanceRulesSection';
 
 /**
- * Settings.
+ * Settings -- which server and database this install is talking to, and as
+ * whom. Previously nowhere in the app.
  *
- * Two things that were previously nowhere in the app: which server and database
- * it is talking to, and the attendance rules everyone is judged by. The rules
- * are read-only for staff and editable for whoever the server says may write
- * them -- Odoo's ACL already draws that line, so the screen just follows it.
+ * The attendance rules used to sit here too and have moved to the Config tab.
+ * They were never really settings in this sense: this screen is about THIS
+ * INSTALL, which every user can see and nobody can change from here, whereas
+ * the rules are company policy that only an authorised user may edit. Keeping
+ * them together meant one screen answering to two audiences.
  *
- * Further sections (WFH, Leave, holidays, auto-approval) belong here too, but
- * attendance went first deliberately so the shape could be proven once.
+ * Still a pushed screen reached from the gear on the Home header, not a tab --
+ * four read-only rows do not earn a permanent seat in the bottom bar.
  */
 export default function SettingsScreen({ navigation }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
-  const showToast = useToast();
-  const { server, user } = useSession();
-
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const load = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      try {
-        setData(await getAttendanceSettings());
-        setError('');
-      } catch (e) {
-        const message = e?.message || 'Could not load settings.';
-        if (data) showToast(message, 'danger');
-        else setError(message);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showToast]
-  );
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /**
-   * Returns true when the write landed, so the section can leave edit mode.
-   *
-   * The saved row is taken from the server's reply rather than patched locally:
-   * daily_work_hours is a stored compute off the office hours, so only the
-   * server knows what the record now says.
-   */
-  const onSave = async (id, values) => {
-    if (saving) return false;
-    setSaving(true);
-    try {
-      const saved = await saveAttendanceConfig(id, values);
-      setData((d) => (d ? { ...d, config: saved || d.config } : d));
-      showToast('Attendance rules updated.', 'success');
-      return true;
-    } catch (e) {
-      showToast(e?.message || 'Could not save the changes.', 'danger');
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  const { server, user, canManage } = useSession();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -116,7 +61,7 @@ export default function SettingsScreen({ navigation }) {
             <Text
               style={{ color: withAlpha(colors.onHeader, 0.8), fontFamily: fonts.regular, fontSize: fontSize.sm }}
             >
-              Connection and attendance rules
+              Server and account
             </Text>
           </View>
         </View>
@@ -125,18 +70,9 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => load(true)}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surface}
-          />
-        }
       >
-        {/* Connection needs no server round trip -- the session already holds it,
-            so it renders immediately even while the rules are still loading. */}
+        {/* No round trip and no loading state: the session already holds all
+            four values, so this renders complete on first paint. */}
         <Card padded={false}>
           <View style={[styles.head, { borderBottomColor: colors.border }]}>
             <View style={[styles.headIcon, { backgroundColor: withAlpha(colors.info, 0.14) }]}>
@@ -156,42 +92,21 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </Card>
 
-        {loading ? (
-          <Card style={{ marginTop: spacing.md }}>
-            <Skeleton width="40%" height={15} />
-            <Skeleton height={12} style={{ marginTop: 14 }} />
-            <Skeleton width="70%" height={12} style={{ marginTop: 8 }} />
-            <Skeleton width="55%" height={12} style={{ marginTop: 8 }} />
-          </Card>
-        ) : error ? (
-          <ErrorCard message={error} onRetry={() => load()} />
-        ) : !data?.config ? (
-          <Card style={{ marginTop: spacing.md }}>
-            <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm }}>
-              No attendance rules are configured for your company yet.
-            </Text>
-          </Card>
-        ) : (
-          <AttendanceRulesSection
-            config={data.config}
-            overrides={data.overrides}
-            canEdit={data.canEdit}
-            saving={saving}
-            onSave={onSave}
-          />
-        )}
-
-        <Text
-          style={{
-            color: colors.muted,
-            fontFamily: fonts.regular,
-            fontSize: fontSize.xs,
-            textAlign: 'center',
-            marginTop: spacing.lg,
-          }}
-        >
-          Work-from-home, leave and holiday settings will appear here as they are added.
-        </Text>
+        {/* Only worth saying to someone who HAS a Config tab -- pointing
+            staff at a destination they cannot reach is worse than silence. */}
+        {canManage ? (
+          <Text
+            style={{
+              color: colors.muted,
+              fontFamily: fonts.regular,
+              fontSize: fontSize.xs,
+              textAlign: 'center',
+              marginTop: spacing.lg,
+            }}
+          >
+            Attendance, work-from-home and leave rules live in Config.
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -217,33 +132,6 @@ function Row({ label, value, last }) {
         {value}
       </Text>
     </View>
-  );
-}
-
-function ErrorCard({ message, onRetry }) {
-  const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
-  return (
-    <Card
-      style={{
-        marginTop: spacing.md,
-        backgroundColor: withAlpha(colors.danger, 0.09),
-        borderColor: withAlpha(colors.danger, 0.3),
-      }}
-    >
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Ionicons name="alert-circle" size={18} color={colors.danger} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.sm }}>
-            {message}
-          </Text>
-          <Pressable onPress={onRetry} hitSlop={8} style={{ marginTop: spacing.sm }}>
-            <Text style={{ color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.sm }}>
-              Retry
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </Card>
   );
 }
 

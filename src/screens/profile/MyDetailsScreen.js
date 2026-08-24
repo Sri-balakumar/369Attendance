@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { Card, Skeleton, useToast } from '../../components';
+import { Card, Skeleton, useToast, useTabBarLift } from '../../components';
 import { useSession } from '../../state/SessionContext';
 import { getMyDetails } from '../../services/odoo';
 import { formatDateKeyShort } from '../../utils/time';
@@ -22,9 +22,10 @@ import { formatDateKeyShort } from '../../utils/time';
  * choice: the fields are outside the self-service allow-list on res.users, so
  * this screen could not show them even if it tried.
  */
-export default function MyDetailsScreen({ navigation }) {
+export default function MyDetailsScreen() {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
+  const lift = useTabBarLift();
   const showToast = useToast();
   const { user } = useSession();
 
@@ -73,22 +74,22 @@ export default function MyDetailsScreen({ navigation }) {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + spacing.base }]}
       >
+        {/* No back chevron: this is a tab root. The initials sit where it was,
+            so the header keeps its shape. */}
         <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            style={({ pressed }) => [
-              styles.backBtn,
+          <View
+            style={[
+              styles.avatar,
               {
-                backgroundColor: withAlpha(colors.onHeader, pressed ? 0.28 : 0.16),
-                borderColor: withAlpha(colors.onHeader, 0.22),
+                backgroundColor: withAlpha(colors.onHeader, 0.2),
+                borderColor: withAlpha(colors.onHeader, 0.32),
               },
             ]}
           >
-            <Ionicons name="chevron-back" size={20} color={colors.onHeader} />
-          </Pressable>
+            <Text style={{ color: colors.onHeader, fontFamily: fonts.bold, fontSize: fontSize.sm }}>
+              {user?.initials || 'U'}
+            </Text>
+          </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={{ color: colors.onHeader, fontFamily: fonts.bold, fontSize: fontSize.lg }}>
               My details
@@ -104,7 +105,7 @@ export default function MyDetailsScreen({ navigation }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: lift }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -318,10 +319,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radii.lg,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
-  backBtn: {
+  avatar: {
     width: 36,
     height: 36,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
