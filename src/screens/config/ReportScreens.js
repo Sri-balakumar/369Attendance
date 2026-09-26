@@ -25,6 +25,7 @@ import {
 } from '../../services/odoo';
 import { formatDateKeyShort } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { Section, Caption, Note, Picker } from './FormBits';
 import { MoneyRow, FactRow, formatMoney, formatDays, monthLabel, MONTH_LABELS } from './Money';
 
@@ -105,7 +106,7 @@ export function GenerateReportScreen({ navigation }) {
   };
 
   return (
-    <AdminScreen navigation={navigation} title="Generate Report" subtitle="A month, per employee">
+    <AdminScreen guide={GUIDES.generateReport} navigation={navigation} title="Generate Report" subtitle="A month, per employee">
       <Section title="Period" icon="calendar-outline" tone="primary">
         <Picker
           label="Month"
@@ -274,7 +275,7 @@ export function PastReportsScreen({ navigation }) {
   );
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.pastReports}
       navigation={navigation}
       title="Past Reports"
       subtitle="Generated employee reports"
@@ -371,7 +372,7 @@ export function ReportScreen({ navigation, route }) {
   };
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.report}
       navigation={navigation}
       title={report ? `${monthLabel(report.month)} ${report.year}` : 'Report'}
       subtitle={report?.department_id ? report.department_id[1] : 'All departments'}
@@ -441,6 +442,7 @@ export function ReportScreen({ navigation, route }) {
                       {formatDays(l.total_present_days)}/{formatDays(l.total_working_days)} days
                       {l.late_days ? ` · ${l.late_days} late` : ''}
                       {Number(l.unpaid_leave_days) ? ` · ${formatDays(l.unpaid_leave_days)} unpaid` : ''}
+                      {Number(l.comp_off_days) ? ` · ${formatDays(l.comp_off_days)} comp off` : ''}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -521,7 +523,7 @@ export function ReportDetailScreen({ navigation, route }) {
   }, [reportId, employeeId]);
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.reportDetail}
       navigation={navigation}
       title={employeeName || 'Detail'}
       subtitle="Day by day"

@@ -8,6 +8,7 @@ import { Card, Chip } from '../../components';
 import { fetchPublicHolidays } from '../../services/odoo';
 import { formatDateKeyShort } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 
 /**
  * Public holidays for a year.
@@ -48,7 +49,7 @@ export default function HolidaysScreen({ navigation }) {
   );
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.holidays}
       navigation={navigation}
       title="Public Holidays"
       subtitle="Excluded from working days"
@@ -58,6 +59,7 @@ export default function HolidaysScreen({ navigation }) {
       refreshing={refreshing}
       onRefresh={() => load(true)}
       empty={!loading && !error && rows.length === 0}
+      keepChildrenWhenEmpty
       emptyTitle={`No holidays in ${year}`}
       emptyMessage="Adding one raises everybody's daily rate for that month, because it leaves the working-day count. Nobody is ever marked Absent on a holiday."
       emptyIcon="flag-outline"

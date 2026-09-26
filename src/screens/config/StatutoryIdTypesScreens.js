@@ -21,6 +21,7 @@ import {
   fetchCompanies,
 } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { Caption, Picker } from './FormBits';
 
 /** PAN, Aadhaar, UAN and friends -- the identifier types an employee can hold. */
@@ -51,7 +52,7 @@ export function StatutoryIdTypesListScreen({ navigation }) {
   );
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.idTypesList}
       navigation={navigation}
       title="Statutory ID Types"
       subtitle="PAN, Aadhaar, UAN"
@@ -61,6 +62,7 @@ export function StatutoryIdTypesListScreen({ navigation }) {
       refreshing={refreshing}
       onRefresh={() => load(true)}
       empty={!loading && !error && rows.length === 0}
+      keepChildrenWhenEmpty
       emptyTitle="No identifier types"
       emptyMessage="Add the identifiers your employees are asked for. Each one can carry a validation pattern."
       emptyIcon="card-outline"
@@ -233,7 +235,7 @@ export function StatutoryIdTypeFormScreen({ navigation, route }) {
   };
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.idTypeForm}
       navigation={navigation}
       title={id ? 'Edit identifier' : 'Add identifier'}
       subtitle={id ? d.name || 'Statutory ID type' : 'PAN, Aadhaar, UAN…'}

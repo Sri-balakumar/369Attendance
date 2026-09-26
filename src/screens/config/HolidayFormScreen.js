@@ -5,6 +5,7 @@ import { useTheme } from '../../theme';
 import {
   Card,
   AppTextInput,
+  DateField,
   PrimaryButton,
   SelectSheet,
   SwitchRow,
@@ -18,8 +19,7 @@ import {
   fetchCompanies,
 } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+import { GUIDES } from './guides';
 
 /**
  * Add, edit or remove one public holiday.
@@ -78,10 +78,7 @@ export default function HolidayFormScreen({ navigation, route }) {
   const submit = async () => {
     const next = {};
     if (!name.trim()) next.name = 'Give the holiday a name.';
-    if (!ISO_DATE.test(date)) next.date = 'Use YYYY-MM-DD, e.g. 2026-01-26.';
-    else if (Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
-      next.date = 'That is not a real date.';
-    }
+    if (!date) next.date = 'Pick the date.';
     if (!companyId) next.company = 'A company is required.';
     setErrors(next);
     if (Object.keys(next).length) return;
@@ -118,7 +115,7 @@ export default function HolidayFormScreen({ navigation, route }) {
   };
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.holidayForm}
       navigation={navigation}
       title={id ? 'Edit holiday' : 'Add holiday'}
       subtitle={id ? name || 'Public holiday' : `${year}`}
@@ -136,16 +133,14 @@ export default function HolidayFormScreen({ navigation, route }) {
           icon="flag-outline"
           error={errors.name}
         />
-        <AppTextInput
-          label="Date (YYYY-MM-DD)"
+        <DateField
+          label="Date"
           value={date}
-          onChangeText={(v) => {
-            setDate(v.replace(/[^0-9-]/g, '').slice(0, 10));
+          onChange={(v) => {
+            setDate(v);
             if (errors.date) setErrors((e) => ({ ...e, date: undefined }));
           }}
-          icon="calendar-outline"
           error={errors.date}
-          keyboardType="numbers-and-punctuation"
           style={{ marginTop: spacing.base }}
         />
         <AppTextInput

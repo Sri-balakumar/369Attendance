@@ -27,6 +27,7 @@ import {
 } from '../../services/odoo';
 import { formatDateKeyShort } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { Section, Caption, Note, Picker } from './FormBits';
 import {
   MoneyRow,
@@ -127,7 +128,7 @@ export function PayrollRunsScreen({ navigation }) {
   };
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.payrollRuns}
       navigation={navigation}
       title="Payroll Runs"
       subtitle="One per company per month"
@@ -137,6 +138,7 @@ export function PayrollRunsScreen({ navigation }) {
       refreshing={refreshing}
       onRefresh={() => load(true)}
       empty={!loading && !error && rows.length === 0 && !creating}
+      keepChildrenWhenEmpty
       emptyTitle="No payroll runs yet"
       emptyMessage="A run gathers a month's payslips. Create one, generate the payslips, then confirm it."
       emptyIcon="cash-outline"
@@ -323,7 +325,7 @@ export function PayrollRunScreen({ navigation, route }) {
   const canReopen = run?.state === 'confirmed';
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.payrollRun}
       navigation={navigation}
       title={run ? `${monthLabel(run.month)} ${run.year}` : 'Payroll run'}
       subtitle={run?.name || 'Payroll'}
@@ -543,7 +545,7 @@ export function PayslipsScreen({ navigation, route }) {
   }, [load]);
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.payslips}
       navigation={navigation}
       title="Payslips"
       subtitle={heading || 'Every payslip'}
@@ -646,7 +648,7 @@ export function PayslipScreen({ navigation, route }) {
   const exact = Number(slip?.net_pay) || 0;
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.payslip}
       navigation={navigation}
       title={slip?.employee_name || 'Payslip'}
       subtitle={slip ? `${monthLabel(slip.date_from ? String(new Date(slip.date_from).getMonth() + 1) : '')} ${slip.date_from ? new Date(slip.date_from).getFullYear() : ''}` : 'Payslip'}
@@ -757,6 +759,9 @@ export function PayslipScreen({ navigation, route }) {
             <FactRow label="Half days" value={formatDays(slip.half_days)} tone="info" />
             <FactRow label="Absent" value={formatDays(slip.absent_days)} tone="danger" />
             <FactRow label="Paid leave" value={formatDays(slip.leave_days_paid)} />
+            {Number(slip.comp_off_days) > 0 ? (
+              <FactRow label="Comp off" value={formatDays(slip.comp_off_days)} tone="primary" />
+            ) : null}
             <FactRow label="Unpaid leave" value={formatDays(slip.leave_days_unpaid)} tone="warning" />
             <FactRow label="Loss of pay days" value={formatDays(slip.lop_days)} tone="danger" />
             <FactRow label="Paid days" value={formatDays(slip.paid_days)} last />

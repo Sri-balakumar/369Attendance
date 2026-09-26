@@ -21,6 +21,9 @@ import HolidayFormScreen from '../screens/config/HolidayFormScreen';
 import RequestQueueScreen from '../screens/config/RequestQueueScreen';
 import RequestDetailScreen from '../screens/config/RequestDetailScreen';
 import ApprovedLeavesScreen from '../screens/config/ApprovedLeavesScreen';
+import CompOffScreen from '../screens/config/CompOffScreen';
+import CompOffFormScreen from '../screens/config/CompOffFormScreen';
+import LeaveBalancesScreen from '../screens/config/LeaveBalancesScreen';
 import LeavePolicyScreen from '../screens/config/LeavePolicyScreen';
 import AutoApprovalScreen from '../screens/config/AutoApprovalScreen';
 import { FieldSettingsListScreen, FieldSettingsFormScreen } from '../screens/config/FieldSettingsScreens';
@@ -125,6 +128,9 @@ export default function RootNavigator() {
         <Stack.Screen name="RequestDetail" component={RequestDetailScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="ApprovedLeaves" component={ApprovedLeavesScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="LeavePolicy" component={LeavePolicyScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="CompOff" component={CompOffScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="CompOffForm" component={CompOffFormScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="LeaveBalances" component={LeaveBalancesScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="AutoApproval" component={AutoApprovalScreen} options={{ animation: 'slide_from_right' }} />
 
         {/* Employee Details */}

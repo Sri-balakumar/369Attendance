@@ -5,6 +5,7 @@ import { radii } from '../../theme/tokens';
 import { fetchDayStatuses } from '../../services/odoo';
 import { DAY_STATUSES, SUMMARY_ORDER } from '../attendance/constants';
 import AdminScreen, { MonthNav } from './AdminScreen';
+import { GUIDES } from './guides';
 import { DayStatusRow } from './StatusRows';
 import { useMonth } from './useMonth';
 
@@ -51,7 +52,7 @@ export default function DayStatusScreen({ navigation }) {
   const shown = filter ? rows.filter((r) => r.status === filter) : rows;
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.dayStatus}
       navigation={navigation}
       title="Day Status"
       subtitle="How each day was graded"

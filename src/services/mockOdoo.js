@@ -127,5 +127,6 @@ export const DAY_STATUS = {
   half_day: { label: 'Half Day', tone: 'info' },
   absent: { label: 'Absent', tone: 'danger' },
   leave: { label: 'Leave', tone: 'accent' },
+  day_off: { label: 'Day Off', tone: 'primary' },
   wfh: { label: 'WFH', tone: 'primary' },
 };

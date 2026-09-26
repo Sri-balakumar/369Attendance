@@ -7,6 +7,7 @@ import { Card, Chip } from '../../components';
 import { fetchApprovedLeaves } from '../../services/odoo';
 import { formatDateKeyShort } from '../../utils/time';
 import AdminScreen, { MonthNav } from './AdminScreen';
+import { GUIDES } from './guides';
 import { useMonth } from './useMonth';
 import { leaveTypeLabel } from './requestConstants';
 
@@ -61,7 +62,7 @@ export default function ApprovedLeavesScreen({ navigation }) {
   }, [rows]);
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.approvedLeaves}
       navigation={navigation}
       title="Approved Leaves"
       subtitle="Granted this month"

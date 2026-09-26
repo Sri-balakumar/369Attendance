@@ -21,6 +21,7 @@ import {
   fetchCompanies,
 } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { Caption, Picker } from './FormBits';
 
 const TYPES = [
@@ -64,7 +65,7 @@ export function SalaryComponentsListScreen({ navigation }) {
   );
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.salaryList}
       navigation={navigation}
       title="Salary Components"
       subtitle="Earnings and deductions"
@@ -74,6 +75,7 @@ export function SalaryComponentsListScreen({ navigation }) {
       refreshing={refreshing}
       onRefresh={() => load(true)}
       empty={!loading && !error && rows.length === 0}
+      keepChildrenWhenEmpty
       emptyTitle="No components yet"
       emptyMessage="Add the earnings that make up the gross and the deductions taken off it."
       emptyIcon="cash-outline"
@@ -269,7 +271,7 @@ export function SalaryComponentFormScreen({ navigation, route }) {
   const isFixed = d.computation === 'fixed';
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.salaryForm}
       navigation={navigation}
       title={id ? 'Edit component' : 'Add component'}
       subtitle={id ? d.name || 'Salary component' : 'Earning or deduction'}

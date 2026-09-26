@@ -9,6 +9,8 @@ import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
 import { Card, useTabBarLift } from '../../components';
 import { useSession } from '../../state/SessionContext';
+import { GuideBanner } from './FormBits';
+import { GUIDES } from './guides';
 import {
   countAbsentToday,
   countPendingLeave,
@@ -29,6 +31,11 @@ import {
  * The tab itself is mounted when ANY section would render; see canManage in
  * SessionContext.
  */
+const BALANCE_ROWS = [
+  { key: 'CompOff', icon: 'sunny-outline', tone: 'primary', label: 'Compensatory Off', caption: 'Credits for days off worked' },
+  { key: 'LeaveBalances', icon: 'wallet-outline', tone: 'accent', label: 'Leave Balances', caption: 'Paid and comp off, per employee' },
+];
+
 function sectionsFor(caps, counts) {
   const out = [];
 
@@ -64,9 +71,14 @@ function sectionsFor(caps, counts) {
           badge: counts.leave,
         },
         { key: 'ApprovedLeaves', icon: 'checkmark-done-outline', tone: 'success', label: 'Approved Leaves Report', caption: 'What was granted' },
+        ...BALANCE_ROWS,
         { key: 'LeavePolicy', icon: 'shield-checkmark-outline', tone: 'info', label: 'Leave Policy', caption: 'Paid days, carry forward' },
       ],
     });
+  } else if (caps.attendance) {
+    // hr.group_hr_manager holds full access on hr.comp.off.credit and reads
+    // the balance fields, even without the leave-manager hat.
+    out.push({ title: 'Leave balances', items: BALANCE_ROWS });
   }
 
   if (caps.wfh) {
@@ -215,6 +227,7 @@ export default function ConfigScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: lift }}
       >
+        <GuideBanner {...GUIDES.hub} />
         {sections.map((section, si) => (
           <View key={section.title} style={{ marginTop: si === 0 ? 0 : spacing.lg }}>
             <Text

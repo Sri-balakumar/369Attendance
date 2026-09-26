@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
 import { Card, Skeleton } from '../../components';
+import { GuideBanner } from './FormBits';
 
 /**
  * The shell every Attendance Status screen sits in.
@@ -20,6 +21,14 @@ import { Card, Skeleton } from '../../components';
  * Pushed above Main, so the floating tab bar is covered while any of these is
  * open -- which is why the bottom padding here uses the raw safe-area inset
  * rather than useTabBarLift().
+ *
+ * `guide` ({ title, intro?, steps? }) puts a yellow how-to banner at the top.
+ * It sits outside the loading / error / empty switch on purpose: an empty list
+ * is exactly when a new admin needs the steps.
+ *
+ * `keepChildrenWhenEmpty` renders the children under the empty state instead
+ * of dropping them. A screen whose create button lives in its children needs
+ * it, or an empty list hides the only way to add the first row.
  */
 export default function AdminScreen({
   navigation,
@@ -36,6 +45,8 @@ export default function AdminScreen({
   emptyTitle,
   emptyMessage,
   emptyIcon = 'checkmark-circle-outline',
+  keepChildrenWhenEmpty = false,
+  guide,
   children,
 }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
@@ -104,6 +115,7 @@ export default function AdminScreen({
           ) : undefined
         }
       >
+        {guide ? <GuideBanner {...guide} /> : null}
         {loading ? (
           <>
             {[0, 1, 2].map((i) => (
@@ -116,7 +128,10 @@ export default function AdminScreen({
         ) : error ? (
           <ErrorCard message={error} onRetry={onRetry} />
         ) : empty ? (
-          <EmptyState title={emptyTitle} message={emptyMessage} icon={emptyIcon} />
+          <>
+            <EmptyState title={emptyTitle} message={emptyMessage} icon={emptyIcon} />
+            {keepChildrenWhenEmpty ? children : null}
+          </>
         ) : (
           children
         )}
@@ -130,7 +145,7 @@ export default function AdminScreen({
  * Those strings are already written, already accurate, and already explain WHY
  * a list is empty -- which is the part a blank screen cannot say for itself.
  */
-function EmptyState({ title, message, icon }) {
+export function EmptyState({ title, message, icon }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   return (
     <Card style={{ alignItems: 'center', paddingVertical: spacing.xl }}>

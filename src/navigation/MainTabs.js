@@ -26,7 +26,9 @@ export default function MainTabs() {
 
   return (
     <Tab.Navigator
-      screenOptions={{ headerShown: false }}
+      // 'shift' slides and fades between tabs, so switching reads as a
+      // move sideways rather than a hard cut.
+      screenOptions={{ headerShown: false, animation: 'shift' }}
       tabBar={(props) => <BottomTabBar {...props} />}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
