@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { useTheme } from '../../theme';
-import { Card, AppTextInput, PrimaryButton, SwitchRow, useToast } from '../../components';
-import { fetchLeaveConfig, saveLeaveConfig } from '../../services/odoo';
+import { Card, AppTextInput, PrimaryButton, SwitchRow, MailPreviewModal, useToast } from '../../components';
+import { fetchLeaveConfig, saveLeaveConfig, previewLeaveMail } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
-import { Section, Caption } from './FormBits';
+import { GUIDES } from './guides';
+import { Section, Caption, Note } from './FormBits';
 
 /** The company's leave policy -- one record, hr.leave.config. */
 export default function LeavePolicyScreen({ navigation }) {
@@ -25,12 +26,20 @@ export default function LeavePolicyScreen({ navigation }) {
     unpaid_leave_deduction_enabled: Boolean(c.unpaid_leave_deduction_enabled),
     carry_forward_enabled: Boolean(c.carry_forward_enabled),
     max_carry_forward_days: String(c.max_carry_forward_days ?? ''),
+    comp_off_enabled: Boolean(c.comp_off_enabled),
+    comp_off_expiry_days: String(c.comp_off_expiry_days ?? ''),
+    comp_off_carry_forward_enabled: Boolean(c.comp_off_carry_forward_enabled),
+    comp_off_max_carry_forward_days: String(c.comp_off_max_carry_forward_days ?? ''),
+    notify_on_submit: Boolean(c.notify_on_submit),
+    notify_emails: String(c.notify_emails || ''),
   });
+
+  const [showMail, setShowMail] = useState(false);
 
   const load = async () => {
     try {
       const row = await fetchLeaveConfig();
-      if (!row) throw new Error('No leave policy is configured for your company yet.');
+      if (!row) throw new Error('Could not load the leave policy.');
       setConfig(row);
       setDraft(toDraft(row));
       setError('');
@@ -56,10 +65,14 @@ export default function LeavePolicyScreen({ navigation }) {
     const perYear = Number(draft.paid_leave_days_per_year);
     const perMonth = Number(draft.paid_leave_days_per_month);
     const carry = Number(draft.max_carry_forward_days);
+    const compExpiry = Number(draft.comp_off_expiry_days);
+    const compCarry = Number(draft.comp_off_max_carry_forward_days);
 
     if (!Number.isFinite(perYear) || perYear < 0) next.paid_leave_days_per_year = 'Days per year, 0 or more.';
     if (!Number.isFinite(perMonth) || perMonth < 0) next.paid_leave_days_per_month = 'Days per month, 0 or more.';
     if (!Number.isFinite(carry) || carry < 0) next.max_carry_forward_days = 'Days, 0 or more.';
+    if (!Number.isFinite(compExpiry) || compExpiry < 0) next.comp_off_expiry_days = 'Days, 0 or more (0 never expires).';
+    if (!Number.isFinite(compCarry) || compCarry < 0) next.comp_off_max_carry_forward_days = 'Days, 0 or more.';
     // Not a hard rule on the server, but a monthly accrual that cannot reach
     // the yearly quota is almost always a typo in one of the two.
     if (Number.isFinite(perYear) && Number.isFinite(perMonth) && perMonth * 12 < perYear) {
@@ -78,12 +91,18 @@ export default function LeavePolicyScreen({ navigation }) {
         unpaid_leave_deduction_enabled: Boolean(draft.unpaid_leave_deduction_enabled),
         carry_forward_enabled: Boolean(draft.carry_forward_enabled),
         max_carry_forward_days: Math.round(carry),
+        comp_off_enabled: Boolean(draft.comp_off_enabled),
+        comp_off_expiry_days: Math.round(compExpiry),
+        comp_off_carry_forward_enabled: Boolean(draft.comp_off_carry_forward_enabled),
+        comp_off_max_carry_forward_days: Math.round(compCarry),
+        notify_on_submit: Boolean(draft.notify_on_submit),
+        notify_emails: draft.notify_emails.trim() || false,
       });
       if (saved) {
         setConfig(saved);
         setDraft(toDraft(saved));
       }
-      showToast('Leave policy updated.', 'success');
+      showToast(config.id ? 'Leave policy updated.' : 'Leave policy created.', 'success');
       navigation.goBack();
     } catch (e) {
       showToast(e?.message || 'Could not save the leave policy.', 'danger');
@@ -93,7 +112,7 @@ export default function LeavePolicyScreen({ navigation }) {
   };
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.leavePolicy}
       navigation={navigation}
       title="Leave Policy"
       subtitle={config?.company_id ? config.company_id[1] : 'Paid days and carry forward'}
@@ -104,6 +123,13 @@ export default function LeavePolicyScreen({ navigation }) {
         load();
       }}
     >
+      {config && !config.id ? (
+        <Note tone="warning" icon="alert-circle-outline" style={{ marginBottom: spacing.md }}>
+          No leave policy is saved yet, so every leave is paid as UNPAID and deducted. These are
+          the suggested defaults. Check them and tap Save to create the policy.
+        </Note>
+      ) : null}
+
       <Section title="Paid leave" icon="wallet-outline" tone="success">
         <SwitchRow
           label="Paid leave"
@@ -167,6 +193,88 @@ export default function LeavePolicyScreen({ navigation }) {
           </View>
         ) : null}
       </Section>
+
+      <Section title="Compensatory off" icon="swap-horizontal-outline" tone="info">
+        <SwitchRow
+          label="Compensatory off"
+          help="Working a weekly off or a public holiday earns a day back. A full day worked earns 1, a short day 0.5."
+          value={draft.comp_off_enabled}
+          onValueChange={(v) => set('comp_off_enabled', v)}
+          last={!draft.comp_off_enabled}
+        />
+        {draft.comp_off_enabled ? (
+          <>
+            <View style={{ marginTop: spacing.md }}>
+              <AppTextInput
+                label="Expires after (days, 0 = never)"
+                value={draft.comp_off_expiry_days}
+                onChangeText={(v) => set('comp_off_expiry_days', v.replace(/[^0-9]/g, ''))}
+                icon="hourglass-outline"
+                error={errors.comp_off_expiry_days}
+                keyboardType="number-pad"
+              />
+            </View>
+            <SwitchRow
+              label="Carry forward"
+              help="Let unused comp offs roll into next year, up to the cap below. Unlike the paid-leave carry forward above, this one is applied."
+              value={draft.comp_off_carry_forward_enabled}
+              onValueChange={(v) => set('comp_off_carry_forward_enabled', v)}
+              last={!draft.comp_off_carry_forward_enabled}
+            />
+            {draft.comp_off_carry_forward_enabled ? (
+              <View style={{ marginTop: spacing.md }}>
+                <AppTextInput
+                  label="Maximum comp offs carried"
+                  value={draft.comp_off_max_carry_forward_days}
+                  onChangeText={(v) => set('comp_off_max_carry_forward_days', v.replace(/[^0-9]/g, ''))}
+                  icon="albums-outline"
+                  error={errors.comp_off_max_carry_forward_days}
+                  keyboardType="number-pad"
+                />
+              </View>
+            ) : null}
+          </>
+        ) : null}
+      </Section>
+
+      {config && 'notify_on_submit' in config ? (
+      <Section title="Notifications" icon="mail-outline" tone="warning">
+        <SwitchRow
+          label="Email HR on submission"
+          help="The moment anyone submits a leave request, an email goes to the addresses below. Needs an outgoing mail server configured in Odoo."
+          value={draft.notify_on_submit}
+          onValueChange={(v) => set('notify_on_submit', v)}
+          last={!draft.notify_on_submit}
+        />
+        {draft.notify_on_submit ? (
+          <View style={{ marginTop: spacing.md }}>
+            <AppTextInput
+              label="Recipients (comma-separated)"
+              value={draft.notify_emails}
+              onChangeText={(v) => set('notify_emails', v)}
+              icon="mail-outline"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="hr@example.com, manager@example.com"
+            />
+            <PrimaryButton
+              label="Preview email"
+              icon="mail-outline"
+              variant="outline"
+              onPress={() => setShowMail(true)}
+              style={{ marginTop: spacing.md }}
+            />
+            <Caption>Shows a sample request. Save first if you changed the recipients.</Caption>
+          </View>
+        ) : null}
+        <MailPreviewModal
+          visible={showMail}
+          onClose={() => setShowMail(false)}
+          title="Email preview (sample)"
+          load={() => previewLeaveMail({ sample: true })}
+        />
+      </Section>
+      ) : null}
 
       <PrimaryButton label="Save" loading={saving} onPress={submit} style={{ marginTop: spacing.sm }} />
       <PrimaryButton

@@ -35,6 +35,22 @@ export default function RecentActivity({ items = [], loading, style }) {
                 <Skeleton width={58} height={22} radius={999} />
               </View>
             ))
+          : items.length === 0
+          ? (
+              // An empty Card renders as a bare hairline, which read as a
+              // rendering bug and left Home too short to scroll.
+              <View style={[styles.row, { justifyContent: 'center', paddingVertical: spacing.lg }]}>
+                <Ionicons name="time-outline" size={22} color={colors.faint} />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: fontSize.sm }}>
+                    No check-ins yet
+                  </Text>
+                  <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: 2 }}>
+                    Your last five days show here once you check in.
+                  </Text>
+                </View>
+              </View>
+            )
           : items.map((item, i) => {
               const meta = DAY_STATUS[item.status] || DAY_STATUS.present;
               const tone = colors[meta.tone] || colors.primary;

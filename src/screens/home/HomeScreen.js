@@ -7,9 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { Card, Skeleton, ConfirmDialog, useToast, useTabBarLift } from '../../components';
+import { Card, Skeleton, ConfirmDialog, FadeIn, useToast, useTabBarLift } from '../../components';
 import { useSession } from '../../state/SessionContext';
-import { getHomeData, toggleAttendance } from '../../services/odoo';
+import { getHomeData, toggleAttendance, declareWorkingToday, withdrawWorkingToday } from '../../services/odoo';
 import { greeting, formatLongDate, formatHourFloat } from '../../utils/time';
 import AttendanceCard from './AttendanceCard';
 import StatTiles from './StatTiles';
@@ -68,6 +68,44 @@ export default function HomeScreen({ navigation }) {
   );
 
   const [toggling, setToggling] = useState(false);
+  const [confirmDeclare, setConfirmDeclare] = useState(false);
+  const [declaring, setDeclaring] = useState(false);
+
+  const dayOff = data?.today?.dayOff || null;
+
+  /**
+   * "I'm working today". The server writes the declaration that unlocks
+   * check-in for the day; the whole screen is then re-read so the card moves
+   * to its Check In step from the server's answer, not from a guess.
+   */
+  const onDeclare = async () => {
+    setConfirmDeclare(false);
+    if (declaring) return;
+    setDeclaring(true);
+    try {
+      await declareWorkingToday();
+      showToast('Marked as a working day. You can check in now.', 'success');
+      await load(true);
+    } catch (e) {
+      showToast(e?.message || 'Could not mark today as a working day.', 'danger');
+    } finally {
+      setDeclaring(false);
+    }
+  };
+
+  const onWithdraw = async () => {
+    if (declaring) return;
+    setDeclaring(true);
+    try {
+      await withdrawWorkingToday();
+      showToast('Enjoy your day off.', 'info');
+      await load(true);
+    } catch (e) {
+      showToast(e?.message || 'Could not undo the declaration.', 'danger');
+    } finally {
+      setDeclaring(false);
+    }
+  };
 
   /**
    * One button, because the server has one route: /hr_attendance/systray_check_in_out
@@ -99,6 +137,10 @@ export default function HomeScreen({ navigation }) {
         e?.message || (wasCheckedIn ? 'Could not check out.' : 'Could not check in.'),
         'danger'
       );
+      // The day-off gate refused it: the state on screen was stale (a
+      // holiday added since the last load, say). Re-read so the card shows
+      // the declare step.
+      if (/I am working today/i.test(e?.message || '')) load(true);
     } finally {
       setToggling(false);
     }
@@ -199,6 +241,17 @@ export default function HomeScreen({ navigation }) {
             <Text style={{ color: withAlpha(colors.onHeader, 0.85), fontFamily: fonts.medium, fontSize: fontSize.xxs }}>
               {user?.department || '—'}
             </Text>
+            {dayOff ? (
+              <FadeIn delay={120} style={{ marginLeft: 8 }}>
+                <View style={[styles.offPill, { backgroundColor: colors.primary }]}>
+                  <Text numberOfLines={1} style={{ color: colors.onPrimary, fontFamily: fonts.bold, fontSize: fontSize.xs }}>
+                    {dayOff.kind === 'public_holiday'
+                      ? `${dayOff.holidayName || 'Public holiday'} · holiday`
+                      : 'Weekly off'}
+                  </Text>
+                </View>
+              </FadeIn>
+            ) : null}
           </View>
         </LinearGradient>
 
@@ -211,7 +264,16 @@ export default function HomeScreen({ navigation }) {
               <Skeleton height={54} radius={16} style={{ marginTop: 16 }} />
             </Card>
           ) : (
-            <AttendanceCard today={data?.today} onToggle={onToggleAttendance} wfhToday={data?.wfh?.today} />
+            <FadeIn>
+              <AttendanceCard
+                today={data?.today}
+                onToggle={onToggleAttendance}
+                onDeclare={() => setConfirmDeclare(true)}
+                onWithdraw={onWithdraw}
+                busy={toggling || declaring}
+                wfhToday={data?.wfh?.today}
+              />
+            </FadeIn>
           )}
 
           {/* The rules, where they are actually useful: before you check in,
@@ -235,10 +297,16 @@ export default function HomeScreen({ navigation }) {
             </Text>
           ) : null}
 
-          {!loading && data ? <StatTiles today={data.today} style={{ marginTop: spacing.md }} /> : null}
+          {!loading && data ? (
+            <FadeIn delay={80}>
+              <StatTiles today={data.today} style={{ marginTop: spacing.md }} />
+            </FadeIn>
+          ) : null}
 
           {!loading && data ? (
-            <MonthStrip month={data.month} style={{ marginTop: spacing.lg }} />
+            <FadeIn delay={160}>
+              <MonthStrip month={data.month} style={{ marginTop: spacing.lg }} />
+            </FadeIn>
           ) : null}
 
           <QuickActions
@@ -263,6 +331,33 @@ export default function HomeScreen({ navigation }) {
           />
         </View>
       </ScrollView>
+
+      {/* A solid strip behind the transparent status bar. Without it the page
+          scrolls up under the system clock and icons, and the greeting reads
+          through them. Same slate as the header, so at rest it is invisible. */}
+      <View
+        pointerEvents="none"
+        style={[styles.statusScrim, { height: insets.top, backgroundColor: colors.header }]}
+      />
+
+      <ConfirmDialog
+        visible={confirmDeclare}
+        title="Working today?"
+        message={
+          (dayOff?.kind === 'public_holiday'
+            ? `Today is ${dayOff?.holidayName || 'a public holiday'}. `
+            : 'Today is your weekly off. ') +
+          'Check-in opens for today, and your hours earn a comp-off' +
+          (dayOff?.fullDayHours
+            ? `: under ${dayOff.fullDayHours} h is half a day, ${dayOff.fullDayHours} h or more is a full day.`
+            : '.')
+        }
+        confirmLabel="I'm working today"
+        tone="primary"
+        icon="briefcase-outline"
+        onConfirm={onDeclare}
+        onCancel={() => setConfirmDeclare(false)}
+      />
 
       <ConfirmDialog
         visible={confirmLogout}
@@ -378,5 +473,7 @@ const styles = StyleSheet.create({
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   dot: { width: 3, height: 3, borderRadius: 2, marginHorizontal: 8 },
+  statusScrim: { position: 'absolute', top: 0, left: 0, right: 0 },
+  offPill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, maxWidth: 180 },
   monthRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
 });

@@ -21,7 +21,7 @@ const ODOO = { host: 'localhost', port: 8069 };
 const METRO = { host: 'localhost', port: Number(process.argv[3] || 8081) };
 
 // Prefixes Odoo owns. Everything else is the app bundle.
-const ODOO_PREFIXES = ['/web/', '/leave/', '/wfh/', '/hr_attendance/', '/longpolling/', '/websocket'];
+const ODOO_PREFIXES = ['/web/', '/leave/', '/wfh/', '/comp_off/', '/hr_attendance/', '/longpolling/', '/websocket'];
 const isOdoo = (url) => ODOO_PREFIXES.some((p) => url === p.slice(0, -1) || url.startsWith(p));
 
 const server = http.createServer((req, res) => {

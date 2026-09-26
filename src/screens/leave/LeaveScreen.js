@@ -6,11 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { Card, Skeleton, PrimaryButton, ConfirmDialog, useToast } from '../../components';
+import { Card, Skeleton, PrimaryButton, ConfirmDialog, PromptDialog, useToast } from '../../components';
 import { useSession } from '../../state/SessionContext';
-import { getLeaveData, fetchLeaveRequests, cancelLeaveRequest } from '../../services/odoo';
+import {
+  getLeaveData,
+  fetchLeaveRequests,
+  cancelLeaveRequest,
+  requestLeaveCancellation,
+} from '../../services/odoo';
 import { formatDateRange, formatDays } from '../../utils/time';
 import LeaveBalanceStrip from './LeaveBalanceStrip';
+import CompOffStrip from './CompOffStrip';
 import LeaveRequestCard from './LeaveRequestCard';
 import LeaveApplySheet from './LeaveApplySheet';
 import { STATE_FILTERS, LEAVE_LIST_LIMIT } from './constants';
@@ -30,6 +36,7 @@ export default function LeaveScreen({ navigation }) {
   const { user } = useSession();
 
   const [balance, setBalance] = useState(null);
+  const [compOff, setCompOff] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState(null);
@@ -43,6 +50,7 @@ export default function LeaveScreen({ navigation }) {
   const [error, setError] = useState('');
   const [applyOpen, setApplyOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [requestTarget, setRequestTarget] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(
@@ -52,6 +60,7 @@ export default function LeaveScreen({ navigation }) {
       try {
         const result = await getLeaveData(user?.uid, { stateFilter });
         setBalance(result.balance);
+        setCompOff(result.compOff);
         setYear(result.year);
         setRequests(result.requests);
         setError('');
@@ -114,6 +123,23 @@ export default function LeaveScreen({ navigation }) {
       await load(true);
     } catch (e) {
       showToast(e?.message || 'Could not cancel the request.', 'danger');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // Approved leave is HR's to cancel: the employee asks, with a reason.
+  const onConfirmRequest = async (reason) => {
+    const target = requestTarget;
+    if (!target || cancelling) return;
+    setCancelling(true);
+    try {
+      await requestLeaveCancellation(target.id, reason);
+      setRequestTarget(null);
+      showToast('Cancellation request sent to HR.', 'success');
+      await load(true);
+    } catch (e) {
+      showToast(e?.message || 'Could not send the request.', 'danger');
     } finally {
       setCancelling(false);
     }
@@ -206,15 +232,27 @@ export default function LeaveScreen({ navigation }) {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 96 }}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         renderItem={({ item }) => (
-          <LeaveRequestCard item={item} onCancel={setCancelTarget} disabled={cancelling} />
+          <LeaveRequestCard
+            item={item}
+            onCancel={setCancelTarget}
+            onRequestCancel={setRequestTarget}
+            disabled={cancelling}
+          />
         )}
         ListHeaderComponent={
-          <LeaveBalanceStrip
-            balance={balance}
-            year={year}
-            loading={loading}
-            style={{ marginBottom: spacing.lg }}
-          />
+          <>
+            <LeaveBalanceStrip
+              balance={balance}
+              year={year}
+              loading={loading}
+              style={{ marginBottom: spacing.lg }}
+            />
+            <CompOffStrip
+              compOff={compOff}
+              loading={loading}
+              style={{ marginBottom: spacing.lg }}
+            />
+          </>
         }
         ListEmptyComponent={
           busy ? (
@@ -270,6 +308,7 @@ export default function LeaveScreen({ navigation }) {
       <LeaveApplySheet
         visible={applyOpen}
         balance={balance}
+        compOff={compOff}
         onClose={() => setApplyOpen(false)}
         onSubmitted={() => load(true)}
       />
@@ -298,6 +337,27 @@ export default function LeaveScreen({ navigation }) {
         icon="close-circle-outline"
         onConfirm={onConfirmCancel}
         onCancel={() => setCancelTarget(null)}
+      />
+
+      <PromptDialog
+        visible={Boolean(requestTarget)}
+        title="Ask HR to cancel this leave?"
+        message={
+          'Your ' +
+          (requestTarget?.typeLabel || 'leave') +
+          ' for ' +
+          formatDateRange(requestTarget?.from, requestTarget?.to) +
+          ' is already approved, so HR decides. It stays approved until they do.'
+        }
+        label="Why cancel it?"
+        confirmLabel="Send to HR"
+        cancelLabel="Keep it"
+        tone="warning"
+        icon="return-down-back-outline"
+        required
+        loading={cancelling}
+        onConfirm={onConfirmRequest}
+        onCancel={() => setRequestTarget(null)}
       />
     </View>
   );

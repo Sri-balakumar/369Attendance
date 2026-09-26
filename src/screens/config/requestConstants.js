@@ -29,13 +29,14 @@ export const WFH_STATES = {
   expired: { label: 'Expired', tone: 'muted', icon: 'time-outline' },
 };
 
-/** hr.leave.request.leave_type -- six values, required, default casual. */
+/** hr.leave.request.leave_type -- seven values, required, default casual. */
 export const LEAVE_TYPES = {
   sick: 'Sick',
   casual: 'Casual',
   annual: 'Annual',
   personal: 'Personal',
   emergency: 'Emergency',
+  comp_off: 'Comp Off',
   other: 'Other',
 };
 
@@ -55,6 +56,8 @@ export const leaveTypeLabel = (t) => LEAVE_TYPES[t] || t || '—';
  */
 export const LEAVE_FILTERS = [
   { key: 'pending', label: 'Pending' },
+  // Not a state: approved leave the employee has asked HR to cancel.
+  { key: 'cancel_requested', label: 'Cancellation' },
   { key: null, label: 'All' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },

@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { AppTextInput, PrimaryButton, DateRangeCalendar, useToast } from '../../components';
+import { AppTextInput, PrimaryButton, DatePopup, useToast } from '../../components';
 import { createWfhRequest } from '../../services/odoo';
 import { formatDateKeyShort, todayKey } from '../../utils/time';
 
@@ -32,7 +32,7 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
   const showToast = useToast();
   const slide = useRef(new Animated.Value(0)).current;
 
-  const [mode, setMode] = useState('form');
+  const [picking, setPicking] = useState(false);
   const [date, setDate] = useState(null);
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState({});
@@ -50,7 +50,7 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
 
   useEffect(() => {
     if (!visible) return;
-    setMode('form');
+    setPicking(false);
     setDate(null);
     setReason('');
     setErrors({});
@@ -88,10 +88,8 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
     }
   };
 
-  const back = () => (mode === 'dates' ? setMode('form') : onClose());
-
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={back} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
 
       <KeyboardAvoidingView
@@ -117,13 +115,8 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
 
           <View style={[styles.header, { paddingHorizontal: spacing.lg }]}>
             <View style={styles.headerLeft}>
-              {mode === 'dates' ? (
-                <Pressable onPress={back} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back to form">
-                  <Ionicons name="chevron-back" size={22} color={colors.muted} />
-                </Pressable>
-              ) : null}
               <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: fontSize.md }}>
-                {mode === 'dates' ? 'Pick a day' : 'Work from home'}
+                Work from home
               </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
@@ -131,32 +124,6 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
             </Pressable>
           </View>
 
-          {mode === 'dates' ? (
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}
-            >
-              {/* Single-date mode: `to` is deliberately never set, because the
-                  route takes one request_date and nothing else. minDate is
-                  today -- unlike leave, a WFH day needs approving before it is
-                  worked, so a back-dated request has nothing to approve. */}
-              <DateRangeCalendar
-                from={date}
-                to={null}
-                minDate={todayKey()}
-                onChange={({ from: f }) => {
-                  setDate(f);
-                  setErrors((e) => ({ ...e, date: undefined }));
-                }}
-              />
-              <PrimaryButton
-                label={date ? 'Use ' + formatDateKeyShort(date) : 'Pick a day'}
-                disabled={!date}
-                onPress={() => setMode('form')}
-                style={{ marginTop: spacing.base }}
-              />
-            </ScrollView>
-          ) : (
             <ScrollView
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}
@@ -167,8 +134,8 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
                 editable={false}
                 icon="calendar-outline"
                 error={errors.date}
-                onPress={() => setMode('dates')}
-                rightSlot={<Ionicons name="chevron-forward" size={18} color={colors.muted} />}
+                onPress={() => setPicking(true)}
+                rightSlot={<Ionicons name="chevron-down" size={18} color={colors.muted} />}
               />
 
               <AppTextInput
@@ -224,9 +191,25 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
                 style={{ marginTop: spacing.lg }}
               />
             </ScrollView>
-          )}
         </Animated.View>
       </KeyboardAvoidingView>
+
+      {/* One date: the route takes a single request_date. minDate is today --
+          unlike leave, a WFH day needs approving before it is worked, so a
+          back-dated request has nothing to approve. */}
+      <DatePopup
+        visible={picking}
+        mode="single"
+        title="Pick a day"
+        from={date}
+        minDate={todayKey()}
+        onCancel={() => setPicking(false)}
+        onConfirm={({ from: f }) => {
+          setDate(f);
+          setErrors((e) => ({ ...e, date: undefined }));
+          setPicking(false);
+        }}
+      />
     </Modal>
   );
 }

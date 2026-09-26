@@ -94,8 +94,22 @@ export default function LeaveBalanceStrip({ balance, year, loading, style }) {
       {/* The server counts state = 'approved' only. Anyone with a pending
           request will otherwise read this figure as simply wrong. */}
       <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: 2 }}>
-        Used counts approved leave only.
+        Used counts approved leave only
+        {balance.pendingDays ? ` · ${formatDayCount(balance.pendingDays)} more pending approval` : ''}.
       </Text>
+
+      {/* The quota as pricing sees it: pending leave and the monthly cap
+          included. Red because the next leave is Loss of Pay. */}
+      {balance.isQuotaExhausted ? (
+        <View style={[styles.notice, { marginTop: spacing.sm }]}>
+          <Ionicons name="alert-circle" size={16} color={colors.danger} />
+          <Text style={{ flex: 1, color: colors.danger, fontFamily: fonts.semibold, fontSize: fontSize.xs }}>
+            {balance.remainingThisMonth === 0 && remaining > 0
+              ? "This month's paid leave is used. More leave this month is unpaid (LOP)."
+              : 'Paid leave exhausted. New leave is unpaid (LOP).'}
+          </Text>
+        </View>
+      ) : null}
 
       {unpaidDeductionEnabled ? (
         <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: 2 }}>

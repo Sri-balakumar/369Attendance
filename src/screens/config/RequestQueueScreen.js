@@ -8,6 +8,7 @@ import { Card, Chip } from '../../components';
 import { fetchLeaveQueue, fetchWfhQueue } from '../../services/odoo';
 import { formatDateKeyShort } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import {
   LEAVE_FILTERS,
   WFH_FILTERS,
@@ -66,7 +67,7 @@ export default function RequestQueueScreen({ navigation, route }) {
   const label = filters.find((f) => f.key === state)?.label || 'All';
 
   return (
-    <AdminScreen
+    <AdminScreen guide={isWfh ? GUIDES.wfhQueue : GUIDES.leaveQueue}
       navigation={navigation}
       title={isWfh ? 'All WFH Requests' : 'All Leave Requests'}
       subtitle="Everyone's requests"
@@ -187,6 +188,9 @@ function RequestCard({ row, isWfh, onPress, style }) {
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
             <Chip label={meta.label} tone={meta.tone} size="sm" />
+            {!isWfh && row.cancel_requested ? (
+              <Chip label="Cancel asked" tone="warning" size="sm" />
+            ) : null}
             {row.auto_approved ? (
               <Text style={{ color: colors.faint, fontFamily: fonts.regular, fontSize: fontSize.xs }}>
                 auto

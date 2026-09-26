@@ -10,7 +10,7 @@
 
 /**
  * hr.leave.request.leave_type is a Selection field, not a model, so there is
- * nothing to fetch -- these six values are the whole set. `value` is sent to
+ * nothing to fetch -- these seven values are the whole set. `value` is sent to
  * /leave/request/create verbatim; anything else comes back as a raw ORM
  * "Wrong value for ..." error.
  */
@@ -20,6 +20,10 @@ export const LEAVE_TYPES = [
   { value: 'annual', label: 'Annual Leave', icon: 'sunny-outline' },
   { value: 'personal', label: 'Personal Leave', icon: 'person-outline' },
   { value: 'emergency', label: 'Emergency Leave', icon: 'warning-outline' },
+  // Spent from compensatory offs earned by working a weekly off or a public
+  // holiday, never from the paid-leave quota. LeaveApplySheet shows it only
+  // while there is a balance, and the server refuses a request larger than it.
+  { value: 'comp_off', label: 'Compensatory Off', icon: 'swap-horizontal-outline' },
   { value: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline' },
 ];
 

@@ -11,9 +11,13 @@ import {
   rejectLeave,
   approveWfh,
   rejectWfh,
+  approveLeaveCancellation,
+  rejectLeaveCancellation,
+  cancelApprovedLeave,
 } from '../../services/odoo';
 import { formatDateKeyShort, odooUtcToIso } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { leaveStateMeta, wfhStateMeta, leaveTypeLabel } from './requestConstants';
 
 /** Odoo UTC datetime -> a short local 'DD Mon, HH:MM'. */
@@ -50,6 +54,8 @@ export default function RequestDetailScreen({ navigation, route }) {
   const [busy, setBusy] = useState(false);
   const [confirmApprove, setConfirmApprove] = useState(false);
   const [promptReject, setPromptReject] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [promptKeep, setPromptKeep] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -89,9 +95,14 @@ export default function RequestDetailScreen({ navigation, route }) {
 
   const meta = row ? (isWfh ? wfhStateMeta(row.state) : leaveStateMeta(row.state)) : null;
   const pending = row?.state === 'pending';
+  // Approved leave: HR decides an employee's cancellation request, or cancels
+  // it directly. Only on a server that knows cancel_requested (19.0.10.3.0+).
+  const cancelAware = row && Object.prototype.hasOwnProperty.call(row, 'cancel_requested');
+  const cancelAsk = !isWfh && cancelAware && row.state === 'approved' && row.cancel_requested;
+  const canDirectCancel = !isWfh && cancelAware && row.state === 'approved' && !row.cancel_requested;
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.requestDetail}
       navigation={navigation}
       title={row?.employee_name || 'Request'}
       subtitle={isWfh ? 'Work from home' : 'Leave request'}
@@ -135,6 +146,16 @@ export default function RequestDetailScreen({ navigation, route }) {
                     value={row.is_half_day ? 'Half day' : `${row.number_of_days}`}
                   />
                   <Row label="Paid / unpaid" value={`${row.paid_days} / ${row.unpaid_days}`} />
+                  {row.leave_type === 'comp_off' && row.comp_off_earned_dates ? (
+                    <Row label="Earned on" value={row.comp_off_earned_dates} />
+                  ) : null}
+                  {row.leave_type === 'comp_off' ? (
+                    <Row
+                      label="Comp-off balance"
+                      value={`${row.comp_off_balance ?? 0}`}
+                      tone={Number(row.comp_off_balance) < Number(row.number_of_days) ? 'danger' : undefined}
+                    />
+                  ) : null}
                   {Number(row.deduction_amount) > 0 ? (
                     <Row label="Deduction" value={String(row.deduction_amount)} tone="danger" />
                   ) : null}
@@ -205,7 +226,57 @@ export default function RequestDetailScreen({ navigation, route }) {
             </Card>
           ) : null}
 
-          {pending ? (
+          {cancelAsk ? (
+            <Card
+              style={{
+                marginTop: spacing.md,
+                backgroundColor: withAlpha(colors.warning, 0.1),
+                borderColor: withAlpha(colors.warning, 0.32),
+              }}
+            >
+              <Text style={{ color: colors.warning, fontFamily: fonts.semibold, fontSize: fontSize.xs, letterSpacing: 0.6 }}>
+                CANCELLATION REQUESTED
+              </Text>
+              <Text style={{ color: colors.text, fontFamily: fonts.regular, fontSize: fontSize.sm, marginTop: 6, lineHeight: 20 }}>
+                {row.cancel_reason || 'No reason given.'}
+              </Text>
+              {row.cancel_requested_on ? (
+                <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: 6 }}>
+                  Asked {stamp(row.cancel_requested_on)}
+                </Text>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {cancelAsk ? (
+            <View style={styles.actions}>
+              <PrimaryButton
+                label="Keep leave"
+                variant="outline"
+                tone="danger"
+                onPress={() => setPromptKeep(true)}
+                disabled={busy}
+                style={{ flex: 1 }}
+              />
+              <PrimaryButton
+                label="Approve cancellation"
+                variant="solid"
+                tone="warning"
+                loading={busy}
+                onPress={() => setConfirmCancel(true)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          ) : canDirectCancel ? (
+            <PrimaryButton
+              label="Cancel this leave"
+              variant="outline"
+              tone="danger"
+              loading={busy}
+              onPress={() => setConfirmCancel(true)}
+              style={{ marginTop: spacing.lg }}
+            />
+          ) : pending ? (
             <View style={styles.actions}>
               <PrimaryButton
                 label="Reject"
@@ -278,6 +349,40 @@ export default function RequestDetailScreen({ navigation, route }) {
               );
             }}
             onCancel={() => setPromptReject(false)}
+          />
+
+          <ConfirmDialog
+            visible={confirmCancel}
+            title={cancelAsk ? 'Approve the cancellation?' : 'Cancel this approved leave?'}
+            message={`${row.employee_name}'s leave is cancelled and its days go back to the balance. Refused if that month's payroll is already confirmed or paid.`}
+            confirmLabel={cancelAsk ? 'Approve cancellation' : 'Cancel leave'}
+            cancelLabel="Back"
+            tone="warning"
+            icon="return-down-back-outline"
+            onConfirm={() => {
+              setConfirmCancel(false);
+              decide(
+                () => (cancelAsk ? approveLeaveCancellation(row.id) : cancelApprovedLeave(row.id)),
+                'Leave cancelled.'
+              );
+            }}
+            onCancel={() => setConfirmCancel(false)}
+          />
+
+          <PromptDialog
+            visible={promptKeep}
+            title="Keep this leave?"
+            message="The leave stays approved. The employee sees your reason."
+            label="Why it stays"
+            confirmLabel="Keep leave"
+            icon="close-circle-outline"
+            required
+            loading={busy}
+            onConfirm={(reason) => {
+              setPromptKeep(false);
+              decide(() => rejectLeaveCancellation(row.id, reason), 'Cancellation declined; leave kept.');
+            }}
+            onCancel={() => setPromptKeep(false)}
           />
         </>
       ) : null}

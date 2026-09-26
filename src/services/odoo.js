@@ -365,6 +365,31 @@ export async function callKw(model, method, args = [], kwargs = {}) {
   });
 }
 
+const knownFieldCache = new Map();
+
+/**
+ * `wanted` narrowed to the fields this server's module actually has, or null
+ * when the model itself does not exist there. The app can run ahead of the
+ * server (Metro serves the repo before the addon is upgraded), and asking an
+ * older server for one missing field fails the whole read with
+ * "Invalid field", taking the screen down with it.
+ */
+async function knownFields(model, wanted) {
+  const { url } = await requireServer();
+  const key = `${url}|${model}`;
+  if (!knownFieldCache.has(key)) {
+    try {
+      const defs = await callKw(model, 'fields_get', [], { attributes: ['type'] });
+      knownFieldCache.set(key, new Set(Object.keys(defs || {})));
+    } catch {
+      // Model not installed on this server; don't cache, it may be upgraded.
+      return null;
+    }
+  }
+  const have = knownFieldCache.get(key);
+  return wanted.filter((f) => have.has(f));
+}
+
 /**
  * One of this module's own /leave/* or /wfh/* routes.
  *
@@ -422,10 +447,26 @@ const ATTENDANCE_FIELDS = [
 
 /** The signed-in user's employee record, or null if HR never linked one. */
 export async function fetchMyEmployee(uid) {
-  const rows = await callKw('hr.employee', 'search_read', [
-    [['user_id', '=', uid]],
-    ['id', 'name', 'attendance_state'],
-  ]);
+  let rows;
+  try {
+    rows = await callKw('hr.employee', 'search_read', [
+      [['user_id', '=', uid]],
+      ['id', 'name', 'attendance_state'],
+    ]);
+  } catch (e) {
+    // A plain employee (no attendance-officer group) reads hr.employee
+    // through hr.employee.public, where attendance_state is denied. Read the
+    // public fields, then derive the state from their own OPEN attendance,
+    // which the stock rule does let them read.
+    if (!/attendance_state|enough rights/i.test(e?.message || '')) throw e;
+    rows = await callKw('hr.employee', 'search_read', [[['user_id', '=', uid]], ['id', 'name']]);
+    if (rows?.[0]) {
+      const open = await callKw('hr.attendance', 'search_count', [
+        [['employee_id', '=', rows[0].id], ['check_out', '=', false]],
+      ]);
+      rows[0].attendance_state = open ? 'checked_in' : 'checked_out';
+    }
+  }
   const row = rows?.[0] || null;
   if (row) employeeIdCache = { uid, id: row.id };
   return row;
@@ -786,7 +827,8 @@ const LEAVE_QUEUE_FIELDS = [
   'from_date', 'to_date', 'number_of_days', 'is_half_day', 'reason',
   'state', 'is_paid', 'paid_days', 'unpaid_days', 'deduction_amount',
   'approved_by', 'approval_date', 'submitted_on', 'auto_approved',
-  'rejection_reason',
+  'rejection_reason', 'comp_off_balance', 'comp_off_earned_dates',
+  'cancel_requested', 'cancel_reason', 'cancel_requested_on', 'cancel_reject_reason',
 ];
 
 const WFH_QUEUE_FIELDS = [
@@ -798,8 +840,14 @@ const WFH_QUEUE_FIELDS = [
 
 /** Everybody's leave requests. A null state means every state. */
 export async function fetchLeaveQueue({ state = null, limit = 200 } = {}) {
-  const domain = state ? [['state', '=', state]] : [];
-  const rows = await callKw('hr.leave.request', 'search_read', [domain, LEAVE_QUEUE_FIELDS], {
+  const fields = (await knownFields('hr.leave.request', LEAVE_QUEUE_FIELDS)) || LEAVE_QUEUE_FIELDS;
+  let domain = state ? [['state', '=', state]] : [];
+  // Not a state: approved leave whose owner asked HR to cancel it.
+  if (state === 'cancel_requested') {
+    if (!fields.includes('cancel_requested')) return [];
+    domain = [['cancel_requested', '=', true]];
+  }
+  const rows = await callKw('hr.leave.request', 'search_read', [domain, fields], {
     limit,
     order: 'from_date desc, id desc',
   });
@@ -817,16 +865,25 @@ export async function fetchWfhQueue({ state = null, limit = 200 } = {}) {
 }
 
 /** Badge counts for the hub. A badge must never take the menu down with it. */
-async function countPending(model) {
+async function countPending(model, domain = [['state', '=', 'pending']]) {
   try {
-    const n = await callKw(model, 'search_count', [[['state', '=', 'pending']]]);
+    const n = await callKw(model, 'search_count', [domain]);
     return Number(n) || 0;
   } catch (e) {
     return 0;
   }
 }
 
-export const countPendingLeave = () => countPending('hr.leave.request');
+/** Pending requests plus approved leave HR is asked to cancel -- both wait on HR. */
+export async function countPendingLeave() {
+  const known = await knownFields('hr.leave.request', ['cancel_requested']).catch(() => null);
+  return countPending(
+    'hr.leave.request',
+    known && known.length
+      ? ['|', ['state', '=', 'pending'], ['cancel_requested', '=', true]]
+      : [['state', '=', 'pending']]
+  );
+}
 export const countPendingWfh = () => countPending('hr.wfh.request');
 
 /** Approved leave overlapping a month -- the Approved Leaves Report. */
@@ -834,9 +891,17 @@ export async function fetchApprovedLeaves({ year, month } = {}) {
   const domain = [['state', '=', 'approved']];
   if (year && month) {
     const { from, to } = monthRange(year, month);
-    domain.push(['from_date', '<=', to], ['to_date', '>=', from]);
+    // A single-day leave is stored with to_date empty, and an empty to_date
+    // never satisfies `to_date >= from` -- so every one-day leave vanished
+    // from this report. Its end is its start.
+    domain.push(
+      ['from_date', '<=', to],
+      '|', ['to_date', '>=', from],
+      '&', ['to_date', '=', false], ['from_date', '>=', from]
+    );
   }
-  const rows = await callKw('hr.leave.request', 'search_read', [domain, LEAVE_QUEUE_FIELDS], {
+  const fields = (await knownFields('hr.leave.request', LEAVE_QUEUE_FIELDS)) || LEAVE_QUEUE_FIELDS;
+  const rows = await callKw('hr.leave.request', 'search_read', [domain, fields], {
     order: 'from_date desc',
   });
   return rows || [];
@@ -884,6 +949,24 @@ export async function rejectLeave(id, reason = '') {
   });
 }
 
+/** HR agrees to cancel an approved leave; its days go back to the balance. */
+export async function approveLeaveCancellation(id) {
+  await moduleCall('/leave/request/approve_cancel', { request_id: Number(id) });
+}
+
+/** HR keeps the leave; the employee sees `reason`. */
+export async function rejectLeaveCancellation(id, reason) {
+  await moduleCall('/leave/request/reject_cancel', {
+    request_id: Number(id),
+    reason: String(reason || '').trim(),
+  });
+}
+
+/** HR cancels an approved leave directly (no request from the employee). */
+export async function cancelApprovedLeave(id) {
+  await moduleCall('/leave/request/cancel', { request_id: Number(id) });
+}
+
 export async function approveWfh(id) {
   await moduleCall('/wfh/request/approve', { request_id: Number(id) });
 }
@@ -901,16 +984,95 @@ const LEAVE_CONFIG_FIELDS = [
   'id', 'company_id', 'paid_leave_enabled', 'paid_leave_days_per_year',
   'paid_leave_days_per_month', 'unpaid_leave_deduction_enabled',
   'carry_forward_enabled', 'max_carry_forward_days', 'display_name',
+  'comp_off_enabled', 'comp_off_expiry_days',
+  'comp_off_carry_forward_enabled', 'comp_off_max_carry_forward_days',
+  'notify_on_submit', 'notify_emails',
 ];
 
-export async function fetchLeaveConfig() {
-  const rows = await callKw('hr.leave.config', 'search_read', [[], LEAVE_CONFIG_FIELDS], { limit: 1 });
-  return rows?.[0] || null;
+/**
+ * LEAVE_CONFIG_FIELDS narrowed to what this server's module actually has.
+ * The notify_* pair arrived in 19.0.10.1.0; asking an older server for them
+ * fails the whole read with "Invalid field", which took the screen down.
+ */
+async function leaveConfigFields() {
+  return (await knownFields('hr.leave.config', LEAVE_CONFIG_FIELDS)) || LEAVE_CONFIG_FIELDS;
 }
 
+/**
+ * The company's policy row, or -- when none has been saved yet -- the
+ * server's own defaults with id null, so the screen can offer them and the
+ * first Save creates the row. Without that an admin could not start at all.
+ */
+/**
+ * Whether submitting leave emails HR, and to how many people. Read by the
+ * apply sheet so the employee sees the alert before sending it. The addresses
+ * themselves are deliberately not handed to the screen: the employee needs to
+ * know HR is told, not who is on the list.
+ *
+ * Safe on a server older than 19.0.10.1.0: the fields do not exist there, and
+ * knownFields drops them, which reads as "off".
+ */
+/**
+ * The HR alert email for a request that does not exist yet, built by the
+ * server from the same code as the real email. `sample: true` asks for a
+ * made-up Casual Leave, for the Leave Policy screen.
+ */
+export async function previewLeaveMail({ leaveType, fromDate, toDate, isHalfDay, reason, sample = false } = {}) {
+  const result = await moduleCall('/leave/preview_mail', sample
+    ? { sample: true }
+    : {
+        leave_type: leaveType || 'casual',
+        from_date: fromDate || false,
+        ...(!isHalfDay && toDate && toDate !== fromDate ? { to_date: toDate } : {}),
+        ...(isHalfDay ? { is_half_day: true } : {}),
+        reason: reason || '',
+      });
+  return {
+    enabled: Boolean(result.enabled),
+    recipients: Number(result.recipients) || 0,
+    subject: result.subject || '',
+    rows: (result.rows || []).map((r) => ({ label: r.label, value: r.value })),
+    intro: result.intro || '',
+    footer: result.footer || '',
+  };
+}
+
+export async function fetchSubmitNotice() {
+  const fields = await knownFields('hr.leave.config', ['notify_on_submit', 'notify_emails']);
+  if (!fields || fields.length < 2) return { enabled: false, recipients: 0 };
+  const rows = await callKw('hr.leave.config', 'search_read', [[], fields], { limit: 1 });
+  const row = rows?.[0];
+  if (!row || !row.notify_on_submit) return { enabled: false, recipients: 0 };
+  const recipients = String(row.notify_emails || '')
+    .split(/[;,]/)
+    .map((e) => e.trim())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)).length;
+  return { enabled: recipients > 0, recipients };
+}
+
+export async function fetchLeaveConfig() {
+  const fields = await leaveConfigFields();
+  const rows = await callKw('hr.leave.config', 'search_read', [[], fields], { limit: 1 });
+  if (rows?.[0]) return rows[0];
+  const defaults = await callKw('hr.leave.config', 'get_config_for_company', []);
+  const out = { id: null, company_id: false };
+  fields.forEach((f) => {
+    if (f in (defaults || {}) && f !== 'id') out[f] = defaults[f];
+  });
+  return out;
+}
+
+/** Write when id is set, create otherwise. Unknown fields are dropped. */
 export async function saveLeaveConfig(id, values) {
-  await callKw('hr.leave.config', 'write', [[Number(id)], values]);
-  const rows = await callKw('hr.leave.config', 'read', [[Number(id)], LEAVE_CONFIG_FIELDS]);
+  const fields = await leaveConfigFields();
+  const clean = Object.fromEntries(Object.entries(values).filter(([k]) => fields.includes(k)));
+  let recordId = id;
+  if (recordId) {
+    await callKw('hr.leave.config', 'write', [[Number(recordId)], clean]);
+  } else {
+    recordId = await callKw('hr.leave.config', 'create', [clean]);
+  }
+  const rows = await callKw('hr.leave.config', 'read', [[Number(recordId)], fields]);
   return rows?.[0] || null;
 }
 
@@ -1161,7 +1323,7 @@ const PAYSLIP_FIELDS = [
   'id', 'run_id', 'employee_id', 'employee_name', 'department_name', 'job_title',
   'date_from', 'date_to', 'pay_date', 'state', 'currency_id',
   'working_days', 'present_days', 'half_days', 'absent_days',
-  'leave_days_paid', 'leave_days_unpaid', 'lop_days', 'paid_days',
+  'leave_days_paid', 'leave_days_unpaid', 'comp_off_days', 'lop_days', 'paid_days',
   'gross_earnings', 'total_deductions', 'net_pay', 'net_pay_rounded',
   'net_in_words', 'monthly_wage', 'wage_mismatch',
   'leave_opening', 'leave_taken', 'leave_closing',
@@ -1255,7 +1417,7 @@ export async function fetchReportSummaryLines(reportId) {
     ['id', 'employee_id', 'employee_name', 'department_name',
      'total_working_days', 'total_present_days', 'late_days', 'total_late_days_raw',
      'late_minutes', 'late_minutes_display', 'paid_leave_days', 'unpaid_leave_days',
-     'leave_deduction', 'wage', 'total_deduction', 'final_amount'],
+     'comp_off_days', 'leave_deduction', 'wage', 'total_deduction', 'final_amount'],
   ], { order: 'employee_name' });
   return rows || [];
 }
@@ -1320,7 +1482,7 @@ export async function getHomeData(uid) {
   const { from, to } = monthBounds();
   const today = todayKey();
 
-  const [statuses, attendances, config, wfhToday] = await Promise.all([
+  const [statuses, attendances, config, wfhToday, compOffToday] = await Promise.all([
     callKw('hr.attendance.day.status', 'search_read', [
       [['employee_id', '=', employee.id], ['date', '>=', from], ['date', '<=', to]],
       ['date', 'status', 'status_display', 'is_wfh'],
@@ -1334,6 +1496,11 @@ export async function getHomeData(uid) {
     // only badges the button and relaxes the geo-fence, so losing it must not
     // cost the whole dashboard.
     fetchWfhToday().catch(() => null),
+    // Whether today is a weekly off or public holiday, and whether it has
+    // been declared. Allowed to fail on its own like WFH: a server without
+    // the route simply behaves as an ordinary day, and the server's own
+    // check-in gate still has the last word.
+    fetchCompOffToday().catch(() => null),
   ]);
 
   const byDate = {};
@@ -1342,7 +1509,7 @@ export async function getHomeData(uid) {
     if (!byDate[day]) byDate[day] = row;
   }
 
-  const month = { present: 0, late: 0, absent: 0, leave: 0, half_day: 0 };
+  const month = { present: 0, late: 0, absent: 0, leave: 0, half_day: 0, day_off: 0 };
   for (const s of statuses) {
     if (month[s.status] !== undefined) month[s.status] += 1;
   }
@@ -1370,6 +1537,7 @@ export async function getHomeData(uid) {
       status: todayStatus?.status || null,
       statusDisplay: todayStatus?.status_display || '',
       openAttendanceId: openRow ? openRow.id : null,
+      dayOff: compOffToday && !compOffToday.isWorkingDay ? compOffToday : null,
     },
     // The module is explicit that this must not become a second check-in
     // button: there is one, and this only badges it and skips the geo-fence.
@@ -1436,10 +1604,30 @@ function toLeaveRequest(r) {
     autoApproved: Boolean(r.auto_approved),
     approvedAt: r.approval_date ? odooUtcToIso(r.approval_date) : null,
     rejectionReason: r.rejection_reason || '',
-    // Mirrors action_cancel's own guard on the server, so no screen has to
-    // re-derive the state machine. An APPROVED leave really is cancellable.
-    canCancel: ['draft', 'pending', 'approved'].includes(r.state),
+    isHalfDay: Boolean(r.is_half_day),
+    // Which worked days off pay for a comp-off request. The server fills this
+    // when the request is submitted; the employee never picks them.
+    compOffEarnedDates: r.comp_off_earned_dates || '',
+    compOffCredits: (r.comp_off_credits || []).map(toCompOffAllocation),
+    // Cancelling APPROVED leave goes through HR on 19.0.10.3.0+: the employee
+    // files a request and the leave stays approved until HR decides. An older
+    // server sends no cancel_requested key and still lets the owner cancel.
+    cancelRequested: Boolean(r.cancel_requested),
+    cancelReason: r.cancel_reason || '',
+    cancelRejectReason: r.cancel_reject_reason || '',
+    canCancel:
+      ['draft', 'pending'].includes(r.state) ||
+      (r.state === 'approved' && r.cancel_requested === undefined),
+    canRequestCancel: r.state === 'approved' && r.cancel_requested === false,
   };
+}
+
+/** Ask HR to cancel my approved leave. The leave stays approved until HR decides. */
+export async function requestLeaveCancellation(requestId, reason) {
+  await moduleCall('/leave/request/request_cancel', {
+    request_id: Number(requestId),
+    reason: String(reason || '').trim(),
+  });
 }
 
 /** My leave requests, newest first. The server caps this at 50 rows. */
@@ -1472,6 +1660,181 @@ export async function fetchLeaveBalance(employeeId, year = new Date().getFullYea
     remaining: Number(result.remaining) || 0,
     perMonth: Number(result.per_month) || 0,
     unpaidDeductionEnabled: Boolean(result.unpaid_deduction_enabled),
+    // Newer servers only (19.0.10.3.0+): what the NEXT request would get,
+    // counting pending leave and this month's cap the way pricing does.
+    // null on an older server, and the screens fall back to `remaining`.
+    pendingDays: result.pending_days == null ? null : Number(result.pending_days) || 0,
+    remainingThisMonth:
+      result.remaining_this_month == null ? null : Number(result.remaining_this_month) || 0,
+    isQuotaExhausted: result.is_quota_exhausted == null ? null : Boolean(result.is_quota_exhausted),
+  };
+}
+
+/**
+ * How the server would price my leave over these dates: paid days, and the
+ * unpaid (LOP) rest. The same quota code prices the saved request, so the red
+ * warning on the apply sheet is exactly what the employee will be charged.
+ * Throws on a server without the route; the caller treats that as "no preview".
+ */
+export async function previewPaidSplit({ fromDate, toDate = null, isHalfDay = false, leaveType }) {
+  const r = await moduleCall('/leave/preview_paid', {
+    from_date: fromDate,
+    ...(!isHalfDay && toDate && toDate !== fromDate ? { to_date: toDate } : {}),
+    ...(isHalfDay ? { is_half_day: true } : {}),
+    leave_type: leaveType,
+  });
+  const d = r?.data || {};
+  return {
+    hasQuota: Boolean(d.has_quota),
+    workingDays: Number(d.working_days) || 0,
+    paidDays: Number(d.paid_days) || 0,
+    unpaidDays: Number(d.unpaid_days) || 0,
+    remainingMonth: Number(d.remaining_month) || 0,
+    perMonth: Number(d.per_month) || 0,
+    limitedBy: d.limited_by || null,
+    exhausted: Boolean(d.is_quota_exhausted),
+    deductionEnabled: d.deduction_enabled !== false,
+  };
+}
+
+/**
+ * Compensatory-off balance. call_kw for the same reason as the paid-leave one:
+ * there is no HTTP route, and the method takes an hr.employee id.
+ *
+ * Returns {enabled: false, ...} when comp off is switched off in the policy, so
+ * `enabled` is checked before anything is shown -- a bare 0 would read as "you
+ * have none" rather than "the feature is off here".
+ */
+const COMP_OFF_FIELDS = [
+  'id', 'employee_id', 'date_earned', 'days', 'source', 'state', 'expiry_date',
+  'days_used', 'days_left', 'days_lapsed', 'auto_created', 'note', 'company_id',
+  'holiday_name', 'hours_worked', 'declared_at', 'declared_by', 'redemption_ids',
+];
+
+/**
+ * One credit a comp-off leave draws on, as the preview route and my_requests
+ * both send it. date_earned is a DATE-ONLY string and stays one.
+ */
+function toCompOffAllocation(a) {
+  return {
+    creditId: a.credit_id,
+    dateEarned: a.date_earned || '',
+    source: a.source || '',
+    holidayName: a.holiday_name || '',
+    expiryDate: a.expiry_date || '',
+    days: Number(a.days) || 0,
+  };
+}
+
+/**
+ * The comp-off ledger, for managers. A null state means every state; an
+ * employeeId narrows it to one person (the Leave Balances drill-down).
+ *
+ * days_used / days_left are computed, not stored, and the model fills credits
+ * oldest first -- so a search_read is the only way to get the per-row split;
+ * there is no domain on them.
+ */
+export async function fetchCompOffCredits({ state = null, employeeId = null } = {}) {
+  const domain = [];
+  if (state) domain.push(['state', '=', state]);
+  if (employeeId) domain.push(['employee_id', '=', Number(employeeId)]);
+  const fields = (await knownFields('hr.comp.off.credit', COMP_OFF_FIELDS)) || COMP_OFF_FIELDS;
+  const rows = await callKw('hr.comp.off.credit', 'search_read', [domain, fields], {
+    order: 'date_earned desc, id desc',
+  });
+  return rows || [];
+}
+
+export async function fetchCompOffCredit(id) {
+  const fields = (await knownFields('hr.comp.off.credit', COMP_OFF_FIELDS)) || COMP_OFF_FIELDS;
+  const rows = await callKw('hr.comp.off.credit', 'read', [[Number(id)], fields]);
+  return rows?.[0] || null;
+}
+
+/**
+ * A manual credit. auto_created is forced off: _sync_for_day deletes an
+ * auto-created credit whenever the day stops qualifying, so a hand-added one
+ * left as "automatic" would silently vanish on the employee's next check-in.
+ */
+export async function createCompOffCredit(values) {
+  const id = await callKw('hr.comp.off.credit', 'create', [{ ...values, auto_created: false }]);
+  return fetchCompOffCredit(id);
+}
+
+/** Raises on the server when part of the credit is already spent. */
+export async function cancelCompOffCredit(id) {
+  await callKw('hr.comp.off.credit', 'action_cancel', [[Number(id)]]);
+}
+
+export async function restoreCompOffCredit(id) {
+  await callKw('hr.comp.off.credit', 'action_restore', [[Number(id)]]);
+}
+
+/** HR closes a declaration by hand when the check-out never came. */
+export async function grantCompOffCredit(id) {
+  await callKw('hr.comp.off.credit', 'action_grant', [[Number(id)]]);
+}
+
+const REDEMPTION_FIELDS = [
+  'id', 'credit_id', 'leave_request_id', 'employee_id', 'days', 'request_state',
+  'date_earned', 'credit_source', 'leave_from_date', 'leave_to_date',
+];
+
+/**
+ * Which leave spent a credit, or which credits a leave spent. Lines are kept
+ * after a reject or cancel, so `request_state` says whether one still counts.
+ */
+export async function fetchCompOffRedemptions({ creditId = null, requestId = null } = {}) {
+  const domain = [];
+  if (creditId) domain.push(['credit_id', '=', Number(creditId)]);
+  if (requestId) domain.push(['leave_request_id', '=', Number(requestId)]);
+  const fields = await knownFields('hr.comp.off.redemption', REDEMPTION_FIELDS);
+  if (!fields) return [];
+  const rows = await callKw('hr.comp.off.redemption', 'search_read', [domain, fields], {
+    order: 'id',
+  });
+  return (rows || []).map((r) => ({
+    id: r.id,
+    creditId: Array.isArray(r.credit_id) ? r.credit_id[0] : r.credit_id,
+    requestId: Array.isArray(r.leave_request_id) ? r.leave_request_id[0] : r.leave_request_id,
+    requestName: Array.isArray(r.leave_request_id) ? r.leave_request_id[1] : '',
+    days: Number(r.days) || 0,
+    requestState: r.request_state || '',
+    dateEarned: r.date_earned || '',
+    source: r.credit_source || '',
+    leaveFrom: r.leave_from_date || '',
+    leaveTo: r.leave_to_date || '',
+    active: ['pending', 'approved'].includes(r.request_state) && Number(r.days) > 0,
+  }));
+}
+
+const LEAVE_BALANCE_FIELDS = [
+  'id', 'name', 'department_id',
+  'paid_leave_allowed', 'paid_leave_taken', 'paid_leave_remaining',
+  'comp_off_earned', 'comp_off_used', 'comp_off_balance',
+];
+
+/**
+ * Every employee's paid-leave and comp-off position for a year -- the Odoo
+ * "Leave Balances" list. The six figures are computed off the balance_year
+ * context, so the year must travel in the context, not the domain.
+ */
+export async function fetchLeaveBalances(year) {
+  const rows = await callKw('hr.employee', 'search_read', [[], LEAVE_BALANCE_FIELDS], {
+    context: { balance_year: Number(year) },
+    order: 'name',
+  });
+  return rows || [];
+}
+
+export async function fetchCompOffBalance(employeeId) {
+  const result = await callKw('hr.comp.off.credit', 'get_comp_off_balance', [employeeId]);
+  if (!result || result.enabled !== true) return { enabled: false };
+  return {
+    enabled: true,
+    earned: Number(result.earned) || 0,
+    used: Number(result.used) || 0,
+    balance: Number(result.balance) || 0,
   };
 }
 
@@ -1483,17 +1846,115 @@ export async function fetchLeaveBalance(employeeId, year = new Date().getFullYea
  * and the parameter is spoofable, so omitting it is both correct and the safer
  * default if this app is ever pointed at an unpatched server.
  */
-export async function createLeaveRequest({ leaveType, fromDate, toDate, reason }) {
+export async function createLeaveRequest({ leaveType, fromDate, toDate, reason, isHalfDay = false }) {
   const result = await moduleCall('/leave/request/create', {
     leave_type: leaveType || 'casual',
     from_date: fromDate,
     // A single day sends no to_date at all, matching the field's own "leave
     // empty for single day leave" and keeping number_of_days on its 1-day path.
-    ...(toDate && toDate !== fromDate ? { to_date: toDate } : {}),
+    // A half day is one date by definition, so it never sends one either.
+    ...(!isHalfDay && toDate && toDate !== fromDate ? { to_date: toDate } : {}),
+    ...(isHalfDay ? { is_half_day: true } : {}),
     reason,
   });
   // Not rowsOf(): `data` is an object {id, state} here, not an array.
   return { id: result?.data?.id, state: result?.data?.state || 'pending' };
+}
+
+/* ------------------------------------------------------------------ *
+ * Compensatory off, employee side
+ *
+ * All four are this module's own /comp_off/* routes. None takes an employee
+ * or user id: the server acts on the signed-in person only, so there is
+ * nothing to spoof and nothing to pass.
+ * ------------------------------------------------------------------ */
+
+function toCompOffCredit(c) {
+  if (!c) return null;
+  return {
+    id: c.id,
+    dateEarned: c.date_earned || '',
+    days: Number(c.days) || 0,
+    source: c.source || '',
+    holidayName: c.holiday_name || '',
+    state: c.state,
+    expiryDate: c.expiry_date || '',
+    daysUsed: Number(c.days_used) || 0,
+    daysLeft: Number(c.days_left) || 0,
+    hoursWorked: Number(c.hours_worked) || 0,
+    redemptions: (c.redemptions || []).map((r) => ({
+      requestId: r.leave_request_id,
+      days: Number(r.days) || 0,
+      requestState: r.request_state,
+      from: r.from_date || '',
+      to: r.to_date || '',
+    })),
+  };
+}
+
+/**
+ * Today's day-off state, which decides what Home draws: an ordinary day, a
+ * weekly off or public holiday still waiting for "I am working today", or a
+ * declared one where Check In is open.
+ */
+function toCompOffToday(r) {
+  return {
+    date: r.date,
+    isWorkingDay: Boolean(r.is_working_day),
+    kind: r.kind || 'working',               // 'working' | 'weekly_off' | 'public_holiday'
+    holidayName: r.holiday_name || '',
+    compOffEnabled: Boolean(r.comp_off_enabled),
+    gateEnabled: Boolean(r.gate_enabled),
+    checkInAllowed: r.check_in_allowed !== false,
+    blockedMessage: r.blocked_message || '',
+    canDeclare: Boolean(r.can_declare),
+    canWithdraw: Boolean(r.can_withdraw),
+    declaration: r.declaration ? toCompOffCredit(r.declaration) : null,
+    fullDayHours: Number(r.full_day_hours) || 0,
+  };
+}
+
+export async function fetchCompOffToday() {
+  return toCompOffToday(await moduleCall('/comp_off/today_status', {}));
+}
+
+/** "I am working today". Idempotent on the server; returns the new today state. */
+export async function declareWorkingToday(note = '') {
+  const result = await moduleCall('/comp_off/declare', note ? { note } : {});
+  return toCompOffToday(result.today || {});
+}
+
+/** "Not working after all" -- refused by the server once checked in. */
+export async function withdrawWorkingToday() {
+  const result = await moduleCall('/comp_off/withdraw', {});
+  return toCompOffToday(result.today || {});
+}
+
+/**
+ * What a comp-off leave over these dates would draw on. The same day count
+ * and the same allocation the server makes on submit, so the apply sheet can
+ * show "earned on" before anything is sent.
+ */
+export async function previewCompOffRedemption({ fromDate, toDate = null, isHalfDay = false }) {
+  const result = await moduleCall('/comp_off/preview', {
+    from_date: fromDate,
+    ...(!isHalfDay && toDate && toDate !== fromDate ? { to_date: toDate } : {}),
+    ...(isHalfDay ? { is_half_day: true } : {}),
+  });
+  return {
+    enabled: Boolean(result.enabled),
+    days: Number(result.number_of_days) || 0,
+    balance: Number(result.balance) || 0,
+    covered: Number(result.covered) || 0,
+    shortfall: Number(result.shortfall) || 0,
+    allocation: (result.allocation || []).map(toCompOffAllocation),
+  };
+}
+
+/** My own credits, newest first, each with the leave that spent it. */
+export async function fetchMyCompOffCredits({ state = null } = {}) {
+  const result = await moduleCall('/comp_off/my_credits', state ? { state } : {});
+  return (result.data || []).map(toCompOffCredit);
 }
 
 /** Cancel. The route returns no state key, so the caller must re-read the list. */
@@ -1514,11 +1975,15 @@ export async function cancelLeaveRequest(requestId) {
 export async function getLeaveData(uid, { stateFilter = null } = {}) {
   const employeeId = await getMyEmployeeId(uid);
   const year = new Date().getFullYear();
-  const [requests, balance] = await Promise.all([
+  // The comp-off balance rides in the same Promise.all and swallows its own
+  // failure for the same reason the paid-leave one does: neither card is worth
+  // taking the request list down for.
+  const [requests, balance, compOff] = await Promise.all([
     fetchLeaveRequests({ stateFilter }),
     fetchLeaveBalance(employeeId, year).catch(() => null),
+    fetchCompOffBalance(employeeId).catch(() => null),
   ]);
-  return { employeeId, year, balance, requests };
+  return { employeeId, year, balance, compOff, requests };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1668,7 +2133,7 @@ export async function fetchAttendanceMonth(uid, year, month) {
     if (key && !byDate[key]) byDate[key] = a;
   }
 
-  const totals = { present: 0, late: 0, absent: 0, leave: 0, half_day: 0 };
+  const totals = { present: 0, late: 0, absent: 0, leave: 0, half_day: 0, day_off: 0 };
   let hours = 0;
   const days = statuses.map((s) => {
     if (totals[s.status] !== undefined) totals[s.status] += 1;
