@@ -1,12 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
 import { Card, AppTextInput } from '../../components';
 
 /**
- * The four pieces every admin form on this tab is built from.
+ * The pieces every admin form on this tab is built from.
  *
  * They started as private helpers inside the attendance-rules form; once a
  * second and third form wanted the same titled card, the same muted caption
@@ -72,6 +72,62 @@ export function Note({ tone, icon, children, style }) {
 }
 
 /**
+ * The yellow "how to use this page" banner: a small user manual at the top of
+ * a screen. Open by default; tapping the title folds it away for this visit.
+ */
+export function GuideBanner({ title, intro, steps = [], icon = 'book-outline', defaultOpen = true, style }) {
+  const { colors, fonts, fontSize, spacing, isDark } = useTheme();
+  const [open, setOpen] = useState(defaultOpen);
+  const ink = colors.guideInk;
+  const body = isDark ? colors.text : colors.guideInk;
+  const hasBody = Boolean(intro) || steps.length > 0;
+  return (
+    <View
+      style={[
+        styles.guide,
+        { backgroundColor: colors.guideFill, borderColor: colors.guideBorder, marginBottom: spacing.md },
+        style,
+      ]}
+    >
+      <Pressable
+        onPress={hasBody ? () => setOpen((o) => !o) : undefined}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${title}. ${open ? 'Hide' : 'Show'} the steps.`}
+        style={styles.guideHead}
+      >
+        <View style={[styles.guideIcon, { borderColor: colors.guideBorder }]}>
+          <Ionicons name={icon} size={15} color={ink} />
+        </View>
+        <Text style={{ flex: 1, color: ink, fontFamily: fonts.bold, fontSize: fontSize.sm }}>{title}</Text>
+        {hasBody ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color={ink} /> : null}
+      </Pressable>
+      {open && hasBody ? (
+        <View style={{ marginTop: spacing.sm }}>
+          {intro ? (
+            <Text style={{ color: body, fontFamily: fonts.regular, fontSize: fontSize.xs, lineHeight: 18 }}>
+              {intro}
+            </Text>
+          ) : null}
+          {steps.map((step, i) => (
+            <View key={i} style={[styles.guideStep, { marginTop: i === 0 && !intro ? 0 : 7 }]}>
+              <View style={[styles.guideNum, { backgroundColor: colors.guideBorder }]}>
+                <Text style={{ color: isDark ? '#1E293B' : ink, fontFamily: fonts.bold, fontSize: 10 }}>
+                  {i + 1}
+                </Text>
+              </View>
+              <Text style={{ flex: 1, color: body, fontFamily: fonts.regular, fontSize: fontSize.xs, lineHeight: 18 }}>
+                {step}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
  * A read-only field that opens a sheet.
  *
  * AppTextInput already supports exactly this: passing onPress overrides its
@@ -106,4 +162,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 12,
   },
+  guide: { borderWidth: 1, borderRadius: radii.md, padding: 12 },
+  guideHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  guideIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  guideNum: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
 });

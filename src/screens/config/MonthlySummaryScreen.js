@@ -13,6 +13,7 @@ import {
 } from '../../components';
 import { generateLateSummary, fetchDepartments } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { MONTH_NAMES } from './useMonth';
 
 const ALL_DEPARTMENTS = '__all__';
@@ -73,7 +74,7 @@ export default function MonthlySummaryScreen({ navigation }) {
   const showingResults = rows !== null && !error;
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.monthlySummary}
       navigation={navigation}
       title="Monthly Summary"
       subtitle={showingResults ? `${MONTH_NAMES[month - 1]} ${year}` : 'Late days per employee'}

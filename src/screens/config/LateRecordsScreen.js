@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { useTheme } from '../../theme';
 import { fetchLateRecords } from '../../services/odoo';
 import AdminScreen, { MonthNav } from './AdminScreen';
+import { GUIDES } from './guides';
 import { LateRow } from './StatusRows';
 import { useMonth } from './useMonth';
 
@@ -40,7 +41,7 @@ export default function LateRecordsScreen({ navigation }) {
   const totalMinutes = rows.reduce((sum, r) => sum + (Number(r.late_minutes) || 0), 0);
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.lateRecords}
       navigation={navigation}
       title="Late Records"
       subtitle="Every late check-in"

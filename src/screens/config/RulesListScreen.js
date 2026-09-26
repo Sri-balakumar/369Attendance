@@ -8,6 +8,7 @@ import { Card, Chip } from '../../components';
 import { getAttendanceSettings } from '../../services/odoo';
 import { formatHourFloat } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 
 /**
  * Every attendance-rules row, company-wide first, then one per department.
@@ -50,7 +51,7 @@ export default function RulesListScreen({ navigation }) {
   const configs = data?.configs || [];
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.rulesList}
       navigation={navigation}
       title="Office hours"
       subtitle="Working days and the day-status ladder"

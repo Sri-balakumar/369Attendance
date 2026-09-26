@@ -4,6 +4,7 @@ import { useTheme } from '../../theme';
 import { fetchAbsentToday } from '../../services/odoo';
 import { formatLongDate } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { DayStatusRow } from './StatusRows';
 
 /**
@@ -38,7 +39,7 @@ export default function AbsentTodayScreen({ navigation }) {
   }, [load]);
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.absentToday}
       navigation={navigation}
       title="Absent Today"
       subtitle={formatLongDate()}

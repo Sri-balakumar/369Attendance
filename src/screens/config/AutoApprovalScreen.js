@@ -10,6 +10,7 @@ import {
 } from '../../components';
 import { fetchAutoApproveConfig, saveAutoApproveConfig, fetchCompanies } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { Section, Caption, Note, Picker } from './FormBits';
 
 const UNITS = [
@@ -148,7 +149,7 @@ export default function AutoApprovalScreen({ navigation }) {
   const anyOn = draft.leave_auto_approve || draft.wfh_auto_approve;
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.autoApproval}
       navigation={navigation}
       title="Auto-Approval"
       subtitle="Leave and work from home"

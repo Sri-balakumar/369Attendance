@@ -47,6 +47,11 @@ export const light = {
   skeleton: '#E2E8F0',
   skeletonHighlight: '#F1F5F9',
   overlay: 'rgba(15, 23, 42, 0.5)',
+  // "How to use this page" banners. Deliberately Bootstrap's .alert-warning,
+  // the same yellow the Odoo side shows -- not brand amber, not status orange.
+  guideFill: '#FFF3CD',
+  guideBorder: '#F1D77E',
+  guideInk: '#664D03',
 };
 
 export const dark = {
@@ -63,6 +68,10 @@ export const dark = {
   skeleton: '#1E293B',
   skeletonHighlight: '#293548',
   overlay: 'rgba(2, 6, 23, 0.7)',
+  // The same banner, as a soft amber glow on slate.
+  guideFill: 'rgba(251, 191, 36, 0.12)',
+  guideBorder: 'rgba(251, 191, 36, 0.40)',
+  guideInk: '#FDE68A',
 };
 
 // #RRGGBB -> rgba(). Kept here so callers never hand-write translucent hex,

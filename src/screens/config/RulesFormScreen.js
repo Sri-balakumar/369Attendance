@@ -24,6 +24,7 @@ import {
 } from '../../services/odoo';
 import { formatHourFloat, parseHourFloat } from '../../utils/time';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 
 const DAYS = [
   { field: 'work_monday', letter: 'M', name: 'Monday' },
@@ -249,7 +250,7 @@ export default function RulesFormScreen({ navigation, route }) {
   const scopeLabel = config?.department_id ? config.department_id[1] : 'Company-wide';
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.rulesForm}
       navigation={navigation}
       title={loading ? 'Attendance rules' : scopeLabel}
       subtitle="Office hours, ladder and working days"
@@ -270,7 +271,7 @@ export default function RulesFormScreen({ navigation, route }) {
       <Section title="Late tracking" icon="alarm-outline" tone="warning">
         <SwitchRow
           label="Late tracking"
-          help="Off means check-ins are still recorded but nothing is flagged late, no reason is asked and no figures are kept."
+          help="The master switch. Off: people can still check in, but nobody is marked late and no late figures are kept."
           value={draft.late_tracking_enabled}
           onValueChange={(v) => set('late_tracking_enabled', v)}
           disabled={readOnly}
@@ -279,7 +280,7 @@ export default function RulesFormScreen({ navigation, route }) {
         {tracking ? (
           <SwitchRow
             label="Require late reason"
-            help="Ask the employee why they were late. Off hides the Enter Late Reason button."
+            help="Ask for a reason when a late check-in is entered or edited in the Odoo back office. App check-ins are never blocked."
             value={draft.late_reason_required}
             onValueChange={(v) => set('late_reason_required', v)}
             disabled={readOnly}
@@ -326,8 +327,9 @@ export default function RulesFormScreen({ navigation, route }) {
           style={{ marginTop: spacing.base }}
         />
         <Caption>
-          Check-ins are converted to this timezone before being compared to the
-          start time, so where the server lives does not matter.
+          The office clock. Every check-in is converted to this timezone before
+          it is compared with Office Start, so where the server lives does not
+          matter. Empty means each employee's own timezone is used.
         </Caption>
       </Section>
 
@@ -344,9 +346,13 @@ export default function RulesFormScreen({ navigation, route }) {
             editable={!readOnly}
           />
           <Caption>
-            Minutes after Office Start before a check-in counts as late. 15 on a
-            09:30 start means anyone in by 09:45 is on time.
+            How many minutes after Office Start someone can still arrive on time.
+            Start 09:30 with 15 grace minutes: anyone in by 09:45 is on time.
           </Caption>
+          <Note tone="warning" icon="alert-circle-outline">
+            Late minutes are counted from Office Start, not from the end of grace.
+            Start 09:30, grace 15: arriving at 09:50 shows 20 minutes late, not 5.
+          </Note>
         </Section>
       ) : null}
 
@@ -382,14 +388,20 @@ export default function RulesFormScreen({ navigation, route }) {
           style={{ marginTop: spacing.base }}
         />
         <Caption>
-          Recalculated from the office hours as you change them, and meant to be
-          overridden: 09:30–18:30 spans 9 hours while only 8 are paid if lunch is
-          unpaid. This is the baseline for the half-day hours test.
+          Filled in for you from the office hours, and meant to be typed over:
+          09:30–18:30 spans 9 hours, but only 8 are paid if lunch is unpaid.
+          The Half Day Below Ratio rule measures against this number.
         </Caption>
       </Section>
 
       {/* --- Day Status Ladder --- */}
       <Section title="Day status ladder" icon="layers-outline" tone="accent">
+        <Note tone="warning" icon="information-circle-outline">
+          These three rules decide the day's label: Present, Late, Half Day or
+          Absent. 00:00 (or 0) switches a rule off. With all three off, nobody is
+          ever marked Half Day or auto-Absent, and a late arrival stays Late
+          however late they come.
+        </Note>
         <AppTextInput
           label="Late window ends"
           value={draft.late_until_hour}
@@ -398,7 +410,13 @@ export default function RulesFormScreen({ navigation, route }) {
           error={errors.late_until_hour}
           keyboardType="numbers-and-punctuation"
           editable={!readOnly}
+          style={{ marginTop: spacing.md }}
         />
+        <Caption>
+          When the Late period ends. Check in after this time and the day shows
+          Present, with the real arrival time in brackets. No check-in at all by
+          this time on a working day means Absent, stamped automatically. 00:00 = off.
+        </Caption>
         <AppTextInput
           label="Half day after"
           value={draft.half_day_after_hour}
@@ -409,6 +427,11 @@ export default function RulesFormScreen({ navigation, route }) {
           editable={!readOnly}
           style={{ marginTop: spacing.base }}
         />
+        <Caption>
+          Check in after this time and the day becomes a Half Day, so half a
+          day's pay is cut. This is the only way arriving late costs money.
+          00:00 = off.
+        </Caption>
         <AppTextInput
           label="Half day below ratio"
           value={draft.half_day_min_hours_ratio}
@@ -419,7 +442,15 @@ export default function RulesFormScreen({ navigation, route }) {
           editable={!readOnly}
           style={{ marginTop: spacing.base }}
         />
-        <Caption>Set any threshold to 00:00 (or the ratio to 0) to switch that rule off.</Caption>
+        <Caption>
+          A fraction of Daily Paid Hours, between 0 and 1 — 0.5 means half. Check
+          out having worked less than this share of the day and it becomes a Half
+          Day. 0 = off.
+        </Caption>
+        <Note tone="warning" icon="alert-circle-outline">
+          Half Day After is checked first. If it is set earlier than Late Window
+          Ends, anyone arriving between the two is marked Half Day, not Late.
+        </Note>
 
         <View style={{ marginTop: spacing.md }}>
           <SwitchRow
@@ -470,9 +501,9 @@ export default function RulesFormScreen({ navigation, route }) {
           })}
         </View>
         <Caption>
-          Unchecked days are never stamped Absent and are excluded from the
-          working-day count that divides the monthly wage — which is exactly what
-          makes them paid.
+          Green days are working days. Unticked days are days off: nobody is
+          marked Absent on them, and they are left out of the working-day count
+          that the monthly wage is divided by.
         </Caption>
         {workingDayCount === 0 ? (
           <Note tone="danger" icon="alert-circle-outline">
@@ -494,16 +525,19 @@ export default function RulesFormScreen({ navigation, route }) {
             <PrimaryButton label="Save" loading={saving} onPress={submit} style={{ flex: 1 }} />
           </View>
 
+          <Note tone="warning" icon="refresh-outline">
+            Saving a rule change re-grades the last 3 months of attendance, so
+            old records follow the new rules.
+          </Note>
           <PrimaryButton
             label="Recompute last 3 months"
             variant="ghost"
             loading={recomputing}
             onPress={() => setConfirmRecompute(true)}
-            style={{ marginTop: spacing.md }}
           />
           <Caption>
-            Saving already recomputes when a rule changes. This is for after
-            switching late tracking back on.
+            Saving already recomputes whenever a rule changes, so this button is
+            rarely needed — use it after switching late tracking back on.
           </Caption>
         </>
       ) : null}
@@ -639,12 +673,12 @@ function GradingNote() {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const [open, setOpen] = useState(false);
   const lines = [
-    'In by Office Start + Grace → Present, nothing owed.',
-    'Between that and Late Window Ends → Late. Recorded, but not charged.',
-    'After Late Window Ends → Present again, nothing owed.',
-    'After Half Day After → Half Day, charged half a day.',
-    'Worked under Half Day Below Ratio of paid hours → Half Day, decided on check-out.',
-    'Never checked in on a working day → Absent, stamped by the cron.',
+    'In by Office Start + Grace Minutes → Present. Nothing owed.',
+    'In after that, but before Late Window Ends → Late. Recorded, never charged.',
+    'In after Late Window Ends → Present again, arrival time shown in brackets.',
+    'In after Half Day After → Half Day. Half a day’s pay is cut.',
+    'Checked out with less than Half Day Below Ratio of the paid hours → Half Day.',
+    'Never checked in on a working day → Absent, stamped automatically.',
   ];
   return (
     <Card style={{ marginBottom: spacing.md }}>
@@ -655,7 +689,7 @@ function GradingNote() {
       >
         <Ionicons name="help-circle-outline" size={17} color={colors.info} />
         <Text style={{ flex: 1, color: colors.text, fontFamily: fonts.semibold, fontSize: fontSize.sm }}>
-          How a day is graded
+          How a day gets its label
         </Text>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color={colors.muted} />
       </Pressable>
@@ -686,8 +720,8 @@ function GradingNote() {
               lineHeight: 17,
             }}
           >
-            A half day is the only deduction. Lateness costs nothing, and an absent
-            day is handled by not being earned.
+            A Half Day is the only pay cut. Being Late costs nothing, and an
+            Absent day is simply a day that was never earned.
           </Text>
         </View>
       ) : null}

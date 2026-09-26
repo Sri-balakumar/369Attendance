@@ -7,6 +7,7 @@ import { radii } from '../../theme/tokens';
 import { Card, Chip, PrimaryButton, SwitchRow, useToast } from '../../components';
 import { fetchDetailsConfigs, saveDetailsConfig } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
+import { GUIDES } from './guides';
 import { Section, Note } from './FormBits';
 
 /**
@@ -112,7 +113,7 @@ export function FieldSettingsListScreen({ navigation }) {
   );
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.fieldSettingsList}
       navigation={navigation}
       title="Field Settings"
       subtitle="What My Details shows"
@@ -224,7 +225,7 @@ export function FieldSettingsFormScreen({ navigation, route }) {
   };
 
   return (
-    <AdminScreen
+    <AdminScreen guide={GUIDES.fieldSettingsForm}
       navigation={navigation}
       title={row ? scopeLabel(row) : 'Field Settings'}
       subtitle="What My Details shows"
