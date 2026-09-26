@@ -57,9 +57,9 @@
                         </group>
                     </group>
 
-                    <div class="text-muted mt-3">
-                        <p><b>How it works:</b></p>
-                        <ul>
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <strong>How the wait is counted</strong>
+                        <ul class="mb-0">
                             <li>The wait starts when the employee <b>submits</b> the request, not when they create the draft.</li>
                             <li>If no manager approves or rejects it within that wait, the system approves it.</li>
                             <li>It is counted in plain clock time — nights and weekends included.</li>
@@ -78,6 +78,7 @@
     <record id="action_auto_approve_config" model="ir.actions.act_window">
         <field name="name">Request Auto-Approval</field>
         <field name="res_model">hr.request.auto.approve.config</field>
+        <field name="context">{'guide_key': 'auto_approve'}</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

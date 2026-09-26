@@ -31,6 +31,7 @@
     <record id="action_late_summary_wizard" model="ir.actions.act_window">
         <field name="name">Monthly Late Summary</field>
         <field name="res_model">hr.attendance.late.summary.wizard</field>
+        <field name="context">{'guide_key': 'monthly_summary'}</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>

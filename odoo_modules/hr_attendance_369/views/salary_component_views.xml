@@ -48,10 +48,15 @@
                             <field name="active" widget="boolean_toggle"/>
                         </group>
                     </group>
-                    <div class="text-muted mt-2">
-                        A component only appears on employees while it is active.
-                        Switching one off keeps every amount already recorded
-                        against it, but stops it being added to anybody new.
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        <strong>Good to know</strong>
+                        <ul class="mb-0">
+                            <li>A component only appears on employees while it is active.
+                            Switching one off keeps every amount already recorded
+                            against it, but stops it being added to anybody new.</li>
+                            <li>Earnings must add up to the employee's Monthly Wage, or
+                            the payroll run cannot be confirmed.</li>
+                        </ul>
                     </div>
                 </sheet>
             </form>
@@ -65,7 +70,7 @@
         <!-- active_test=False is essential: the presets ship inactive, so
              without it this list looks empty and the admin has nothing to
              switch on. -->
-        <field name="context">{'active_test': False}</field>
+        <field name="context">{'active_test': False, 'guide_key': 'salary_components'}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Define your salary components</p>
             <p>

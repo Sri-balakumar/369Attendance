@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Same markup as the module's existing yellow banners
+         (late_config_views.xml "How a day is graded"): alert-warning, a bold
+         lead line, then the steps. Numbered, because they are steps. -->
+    <t t-name="hr_attendance_369.GuideBanner">
+        <div t-if="guideBanner" class="alert alert-warning o_guide_banner mx-3 mt-3 mb-0 py-2" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa fa-book" role="img" aria-hidden="true"/>
+                <strong t-esc="guideBanner.title"/>
+            </div>
+            <ol class="mb-0 mt-1 ps-4">
+                <li t-foreach="guideBanner.steps" t-as="step" t-key="step_index" t-esc="step"/>
+            </ol>
+        </div>
+    </t>
+
+    <t t-inherit="web.ListView" t-inherit-mode="extension">
+        <xpath expr="//t[@t-component='props.Renderer']" position="before">
+            <t t-call="hr_attendance_369.GuideBanner"/>
+        </xpath>
+    </t>
+
+    <!-- archInfo='archInfo' picks the main renderer, not the dialog-footer one. -->
+    <t t-inherit="web.FormView" t-inherit-mode="extension">
+        <xpath expr="//t[@t-component='props.Renderer'][@archInfo='archInfo']" position="before">
+            <t t-call="hr_attendance_369.GuideBanner"/>
+        </xpath>
+    </t>
+
+</templates>

@@ -44,7 +44,8 @@
                         <field name="validation_message"
                                placeholder="Aadhaar must be exactly 12 digits."/>
                     </group>
-                    <div class="text-muted mt-2">
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        <strong>About the pattern</strong><br/>
                         The pattern must match the WHOLE value. Leave it empty to
                         accept anything: a blank pattern is better than a wrong
                         one, because a wrong one rejects valid numbers.
@@ -60,7 +61,7 @@
         <field name="view_mode">list,form</field>
         <!-- Same reason as Salary Components: the presets ship inactive and
              would otherwise be invisible here. -->
-        <field name="context">{'active_test': False}</field>
+        <field name="context">{'active_test': False, 'guide_key': 'statutory_id_types'}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Define the identity numbers you record</p>
             <p>

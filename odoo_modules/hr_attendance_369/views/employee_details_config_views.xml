@@ -204,7 +204,7 @@
              hid every per-employee row. -->
         <field name="domain">[]</field>
         <field name="search_view_id" ref="view_employee_details_config_search"/>
-        <field name="context">{'search_default_group_applies_to': 1}</field>
+        <field name="context">{'search_default_group_applies_to': 1, 'guide_key': 'field_settings'}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'sequence': 1, 'view_mode': 'list',
                     'view_id': ref('view_employee_details_config_list')}),

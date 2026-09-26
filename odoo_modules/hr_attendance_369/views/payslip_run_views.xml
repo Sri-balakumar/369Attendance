@@ -115,6 +115,7 @@
     <record id="action_payslip_run" model="ir.actions.act_window">
         <field name="name">Payroll Runs</field>
         <field name="res_model">hr.payslip.run</field>
+        <field name="context">{'guide_key': 'payroll_runs'}</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[]</field>
         <field name="help" type="html">

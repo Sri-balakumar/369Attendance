@@ -95,6 +95,8 @@
                             <field name="kra_workday_creates_attendance"
                                    string="KRA Workday Creates Attendance"
                                    help="When on, Start Workday in the KRA/KPI board creates the check-in here and End Workday writes the check-out."/>
+                            <field name="require_day_off_declaration"
+                                   help="When on, check-in on a weekly off or public holiday is refused until the employee taps 'I am working today' in the Attendance app. That declaration earns the compensatory off."/>
                         </group>
                     </group>
 
@@ -147,6 +149,7 @@
     <record id="action_late_config" model="ir.actions.act_window">
         <field name="name">Office Hours &amp; Working Days</field>
         <field name="res_model">hr.attendance.late.config</field>
+        <field name="context">{'guide_key': 'office_hours'}</field>
         <field name="view_mode">list,form</field>
     </record>
 
