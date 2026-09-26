@@ -42,6 +42,7 @@
     <record id="action_employee_report_wizard" model="ir.actions.act_window">
         <field name="name">Employee Monthly Report</field>
         <field name="res_model">hr.employee.report.wizard</field>
+        <field name="context">{'guide_key': 'generate_report'}</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
@@ -119,6 +120,7 @@
                                     <field name="late_minutes_display" string="Late Time" optional="show"/>
                                     <field name="paid_leave_days" string="Paid Leave Days" sum="Total" optional="show"/>
                                     <field name="unpaid_leave_days" string="Unpaid Leave Days" sum="Total" optional="show"/>
+                                    <field name="comp_off_days" string="Comp Off Days" sum="Total" optional="show"/>
                                     <field name="leave_deduction" string="Leave Deduction" sum="Total" optional="show"
                                            widget="monetary" options="{'currency_field': 'currency_id'}"
                                            decoration-danger="leave_deduction &gt; 0"/>
@@ -195,7 +197,7 @@
                             invisible="late_days == 0"/>
                     <button name="action_view_leave_records" type="object"
                             string="View Leave Records" class="btn-primary"
-                            invisible="paid_leave_days == 0 and unpaid_leave_days == 0"/>
+                            invisible="paid_leave_days == 0 and unpaid_leave_days == 0 and comp_off_days == 0"/>
                 </header>
                 <sheet>
                     <field name="currency_id" invisible="1"/>
@@ -218,6 +220,7 @@
                         <group string="Leave Tracking">
                             <field name="paid_leave_days"/>
                             <field name="unpaid_leave_days"/>
+                            <field name="comp_off_days"/>
                             <field name="leave_deduction" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                         </group>
                         <group string="Salary">
@@ -342,7 +345,7 @@
         <field name="name">Employee Reports</field>
         <field name="res_model">hr.employee.report</field>
         <field name="view_mode">list,form</field>
-        <field name="context">{'create': False}</field>
+        <field name="context">{'create': False, 'guide_key': 'past_reports'}</field>
     </record>
 
 </odoo>

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Compensatory offs: one row per day off that was actually worked.
+
+        A row starts as a DECLARATION: on a weekly off or public holiday the
+        employee taps "I am working today" in the Attendance app, which is
+        what unlocks check-in for that day. Their check-out sizes it (a short
+        day is worth half) and it becomes Available. Approved comp-off leave
+        consumes it; the Redemptions tab shows which leave did, and is kept
+        even after the credit is used up. A manager cancels a credit that
+        should not have been earned, or grants a declaration by hand when
+        the check-out never came.
+    -->
+
+    <record id="view_comp_off_credit_tree" model="ir.ui.view">
+        <field name="name">hr.comp.off.credit.list</field>
+        <field name="model">hr.comp.off.credit</field>
+        <field name="arch" type="xml">
+            <list string="Compensatory Off"
+                  decoration-muted="state in ('expired', 'cancelled', 'consumed')"
+                  decoration-info="state == 'declared'"
+                  decoration-success="state == 'available' and days_left &gt; 0">
+                <field name="employee_id"/>
+                <field name="date_earned"/>
+                <field name="source"/>
+                <field name="holiday_name" optional="show"/>
+                <field name="hours_worked" optional="hide"/>
+                <field name="days" sum="Earned"/>
+                <field name="days_used" sum="Used"/>
+                <field name="days_left" sum="Left"/>
+                <field name="days_lapsed" sum="Lapsed" optional="show"/>
+                <field name="expiry_date" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'declared'"
+                       decoration-success="state == 'available'"
+                       decoration-primary="state == 'consumed'"
+                       decoration-warning="state == 'expired'"
+                       decoration-danger="state == 'cancelled'"/>
+                <field name="auto_created" optional="hide"/>
+                <field name="note" optional="hide"/>
+                <field name="company_id" optional="hide"
+                       groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_comp_off_credit_form" model="ir.ui.view">
+        <field name="name">hr.comp.off.credit.form</field>
+        <field name="model">hr.comp.off.credit</field>
+        <field name="arch" type="xml">
+            <form string="Compensatory Off">
+                <header>
+                    <button name="action_cancel" type="object"
+                            string="Cancel Credit" class="btn-secondary"
+                            invisible="state == 'cancelled'"
+                            confirm="Cancel this compensatory off? The employee will no longer be able to take it."/>
+                    <button name="action_grant" type="object"
+                            string="Grant" class="btn-primary"
+                            invisible="state != 'declared'"
+                            confirm="Grant this day as earned? Set Days Earned first if it was only half a day."/>
+                    <button name="action_restore" type="object"
+                            string="Restore" class="btn-secondary"
+                            invisible="state not in ('expired', 'cancelled')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="declared,available,consumed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="display_name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Earned">
+                            <field name="employee_id"/>
+                            <field name="date_earned"/>
+                            <field name="source"/>
+                            <field name="holiday_name" invisible="not holiday_name"/>
+                            <field name="days"/>
+                            <field name="hours_worked" invisible="state == 'declared'"/>
+                            <field name="declared_at"/>
+                            <field name="declared_by"/>
+                            <field name="company_id"
+                                   groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Spent">
+                            <field name="days_used"/>
+                            <field name="days_left"/>
+                            <field name="days_lapsed" invisible="state != 'expired'"/>
+                            <field name="expiry_date"/>
+                            <field name="auto_created"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="day_status_id" readonly="1"/>
+                        <field name="note" placeholder="Why this credit was granted or withdrawn"/>
+                    </group>
+                    <notebook>
+                        <page string="Redemptions" name="redemptions">
+                            <field name="redemption_ids" readonly="1">
+                                <list string="Redemptions" create="0" delete="0"
+                                      decoration-muted="request_state not in ('pending', 'approved')">
+                                    <field name="leave_request_id"/>
+                                    <field name="leave_from_date"/>
+                                    <field name="leave_to_date"/>
+                                    <field name="days" sum="Days"/>
+                                    <field name="request_state" widget="badge"
+                                           decoration-success="request_state == 'approved'"
+                                           decoration-warning="request_state == 'pending'"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_comp_off_credit_search" model="ir.ui.view">
+        <field name="name">hr.comp.off.credit.search</field>
+        <field name="model">hr.comp.off.credit</field>
+        <field name="arch" type="xml">
+            <search string="Compensatory Off">
+                <field name="employee_id"/>
+                <field name="date_earned"/>
+                <filter name="declared" string="Declared"
+                        domain="[('state', '=', 'declared')]"/>
+                <filter name="available" string="Available"
+                        domain="[('state', '=', 'available')]"/>
+                <filter name="consumed" string="Consumed"
+                        domain="[('state', '=', 'consumed')]"/>
+                <filter name="expired" string="Expired"
+                        domain="[('state', '=', 'expired')]"/>
+                <filter name="cancelled" string="Cancelled"
+                        domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="from_holiday" string="Public Holiday"
+                        domain="[('source', '=', 'public_holiday')]"/>
+                <filter name="from_weekly_off" string="Weekly Off"
+                        domain="[('source', '=', 'weekly_off')]"/>
+                <group>
+                    <filter name="group_employee" string="Employee"
+                            context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_state" string="Status"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_source" string="Earned On"
+                            context="{'group_by': 'source'}"/>
+                    <filter name="group_month" string="Month"
+                            context="{'group_by': 'date_earned:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_comp_off_credit" model="ir.actions.act_window">
+        <field name="name">Compensatory Off</field>
+        <field name="res_model">hr.comp.off.credit</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_comp_off_credit_search"/>
+        <field name="context">{'search_default_available': 1, 'search_default_group_employee': 1, 'guide_key': 'comp_off'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No compensatory offs yet
+            </p>
+            <p>
+                A credit appears here when somebody taps "I am working
+                today" in the Attendance app on a weekly off or a public
+                holiday. Their check-out decides its size: a full day worked
+                earns one day back, a short day earns half.
+            </p>
+            <p>
+                Employees take one by filing a leave request of type
+                <b>Compensatory Off</b>.
+            </p>
+        </field>
+    </record>
+
+</odoo>

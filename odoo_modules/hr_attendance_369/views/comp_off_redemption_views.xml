@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Compensatory off usage: one line per credit a comp-off leave drew on.
+
+        Lines are never deleted. A line whose leave was rejected, cancelled
+        or reset still shows here, muted, so the history of every credit can
+        always be read back: which day off was worked, which leave spent it,
+        and what happened to that leave.
+    -->
+
+    <record id="view_comp_off_redemption_list" model="ir.ui.view">
+        <field name="name">hr.comp.off.redemption.list</field>
+        <field name="model">hr.comp.off.redemption</field>
+        <field name="arch" type="xml">
+            <list string="Comp Off Usage" create="0" edit="0" delete="0"
+                  decoration-muted="request_state not in ('pending', 'approved')">
+                <field name="employee_id"/>
+                <field name="date_earned"/>
+                <field name="credit_source"/>
+                <field name="leave_request_id"/>
+                <field name="leave_from_date"/>
+                <field name="leave_to_date"/>
+                <field name="days" sum="Days"/>
+                <field name="request_state" widget="badge"
+                       decoration-success="request_state == 'approved'"
+                       decoration-warning="request_state == 'pending'"
+                       decoration-danger="request_state == 'rejected'"/>
+                <field name="company_id" optional="hide"
+                       groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_comp_off_redemption_search" model="ir.ui.view">
+        <field name="name">hr.comp.off.redemption.search</field>
+        <field name="model">hr.comp.off.redemption</field>
+        <field name="arch" type="xml">
+            <search string="Comp Off Usage">
+                <field name="employee_id"/>
+                <field name="leave_request_id"/>
+                <filter name="active_lines" string="Holding Credit"
+                        domain="[('request_state', 'in', ('pending', 'approved'))]"/>
+                <filter name="approved" string="Approved"
+                        domain="[('request_state', '=', 'approved')]"/>
+                <group>
+                    <filter name="group_employee" string="Employee"
+                            context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_state" string="Leave Status"
+                            context="{'group_by': 'request_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_comp_off_redemption" model="ir.actions.act_window">
+        <field name="name">Comp Off Usage</field>
+        <field name="res_model">hr.comp.off.redemption</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_comp_off_redemption_search"/>
+        <field name="context">{'search_default_group_employee': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No compensatory off has been used yet
+            </p>
+            <p>
+                A line appears here when an employee applies for leave of type
+                <b>Compensatory Off</b>. It records which worked day off pays
+                for that leave, and stays after the leave is decided.
+            </p>
+        </field>
+    </record>
+
+</odoo>

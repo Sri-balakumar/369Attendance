@@ -50,6 +50,133 @@ class HrEmployee(models.Model):
             return 0.0
         return round(self.monthly_wage / working_days, 2)
 
+
+    # ------------------------------------------------------------------
+    # Leave and compensatory-off balances
+    # ------------------------------------------------------------------
+    # Computed, not stored, and batched. These render in a list covering the
+    # whole company, so a per-record balance call would be an N+1 of exactly
+    # the kind public_holiday._compute_holiday_info documents avoiding: one
+    # read_group per figure, then fill the recordset from the result.
+    #
+    # The year comes from the context (`balance_year`), which the Leave
+    # Balances action sets, so the same fields can later serve a year selector
+    # without being reshaped.
+    paid_leave_allowed = fields.Float(
+        string='Paid Leave Allowed', compute='_compute_leave_balances',
+        help='The yearly paid-leave allowance from the leave policy.')
+    paid_leave_taken = fields.Float(
+        string='Leave Taken', compute='_compute_leave_balances',
+        help='Approved paid-leave days this year. Compensatory off is not '
+             'counted here -- it spends no allowance.')
+    paid_leave_remaining = fields.Float(
+        string='Paid Leave Left', compute='_compute_leave_balances',
+        help='Allowance less what has been taken. Carry forward from last '
+             'year is NOT added, because nothing in this module applies it -- '
+             'this column shows what payroll actually allows.')
+    comp_off_earned = fields.Float(
+        string='Comp Off Earned', compute='_compute_leave_balances',
+        help='Compensatory offs earned by working a weekly off or a public '
+             'holiday. Cancelled credits and the unspent part of expired ones '
+             'are not counted.')
+    comp_off_used = fields.Float(
+        string='Comp Off Used', compute='_compute_leave_balances')
+    comp_off_balance = fields.Float(
+        string='Comp Off Left', compute='_compute_leave_balances')
+
+    @api.depends_context('balance_year')
+    def _compute_leave_balances(self):
+        if not self:
+            return
+
+        year = self.env.context.get('balance_year') or fields.Date.today().year
+        year_start = '%s-01-01' % year
+        year_end = '%s-12-31' % year
+
+        Leave = self.env['hr.leave.request'].sudo()
+        Credit = self.env['hr.comp.off.credit'].sudo()
+        Config = self.env['hr.leave.config']
+
+        # Paid leave taken this year, comp off deliberately excluded -- the
+        # same rule hr.leave.config.get_employee_leave_balance follows, so the
+        # list and the single-employee API cannot disagree.
+        taken = {
+            employee.id: total for employee, total in Leave._read_group(
+                [('hr_employee_id', 'in', self.ids),
+                 ('state', '=', 'approved'),
+                 ('leave_type', '!=', 'comp_off'),
+                 ('from_date', '>=', year_start),
+                 ('from_date', '<=', year_end)],
+                groupby=['hr_employee_id'],
+                aggregates=['number_of_days:sum'])
+        }
+
+        # Comp off earned: every credit still available, whatever year it was
+        # earned in -- that IS the carry forward -- plus the part of an expired
+        # credit that was spent before it lapsed, exactly as
+        # hr.comp.off.credit.get_comp_off_balance counts it.
+        earned = {
+            employee.id: (days or 0.0) - (lapsed or 0.0)
+            for employee, days, lapsed in Credit._read_group(
+                [('employee_id', 'in', self.ids),
+                 ('state', 'in', Credit._EARNED_STATES)],
+                groupby=['employee_id'],
+                aggregates=['days:sum', 'days_lapsed:sum'])
+        }
+
+        # Comp off claimed. paid_days, not number_of_days: a request that ran
+        # past the balance is only partly covered by credits, and the rest is
+        # unpaid leave that no credit paid for.
+        claimed = {
+            employee.id: total for employee, total in Leave._read_group(
+                [('hr_employee_id', 'in', self.ids),
+                 ('leave_type', '=', 'comp_off'),
+                 ('state', 'in', ('pending', 'approved'))],
+                groupby=['hr_employee_id'],
+                aggregates=['paid_days:sum'])
+        }
+
+        policies = {}
+        for employee in self:
+            company_id = employee.company_id.id or self.env.company.id
+            if company_id not in policies:
+                policies[company_id] = Config.get_config_for_company(company_id)
+            policy = policies[company_id]
+
+            # Only a SAVED policy grants paid leave. get_config_for_company
+            # falls back to defaults (12/yr) when no row exists, but
+            # leave_request._compute_paid_status and get_employee_leave_balance
+            # both treat "no row" as no quota -- every leave unpaid -- so
+            # showing the defaults here would promise days payroll never pays.
+            allowed = (policy.get('paid_leave_days_per_year', 0.0)
+                       if policy.get('id') and policy.get('paid_leave_enabled') else 0.0)
+            used = taken.get(employee.id, 0.0)
+            employee.paid_leave_allowed = allowed
+            employee.paid_leave_taken = used
+            employee.paid_leave_remaining = max(0.0, allowed - used)
+
+            if policy.get('comp_off_enabled'):
+                credit = earned.get(employee.id, 0.0)
+                spent = claimed.get(employee.id, 0.0)
+            else:
+                credit = spent = 0.0
+            employee.comp_off_earned = credit
+            employee.comp_off_used = spent
+            employee.comp_off_balance = max(0.0, credit - spent)
+
+    def action_view_comp_off_credits(self):
+        """This employee's compensatory-off ledger."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Compensatory Off - %s', self.name),
+            'res_model': 'hr.comp.off.credit',
+            'view_mode': 'list,form',
+            'domain': [('employee_id', '=', self.id)],
+            'context': {'default_employee_id': self.id,
+                        'search_default_available': 1},
+        }
+
     # ------------------------------------------------------------------
     # Device registration (was: employee_device)
     # ------------------------------------------------------------------

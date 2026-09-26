@@ -15,7 +15,8 @@
                   decoration-danger="status == 'absent'"
                   decoration-warning="status == 'half_day'"
                   decoration-info="status == 'late'"
-                  decoration-success="status == 'leave'">
+                  decoration-success="status == 'leave'"
+                  decoration-muted="status == 'day_off'">
                 <field name="date"/>
                 <field name="employee_id"/>
                 <field name="status_display" string="Status"/>
@@ -92,6 +93,8 @@
                         domain="[('status', '=', 'leave')]"/>
                 <filter name="late_only" string="Late"
                         domain="[('status', '=', 'late')]"/>
+                <filter name="day_off_only" string="Day Off"
+                        domain="[('status', '=', 'day_off')]"/>
                 <separator/>
                 <filter name="deducted" string="Has Deduction"
                         domain="[('deduction_amount', '&gt;', 0)]"/>
@@ -112,7 +115,7 @@
         <field name="res_model">hr.attendance.day.status</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_attendance_day_status_search"/>
-        <field name="context">{'search_default_this_month': 1}</field>
+        <field name="context">{'search_default_this_month': 1, 'guide_key': 'day_status'}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">No day status yet</p>
             <p>
@@ -127,6 +130,7 @@
     <record id="action_attendance_absent_today" model="ir.actions.act_window">
         <field name="name">Absent Today</field>
         <field name="res_model">hr.attendance.day.status</field>
+        <field name="context">{'guide_key': 'absent_today'}</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_attendance_day_status_search"/>
         <field name="domain">[('date', '=', context_today().strftime('%Y-%m-%d')), ('status', '=', 'absent')]</field>

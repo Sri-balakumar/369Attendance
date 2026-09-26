@@ -1,6 +1,6 @@
 {
     'name': 'KRA/KPI Workday -> Attendance Bridge',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Starting a KRA/KPI workday records an HR attendance check-in, '
                'and ending it writes the check-out',
@@ -32,6 +32,12 @@
         Nothing else needs configuring, but the bridge can be switched off per
         company or department with "KRA Workday Creates Attendance" on the
         Office Hours configuration in hr_attendance_369.
+
+        With both parents present the bridge also adds a fourth KRA/KPI role,
+        **HR**, beside Admin / User / Client -- in the backend Users form and
+        in the KRA app's Login Management. Picking it makes the person the
+        attendance HR: they approve leave and WFH and manage compensatory
+        offs, and hold no KRA role group.
     """,
     'author': 'Alphalize Technologies',
     'depends': ['hr_attendance_369', 'kra_kpi_module'],

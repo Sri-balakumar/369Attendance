@@ -1,4 +1,7 @@
 from odoo import models, fields, api, exceptions
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class PublicHoliday(models.Model):
@@ -126,13 +129,92 @@ class PublicHoliday(models.Model):
             '"Fourth Onam / Sree Narayana Guru Jayanthi".'
             % (shown, clash.name))
 
+    def _recompute_affected_leaves(self, dates, company_ids):
+        """Make leaves spanning these dates recount their days.
+
+        hr.leave.request.number_of_days counts WORKING days, so declaring,
+        moving or deleting a holiday changes it. A holiday is not an ORM
+        dependency of that compute -- nothing links them -- so without this the
+        stored value would quietly stay wrong, and a leave over Holi would go
+        on billing five days after Holi was declared.
+
+        Only non-final requests are touched: a rejected or cancelled leave is
+        history, and a confirmed payslip has already stored its own figures.
+        """
+        dates = sorted(d for d in dates if d)
+        if not dates:
+            return
+        low, high = dates[0], dates[-1]
+
+        Leave = self.env['hr.leave.request'].sudo()
+        candidates = Leave.search([
+            ('state', 'not in', ('rejected', 'cancelled')),
+            ('from_date', '<=', high),
+        ])
+        # to_date is optional and means "this one day" (see _find_leave in
+        # attendance_day_status), so the real end of the span has to be worked
+        # out per record rather than in the domain.
+        affected = candidates.filtered(
+            lambda lv: lv.from_date
+            and (lv.to_date or lv.from_date) >= low
+            and lv.hr_employee_id.company_id.id in company_ids)
+        if not affected:
+            return
+
+        # Same shape as hr.attendance.day.status.action_recompute: call the
+        # compute, then flush, so dependent stored computes (paid/unpaid days
+        # and the deduction) pick the new value up through the normal ORM
+        # dependency chain.
+        affected._compute_number_of_days()
+        affected.flush_recordset()
+
+    def _recompute_affected_day_status(self, dates, company_ids):
+        """Re-grade the day rows on these dates, and their comp-off credits.
+
+        A day row's status depends on whether the date is a working day, but a
+        holiday is not an ORM dependency of that compute either. Without this,
+        a holiday declared after the absent cron stamped the day leaves it
+        Absent -- and the payslip charges loss of pay for a day that is not
+        even in working_days -- while anybody who worked it earns no comp off.
+        Moving a holiday away has the mirror problem: the day stays Day Off.
+        """
+        dates = sorted(set(d for d in dates if d))
+        if not dates or not company_ids:
+            return
+        rows = self.env['hr.attendance.day.status'].sudo().search([
+            ('date', 'in', dates),
+            ('employee_id.company_id', 'in', list(company_ids)),
+        ])
+        if not rows:
+            return
+        rows._compute_status()
+        rows.flush_recordset()
+
+        Credit = self.env['hr.comp.off.credit']
+        for row in rows:
+            # Savepointed like the attendance upsert does: a credit problem
+            # must never undo the holiday change or the re-grading.
+            try:
+                with self.env.cr.savepoint():
+                    Credit._sync_for_day(row)
+            except Exception:
+                _logger.exception(
+                    '[holiday] comp-off sync failed for day status %s', row.id)
+
+    def _recompute_affected(self, dates, company_ids):
+        self._recompute_affected_leaves(dates, company_ids)
+        self._recompute_affected_day_status(dates, company_ids)
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             self._raise_if_duplicate(
                 fields.Date.to_date(vals.get('date')),
                 vals.get('company_id') or self.env.company.id)
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        records._recompute_affected(
+            records.mapped('date'), set(records.mapped('company_id').ids))
+        return records
 
     def write(self, vals):
         if 'date' in vals or 'company_id' in vals:
@@ -141,7 +223,23 @@ class PublicHoliday(models.Model):
                     fields.Date.to_date(vals.get('date')) or rec.date,
                     vals.get('company_id') or rec.company_id.id,
                     exclude_id=rec.id)
-        return super().write(vals)
+        # Both sides of a move matter: the day it stops being a holiday has to
+        # recount too, not just the day it becomes one. Archiving via `active`
+        # is a change of the same kind.
+        touched = list(self.mapped('date'))
+        companies = set(self.mapped('company_id').ids)
+        result = super().write(vals)
+        touched += list(self.mapped('date'))
+        companies |= set(self.mapped('company_id').ids)
+        self._recompute_affected(touched, companies)
+        return result
+
+    def unlink(self):
+        touched = list(self.mapped('date'))
+        companies = set(self.mapped('company_id').ids)
+        result = super().unlink()
+        self.browse()._recompute_affected(touched, companies)
+        return result
 
     @api.model
     def is_public_holiday(self, check_date, company_id=None):

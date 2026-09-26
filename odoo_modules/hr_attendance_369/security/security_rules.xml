@@ -305,4 +305,57 @@
         <field name="perm_unlink" eval="True"/>
     </record>
 
+    <!-- ============================================================ -->
+    <!--  Compensatory off                                            -->
+    <!--  hr.public.holiday deliberately has no rule (it is company   -->
+    <!--  policy everybody may read). A credit is different: it is    -->
+    <!--  one person's entitlement, so an ordinary employee sees      -->
+    <!--  only their own.                                             -->
+    <!-- ============================================================ -->
+    <record id="comp_off_credit_rule_own" model="ir.rule">
+        <field name="name">Comp Off: employee sees only their own credits</field>
+        <field name="model_id" ref="model_hr_comp_off_credit"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="comp_off_credit_rule_manager" model="ir.rule">
+        <field name="name">Comp Off: HR sees all credits</field>
+        <field name="model_id" ref="model_hr_comp_off_credit"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user')), (4, ref('hr_attendance_369.group_leave_manager'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Redemption lines: which comp off paid for which leave. Same shape
+         as the credit rules above: an employee reads only their own. -->
+    <record id="comp_off_redemption_rule_own" model="ir.rule">
+        <field name="name">Comp Off Usage: employee sees only their own</field>
+        <field name="model_id" ref="model_hr_comp_off_redemption"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="comp_off_redemption_rule_manager" model="ir.rule">
+        <field name="name">Comp Off Usage: HR sees all</field>
+        <field name="model_id" ref="model_hr_comp_off_redemption"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('hr.group_hr_user')), (4, ref('hr_attendance_369.group_leave_manager'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
 </odoo>

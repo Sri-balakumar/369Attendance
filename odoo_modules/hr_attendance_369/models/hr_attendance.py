@@ -609,6 +609,47 @@ class HrAttendance(models.Model):
                     "same day. Please wait until tomorrow."
                 ))
 
+    @api.constrains('check_in', 'employee_id')
+    def _check_day_off_declared(self):
+        """Refuse a check-in on a weekly off or public holiday that nobody
+        declared as a working day.
+
+        The employee unlocks the day by tapping "I am working today" in the
+        Attendance app, which writes a declared hr.comp.off.credit row; that
+        row is what this looks for, and it is also what earns them the
+        compensatory off when they check out. A credit HR added by hand for
+        the day counts the same way, so HR can unlock a day for someone.
+
+        An ORM constraint, so every entry point is covered with one rule: the
+        app's systray route, the KRA workday bridge (which catches and logs
+        the refusal, so the workday opens but no attendance is written), the
+        WFH check-in and the backend form. Skipped for closed rows -- the same
+        exemption `_check_no_reentry_same_day` makes -- so a check-out, a
+        reopened KRA day, an HR correction with both times, and an upgrade
+        recompute are never blocked. Imports and an explicit
+        `skip_day_off_gate` context bypass it.
+
+        `skip_late_reason_required` deliberately does NOT bypass it: the
+        systray override injects that flag on every check-in, and honouring
+        it here would wave the app's own button straight through.
+        """
+        ctx = self.env.context
+        if ctx.get('skip_day_off_gate') or ctx.get('import_file'):
+            return
+        Credit = self.env['hr.comp.off.credit']
+        # sudo for the config read only: it browses hr.employee, which an
+        # ordinary employee cannot read in Odoo 19.
+        DayStatus = self.env['hr.attendance.day.status'].sudo()
+        for rec in self:
+            if not rec.check_in or not rec.employee_id or rec.check_out:
+                continue
+            day = DayStatus._office_local_date(rec.sudo())
+            info = Credit._check_in_gate(rec.employee_id.sudo(), day)
+            if not info.get('allowed'):
+                raise ValidationError(info.get('message') or _(
+                    "Today is a day off. Tap 'I am working today' in the "
+                    "Attendance app before checking in."))
+
     @api.onchange('check_out')
     def _onchange_check_out_warn(self):
         """Show a warning popup the moment the user fills `check_out` on

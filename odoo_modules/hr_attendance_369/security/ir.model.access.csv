@@ -55,3 +55,11 @@ access_payslip_manager,hr.payslip.manager,model_hr_payslip,hr.group_hr_manager,1
 access_payslip_user,hr.payslip.user,model_hr_payslip,hr.group_hr_user,1,0,0,0
 access_payslip_line_manager,hr.payslip.line.manager,model_hr_payslip_line,hr.group_hr_manager,1,1,1,1
 access_payslip_line_user,hr.payslip.line.user,model_hr_payslip_line,hr.group_hr_user,1,0,0,0
+access_comp_off_credit_manager,hr.comp.off.credit.manager,model_hr_comp_off_credit,hr.group_hr_manager,1,1,1,1
+access_comp_off_credit_leave_manager,hr.comp.off.credit.leave.manager,model_hr_comp_off_credit,hr_attendance_369.group_leave_manager,1,1,1,1
+access_comp_off_credit_user,hr.comp.off.credit.user,model_hr_comp_off_credit,base.group_user,1,0,0,0
+access_comp_off_credit_hr_user,hr.comp.off.credit.hr.user,model_hr_comp_off_credit,hr.group_hr_user,1,1,1,0
+access_comp_off_redemption_manager,hr.comp.off.redemption.manager,model_hr_comp_off_redemption,hr.group_hr_manager,1,1,1,1
+access_comp_off_redemption_leave_manager,hr.comp.off.redemption.leave.manager,model_hr_comp_off_redemption,hr_attendance_369.group_leave_manager,1,1,1,1
+access_comp_off_redemption_hr_user,hr.comp.off.redemption.hr.user,model_hr_comp_off_redemption,hr.group_hr_user,1,0,0,0
+access_comp_off_redemption_user,hr.comp.off.redemption.user,model_hr_comp_off_redemption,base.group_user,1,0,0,0

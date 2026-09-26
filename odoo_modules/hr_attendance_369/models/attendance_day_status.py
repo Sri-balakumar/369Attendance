@@ -12,6 +12,7 @@ STATUS_LABELS = {
     'half_day': 'Half Day',
     'leave': 'Leave',
     'absent': 'Absent',
+    'day_off': 'Day Off',
 }
 
 
@@ -81,6 +82,7 @@ class HrAttendanceDayStatus(models.Model):
         ('half_day', 'Half Day'),
         ('leave', 'Leave'),
         ('absent', 'Absent'),
+        ('day_off', 'Day Off'),
     ], string='Status', compute='_compute_status', store=True, index=True)
 
     status_display = fields.Char(
@@ -94,7 +96,7 @@ class HrAttendanceDayStatus(models.Model):
         string='Deduction', compute='_compute_status', store=True,
         help='Only a half day is docked here. An absent day costs a full day '
              'too, but by not being earned in the monthly report rather than '
-             'by a deduction, so it shows 0.',
+             'by a deduction, so it shows 0. A day off is never docked at all.',
     )
 
     # Odoo 19 note: the `_sql_constraints = [...]` list is no longer supported
@@ -128,14 +130,50 @@ class HrAttendanceDayStatus(models.Model):
 
         Penalties never stack: the first match wins, so half day is the floor
         for anyone who showed up at all. Only a genuine no-show is absent.
+
+        A day nobody owes attendance for -- a weekly off or a public
+        holiday -- is settled BEFORE any of that, and is never absent and
+        never charged. See the DAY OFF branch below.
         """
         Config = self.env['hr.attendance.late.config']
+
+        # Both lookups below hit the database, and this compute runs over a
+        # whole month of rows in a list view. Cache them per employee and per
+        # (employee, date) instead of re-querying for every row -- the same N+1
+        # that public_holiday._compute_holiday_info documents avoiding.
+        cfg_cache = {}
+        working_cache = {}
+
         for rec in self:
             att = rec.attendance_id
-            cfg = Config.get_config_for_employee(rec.employee_id.id) \
-                if rec.employee_id else {}
+            emp_id = rec.employee_id.id
 
-            if not att or not att.check_in:
+            if emp_id not in cfg_cache:
+                cfg_cache[emp_id] = (
+                    Config.get_config_for_employee(emp_id) if emp_id else {})
+            cfg = cfg_cache[emp_id]
+
+            key = (emp_id, rec.date)
+            if key not in working_cache:
+                working_cache[key] = bool(
+                    emp_id and rec.date
+                    and Config.is_working_day(rec.date, emp_id))
+
+            if not working_cache[key]:
+                # A weekly off or a public holiday, and two things follow --
+                # both of them the point of this status:
+                #
+                #   * it can never be Absent. The cron already refuses to stamp
+                #     these days, but a row can still exist -- from a check-in,
+                #     or because the holiday was declared after the row was
+                #     written -- and such a row must not read as a no-show.
+                #   * it is not GRADED either. A three-hour shift on a rest day
+                #     used to come out half_day, and payslip._count_days turns
+                #     half days into LOP, so volunteering on a holiday docked
+                #     half a day's pay. Working a day off now costs nothing and
+                #     earns a compensatory off instead (hr.comp.off.credit).
+                rec.status = 'day_off'
+            elif not att or not att.check_in:
                 # Leave beats absent. Checked first, or somebody on approved
                 # leave reads as a no-show.
                 #
@@ -213,14 +251,42 @@ class HrAttendanceDayStatus(models.Model):
         # home. The grading is unchanged -- this only makes it explicable.
         suffix = ' \u00b7 WFH' if (att and att.is_wfh) else ''
 
+        if self.status == 'day_off':
+            # A rest day somebody actually worked must not read as a blank
+            # 'Day Off': that shift is what earns the compensatory off, so the
+            # label says it happened and when it started. A day off nobody
+            # worked is just the bare label.
+            if not att or not att.check_in:
+                return label
+            local = self._office_local_start(att, cfg)
+            if not local:
+                return 'Day Off - Worked' + suffix
+            return 'Day Off - Worked (%s)%s' % (
+                local.strftime('%I:%M %p'), suffix)
+
         if not att or not att.check_in or not att.is_late:
             return label + suffix
-        tz_name = cfg.get('timezone') or self.employee_id.tz or 'UTC'
-        try:
-            local = pytz.utc.localize(att.check_in).astimezone(pytz.timezone(tz_name))
-        except Exception:
+        local = self._office_local_start(att, cfg)
+        if not local:
             return label + suffix
         return '%s (%s)%s' % (label, local.strftime('%I:%M %p'), suffix)
+
+    def _office_local_start(self, att, cfg):
+        """The check-in rendered in OFFICE time, or None if it cannot be.
+
+        Office time rather than the viewer's, so the label reads the same for
+        everybody looking at it. Returns None instead of raising: a bad tz name
+        in config must cost the bracketed time, not the whole status label.
+        """
+        self.ensure_one()
+        if not att or not att.check_in:
+            return None
+        tz_name = cfg.get('timezone') or self.employee_id.tz or 'UTC'
+        try:
+            return pytz.utc.localize(att.check_in).astimezone(
+                pytz.timezone(tz_name))
+        except Exception:
+            return None
 
     def _price_day(self, att, cfg):
         """What this day is docked.
@@ -236,6 +302,9 @@ class HrAttendanceDayStatus(models.Model):
           * leave   -- priced by the report (unpaid leave) via
             calc_leave_deduction_live; charging it here too would double it.
           * present -- nothing owed.
+          * day_off -- a weekly off or public holiday. It is outside
+            `working_days`, so it is already paid by not being in the divisor;
+            and work done on one is repaid as a compensatory off, not money.
 
         This column is a DISPLAY figure. Take-home pay is decided by the
         monthly report's earnings model, and the two are never summed.
@@ -295,26 +364,41 @@ class HrAttendanceDayStatus(models.Model):
             # record that too, so the row keeps the context even though the
             # attendance now decides the grade.
             leave = self._find_leave(attendance.employee_id, day)
-            return self.sudo().create({
+            row = self.sudo().create({
                 'employee_id': attendance.employee_id.id,
                 'date': day,
                 'attendance_id': attendance.id,
                 'leave_request_id': leave.id if leave else False,
                 'stamped_by_cron': False,
             })
+        else:
+            vals = {}
+            anchor = row.attendance_id
+            if anchor != attendance:
+                # Keep the earliest check-in of the day as the anchor.
+                if not anchor or not anchor.check_in or attendance.check_in < anchor.check_in:
+                    vals['attendance_id'] = attendance.id
+            if row.stamped_by_cron:
+                # Somebody the cron wrote off has turned up. Clear the stamp;
+                # the status recomputes from the attendance that just arrived.
+                vals['stamped_by_cron'] = False
+            if vals:
+                row.sudo().write(vals)
 
-        vals = {}
-        anchor = row.attendance_id
-        if anchor != attendance:
-            # Keep the earliest check-in of the day as the anchor.
-            if not anchor or not anchor.check_in or attendance.check_in < anchor.check_in:
-                vals['attendance_id'] = attendance.id
-        if row.stamped_by_cron:
-            # Somebody the cron wrote off has turned up. Clear the stamp; the
-            # status recomputes from the attendance that just arrived.
-            vals['stamped_by_cron'] = False
-        if vals:
-            row.sudo().write(vals)
+        # A rest day that was actually worked earns a compensatory off. Done
+        # from here rather than from the caller so that every route which
+        # records attendance -- check in, check out, a correction -- keeps the
+        # credit in step with the day it came from.
+        #
+        # Savepointed for the same reason the caller savepoints this method: a
+        # comp-off problem must never cost the attendance or the day row, which
+        # are the records of fact.
+        try:
+            with self.env.cr.savepoint():
+                self.env['hr.comp.off.credit']._sync_for_day(row)
+        except Exception:
+            _logger.exception(
+                "[comp-off] credit sync failed for day status %s", row.id)
         return row
 
     # ------------------------------------------------------------------ #

@@ -23,6 +23,10 @@ from . import employee_device
 from . import attendance_late_summary
 from . import help_document
 from . import leave_config
+# The comp-off ledger reads the leave policy and is read by leave_request, so
+# it sits between them -- same config-before-requests rule as the rest.
+from . import comp_off_redemption
+from . import comp_off_credit
 from . import auto_approve_config
 from . import leave_request
 from . import wfh_request

@@ -243,12 +243,25 @@ class EmployeeReport(models.Model):
             # them PAID: they never enter this divisor, so a full month of
             # attendance earns the whole wage and neither day is deductible.
             total_working_days = 0.0
+            working_dates = set()
             current_date = d_from
             while current_date <= d_to:
                 if current_date.weekday() in working_days_list:
                     if not Holiday.is_public_holiday(current_date, emp.company_id.id):
                         total_working_days += 1
+                        working_dates.add(current_date)
                 current_date += timedelta(days=1)
+
+            _working_cache = {}
+
+            def _is_working_date(day, _emp=emp):
+                if d_from <= day <= d_to:
+                    return day in working_dates
+                if day not in _working_cache:
+                    _working_cache[day] = (
+                        day.weekday() in working_days_list
+                        and not Holiday.is_public_holiday(day, _emp.company_id.id))
+                return _working_cache[day]
 
             # ── Get all attendance records for this employee ─
             all_attendance = self.env['hr.attendance'].search([
@@ -263,7 +276,12 @@ class EmployeeReport(models.Model):
                 if att.date:
                     present_dates.add(att.date)
 
-            total_present_days = float(len(present_dates))
+            # Only working days earn pay. A weekly off or public holiday that
+            # was worked is repaid as a compensatory off (hr.comp.off.credit),
+            # exactly as the payslip treats it -- counting it here as well
+            # would pay the same day twice and let it mask a weekday absence.
+            earning_present_dates = present_dates & working_dates
+            total_present_days = float(len(earning_present_dates))
 
             # ── DAY STATUS LADDER ───────────────────────────
             # hr.attendance.day.status grades each day (present / late / half
@@ -344,6 +362,11 @@ class EmployeeReport(models.Model):
 
             total_paid_days = 0.0
             total_unpaid_days = 0.0
+            # Comp-off days are a SUBSET of total_paid_days, never an addition
+            # to it: the day is paid, and the money model must go on seeing it
+            # as paid. This is kept only so the summary can report it on its
+            # own line, the same split the payslip makes.
+            total_comp_off_days = 0.0
             total_leave_deduction = 0.0
             total_leave_only_ded = 0.0  # unpaid-LEAVE deductions only (no absence)
             leave_date_info = {}  # date -> leave record
@@ -356,16 +379,29 @@ class EmployeeReport(models.Model):
             # Needed twice below: to total the month's paid days, and to net off
             # days that are ALSO present days.
             paid_leave_by_date = {}
+            # Unpaid portion of each leave day inside this month, so each
+            # day-wise line carries its own share of the deduction.
+            unpaid_leave_by_date = {}
 
             for lr in leave_records:
                 lr_start = lr.from_date
                 lr_end = lr.to_date or lr.from_date
-                span = (lr_end - lr_start).days + 1
+
+                # number_of_days counts WORKING days only, so spread it over
+                # the working days of the span. Spreading over calendar days
+                # would put leave on the Sundays and holidays inside it and
+                # mis-split a leave that crosses a month boundary.
+                lr_dates = []
+                lr_current = lr_start
+                while lr_current <= lr_end:
+                    if _is_working_date(lr_current):
+                        lr_dates.append(lr_current)
+                    lr_current += timedelta(days=1)
 
                 # A leave can be worth less than one day per day (a half day is
                 # number_of_days 0.5 over a single date), so spread its value
                 # evenly rather than assuming 1.0 per date.
-                per_day = (lr.number_of_days / span) if span > 0 else 0.0
+                per_day = (lr.number_of_days / len(lr_dates)) if lr_dates else 0.0
 
                 # Quota is consumed chronologically -- the first paid_days of a
                 # leave are the paid ones and the remainder is unpaid -- so walk
@@ -376,8 +412,7 @@ class EmployeeReport(models.Model):
                 paid_in_range = 0.0
                 unpaid_in_range = 0.0
 
-                lr_current = lr_start
-                while lr_current <= lr_end:
+                for lr_current in lr_dates:
                     day_paid = min(per_day, paid_budget)
                     paid_budget -= day_paid
                     if d_from <= lr_current <= d_to:
@@ -387,10 +422,15 @@ class EmployeeReport(models.Model):
                         if day_paid:
                             paid_leave_by_date[lr_current] = (
                                 paid_leave_by_date.get(lr_current, 0.0) + day_paid)
-                    lr_current += timedelta(days=1)
+                        if per_day - day_paid:
+                            unpaid_leave_by_date[lr_current] = (
+                                unpaid_leave_by_date.get(lr_current, 0.0)
+                                + (per_day - day_paid))
 
                 total_paid_days += paid_in_range
                 total_unpaid_days += unpaid_in_range
+                if lr.leave_type == 'comp_off':
+                    total_comp_off_days += paid_in_range
 
                 # The deduction is unpaid_days x daily rate, so apportioning it
                 # by unpaid days is exact rather than approximate.
@@ -511,7 +551,13 @@ class EmployeeReport(models.Model):
                         'leave_type': lr.leave_type,
                         'leave_paid_type': paid_type,
                         'leave_reason': lr.reason or '',
-                        'leave_deduction': calc_leave_deduction_live(lr) if current_date == lr.from_date else 0,
+                        # This day's share of the leave's deduction, apportioned
+                        # by unpaid days the same way the summary does, so the
+                        # day-wise total matches it for cross-month leaves too.
+                        'leave_deduction': round(
+                            calc_leave_deduction_live(lr)
+                            * unpaid_leave_by_date.get(current_date, 0.0)
+                            / lr.unpaid_days, 2) if lr.unpaid_days else 0.0,
                         'is_half_day': lr.is_half_day,
                     })
                 elif has_late:
@@ -641,7 +687,7 @@ class EmployeeReport(models.Model):
             # because both totals are reported in their own right and must stay
             # true individually.
             double_counted = sum(
-                paid_leave_by_date.get(_d, 0.0) for _d in present_dates)
+                paid_leave_by_date.get(_d, 0.0) for _d in earning_present_dates)
             earned_days = max(0.0, total_present_days + total_paid_days
                               - 0.5 * len(ladder_half_dates)
                               - double_counted)
@@ -672,8 +718,12 @@ class EmployeeReport(models.Model):
                 'late_days': late_times_charged,
                 'late_minutes': total_late_minutes,
                 'late_minutes_display': minutes_to_hm(total_late_minutes),
-                'paid_leave_days': total_paid_days,
+                # Paid leave EXCLUDING comp off, so the two columns can be
+                # read side by side without double counting. Their sum is still
+                # every paid day taken.
+                'paid_leave_days': total_paid_days - total_comp_off_days,
                 'unpaid_leave_days': total_unpaid_days,
+                'comp_off_days': total_comp_off_days,
                 'leave_deduction': leave_ded,
                 'wage': emp_wage,
                 'total_deduction': total_ded,
@@ -762,10 +812,10 @@ class EmployeeReport(models.Model):
         summary_headers = [
             'Employee', 'Department', 'Working\nDays', 'Present\nDays',
             'Late Days', 'Total Late\nTime',
-            'Paid Leave\nDays', 'Unpaid Leave\nDays',
+            'Paid Leave\nDays', 'Unpaid Leave\nDays', 'Comp Off\nDays',
             'Leave\nDeduction', 'Monthly\nWage', 'Total\nDeduction', 'Final\nAmount',
         ]
-        col_widths = [25, 20, 10, 10, 12, 12, 12, 12, 14, 14, 14, 14]
+        col_widths = [25, 20, 10, 10, 12, 12, 12, 12, 12, 14, 14, 14, 14]
         for c, (hdr, w) in enumerate(zip(summary_headers, col_widths)):
             ws1.set_column(c, c, w)
             ws1.write(row, c, hdr, header_fmt)
@@ -780,10 +830,11 @@ class EmployeeReport(models.Model):
             ws1.write(row, 5, line.late_minutes_display or '0:00', cell_fmt)
             ws1.write(row, 6, line.paid_leave_days, num_fmt)
             ws1.write(row, 7, line.unpaid_leave_days, num_fmt)
-            ws1.write(row, 8, line.leave_deduction, num_fmt)
-            ws1.write(row, 9, line.wage, num_fmt)
-            ws1.write(row, 10, line.total_deduction, num_fmt)
-            ws1.write(row, 11, line.final_amount, num_fmt)
+            ws1.write(row, 8, line.comp_off_days, num_fmt)
+            ws1.write(row, 9, line.leave_deduction, num_fmt)
+            ws1.write(row, 10, line.wage, num_fmt)
+            ws1.write(row, 11, line.total_deduction, num_fmt)
+            ws1.write(row, 12, line.final_amount, num_fmt)
             row += 1
 
         # Totals row
@@ -794,10 +845,11 @@ class EmployeeReport(models.Model):
         ws1.write(row, 5, '', total_int_fmt)
         ws1.write(row, 6, sum(self.summary_line_ids.mapped('paid_leave_days')), total_num_fmt)
         ws1.write(row, 7, sum(self.summary_line_ids.mapped('unpaid_leave_days')), total_num_fmt)
-        ws1.write(row, 8, self.grand_leave_deduction, total_num_fmt)
-        ws1.write(row, 9, self.grand_wage, total_num_fmt)
-        ws1.write(row, 10, self.grand_total_deduction, total_num_fmt)
-        ws1.write(row, 11, self.grand_final_amount, total_num_fmt)
+        ws1.write(row, 8, sum(self.summary_line_ids.mapped('comp_off_days')), total_num_fmt)
+        ws1.write(row, 9, self.grand_leave_deduction, total_num_fmt)
+        ws1.write(row, 10, self.grand_wage, total_num_fmt)
+        ws1.write(row, 11, self.grand_total_deduction, total_num_fmt)
+        ws1.write(row, 12, self.grand_final_amount, total_num_fmt)
 
         # ═══════════════════════════════════════════════════
         #  SHEET 2: Detailed Day-wise Entries
@@ -911,6 +963,11 @@ class EmployeeReportSummaryLine(models.Model):
     # Leave tracking
     paid_leave_days = fields.Float(string='Paid Leave Days', readonly=True)
     unpaid_leave_days = fields.Float(string='Unpaid Leave Days', readonly=True)
+    comp_off_days = fields.Float(
+        string='Comp Off Days', readonly=True,
+        help='Days taken back as compensatory off for working a weekly off or '
+             'a public holiday. Paid, but spending no leave allowance, so it '
+             'is counted apart from Paid Leave Days rather than inside it.')
     leave_deduction = fields.Float(string='Leave Deduction', readonly=True)
 
     # Wage & Final
@@ -966,10 +1023,14 @@ class EmployeeReportSummaryLine(models.Model):
             'res_model': 'hr.leave.request',
             'view_mode': 'list,form',
             'domain': [
+                # Same overlap test as _generate_data, so a leave that began
+                # last month is listed too.
                 ('hr_employee_id', '=', self.employee_id.id),
                 ('state', '=', 'approved'),
-                ('from_date', '>=', str(report.date_from)),
                 ('from_date', '<=', str(report.date_to)),
+                '|',
+                '&', ('to_date', '=', False), ('from_date', '>=', str(report.date_from)),
+                ('to_date', '>=', str(report.date_from)),
             ],
             'context': {'create': False},
             'target': 'current',
@@ -1030,14 +1091,11 @@ class EmployeeReportDetailLine(models.Model):
     late_reason = fields.Text(string='Late Reason', readonly=True)
 
     # Leave info
-    leave_type = fields.Selection([
-        ('sick', 'Sick Leave'),
-        ('casual', 'Casual Leave'),
-        ('annual', 'Annual Leave'),
-        ('personal', 'Personal Leave'),
-        ('emergency', 'Emergency Leave'),
-        ('other', 'Other'),
-    ], string='Leave Type', readonly=True)
+    # Mirrors hr.leave.request so a new leave type can never make report
+    # generation fail with "Wrong value for leave_type".
+    leave_type = fields.Selection(
+        selection=lambda self: self.env['hr.leave.request']._fields['leave_type'].selection,
+        string='Leave Type', readonly=True)
     leave_paid_type = fields.Char(string='Paid/Unpaid', readonly=True)
     leave_reason = fields.Text(string='Leave Reason', readonly=True)
     leave_deduction = fields.Float(string='Leave Deduction', readonly=True)

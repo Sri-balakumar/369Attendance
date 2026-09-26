@@ -16,6 +16,7 @@
                 <field name="department_name" string="Department" optional="show"/>
                 <field name="working_days" optional="hide"/>
                 <field name="paid_days" optional="show"/>
+                <field name="comp_off_days" string="Comp Off" optional="hide"/>
                 <field name="lop_days" string="LOP" optional="show"
                        decoration-danger="lop_days &gt; 0"/>
                 <field name="gross_earnings" sum="Gross"/>
@@ -72,6 +73,7 @@
                             <field name="absent_days" readonly="1"/>
                             <field name="leave_days_paid" readonly="1"/>
                             <field name="leave_days_unpaid" readonly="1"/>
+                            <field name="comp_off_days" readonly="1"/>
                         </group>
                     </group>
 
@@ -145,7 +147,7 @@
         <field name="view_mode">list,form</field>
         <field name="domain">[]</field>
         <field name="search_view_id" ref="view_payslip_search"/>
-        <field name="context">{'search_default_group_run': 1}</field>
+        <field name="context">{'search_default_group_run': 1, 'guide_key': 'payslips'}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">No payslips yet</p>
             <p>

@@ -116,6 +116,19 @@
               action="action_approved_leaves_report"
               sequence="30"/>
 
+    <menuitem id="menu_comp_off_credits"
+              name="Compensatory Off"
+              parent="menu_leave_root"
+              action="action_comp_off_credit"
+              sequence="35"/>
+
+    <menuitem id="menu_leave_balances"
+              name="Leave Balances"
+              parent="menu_leave_root"
+              action="action_employee_leave_balance"
+              sequence="40"
+              groups="hr_attendance_369.group_leave_manager,hr.group_hr_user,base.group_system"/>
+
     <menuitem id="menu_leave_config_root"
               name="Configuration"
               parent="menu_leave_root"

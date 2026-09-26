@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!--
+            Retire compensatory offs the policy no longer covers: anything past
+            its own expiry date, and at the turn of the year whatever prior-year
+            credit the carry-forward cap does not reach.
+
+            Daily rather than hourly, because both rules turn on a date and
+            nothing changes between one midnight and the next. Idempotent: a
+            credit already Expired is not selected again.
+
+            Harmless until configured. The shipped policy expires nothing
+            (comp_off_expiry_days 0) and carries forward up to 5 days, so a
+            company that never opens the leave policy keeps every credit.
+        -->
+        <record id="ir_cron_comp_off_expire" model="ir.cron">
+            <field name="name">Attendance: expire compensatory offs</field>
+            <field name="model_id" ref="model_hr_comp_off_credit"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_expire_credits()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

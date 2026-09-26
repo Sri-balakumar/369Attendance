@@ -81,12 +81,17 @@
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><b>Paid Days</b></td>
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><b>LOP Days</b></td>
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><b>Leave Taken</b></td>
+                                <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><b>Comp Off</b></td>
                             </tr>
                             <tr>
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % doc.working_days"/></td>
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % doc.paid_days"/></td>
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;" t-attf-style="#{doc.lop_days &gt; 0 and 'color:#e74c3c; font-weight:bold;' or ''}"><t t-esc="'%g' % doc.lop_days"/></td>
                                 <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % (doc.leave_days_paid + doc.leave_days_unpaid)"/></td>
+                                <!-- Its own column, not folded into Leave Taken: a comp off
+                                     spends no leave allowance, so adding it there would
+                                     overstate what the employee has used. -->
+                                <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % doc.comp_off_days"/></td>
                             </tr>
                         </table>
 

@@ -134,6 +134,16 @@ class AttendanceLateConfig(models.Model):
              'Has no effect unless the kra_kpi_attendance_bridge module is '
              'installed - this module does not depend on KRA/KPI.',
     )
+    require_day_off_declaration = fields.Boolean(
+        string="Day Off Needs 'I Am Working Today'",
+        default=True,
+        help="When on, check-in on a weekly off or a public holiday is refused "
+             "until the employee taps 'I am working today' in the Attendance "
+             "app. The declaration is what earns the compensatory off, sized "
+             "half or full from the hours worked. Applies to every check-in "
+             "route: the app, the KRA workday and the backend. Has no effect "
+             "while compensatory off is switched off in the leave policy.",
+    )
 
     @api.depends('company_id', 'department_id')
     def _compute_display_name(self):
@@ -226,6 +236,7 @@ class AttendanceLateConfig(models.Model):
             'half_day_after_hour': 0.0,
             'half_day_min_hours_ratio': 0.0,
             'kra_workday_creates_attendance': True,
+            'require_day_off_declaration': True,
         }
         if not employee.exists():
             return defaults
@@ -258,6 +269,7 @@ class AttendanceLateConfig(models.Model):
             'half_day_after_hour': config.half_day_after_hour,
             'half_day_min_hours_ratio': config.half_day_min_hours_ratio,
             'kra_workday_creates_attendance': config.kra_workday_creates_attendance,
+            'require_day_off_declaration': config.require_day_off_declaration,
         }
 
     @api.model

@@ -48,6 +48,7 @@
                                     <th style="padding: 5px 4px; border: 1px solid #875A7B; text-align: center; white-space: nowrap;">Time</th>
                                     <th style="padding: 5px 4px; border: 1px solid #875A7B; text-align: center; white-space: nowrap;">PdLv</th>
                                     <th style="padding: 5px 4px; border: 1px solid #875A7B; text-align: center; white-space: nowrap;">UpLv</th>
+                                    <th style="padding: 5px 4px; border: 1px solid #875A7B; text-align: center; white-space: nowrap;">CmpOff</th>
                                     <th style="padding: 5px 6px; border: 1px solid #875A7B; text-align: right; white-space: nowrap;">Lv Ded</th>
                                     <th style="padding: 5px 6px; border: 1px solid #875A7B; text-align: right; white-space: nowrap;">Wage</th>
                                     <th style="padding: 5px 6px; border: 1px solid #875A7B; text-align: right; white-space: nowrap;">Tot Ded</th>
@@ -65,6 +66,7 @@
                                         <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center; white-space: nowrap;"><t t-esc="line.late_minutes_display"/></td>
                                         <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % line.paid_leave_days"/></td>
                                         <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % line.unpaid_leave_days"/></td>
+                                        <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: center;"><t t-esc="'%g' % line.comp_off_days"/></td>
                                         <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; white-space: nowrap;"><t t-esc="'%.2f' % line.leave_deduction"/></td>
                                         <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; white-space: nowrap;"><t t-esc="'%.2f' % line.wage"/></td>
                                         <td style="padding: 4px 6px; border: 1px solid #ddd; text-align: right; font-weight: bold; white-space: nowrap;" t-attf-style="#{line.total_deduction > 0 and 'color:#e74c3c;' or ''}">
@@ -85,6 +87,7 @@
                                     <td style="padding: 5px 6px; border: 1px solid #ccc;"></td>
                                     <td style="padding: 5px 6px; border: 1px solid #ccc; text-align: center;"><t t-esc="'%g' % sum(doc.summary_line_ids.mapped('paid_leave_days'))"/></td>
                                     <td style="padding: 5px 6px; border: 1px solid #ccc; text-align: center;"><t t-esc="'%g' % sum(doc.summary_line_ids.mapped('unpaid_leave_days'))"/></td>
+                                    <td style="padding: 5px 6px; border: 1px solid #ccc; text-align: center;"><t t-esc="'%g' % sum(doc.summary_line_ids.mapped('comp_off_days'))"/></td>
                                     <td style="padding: 5px 6px; border: 1px solid #ccc; text-align: right; white-space: nowrap;"><t t-esc="'%.2f' % doc.grand_leave_deduction"/></td>
                                     <td style="padding: 5px 6px; border: 1px solid #ccc; text-align: right; white-space: nowrap;"><t t-esc="'%.2f' % doc.grand_wage"/></td>
                                     <td style="padding: 5px 6px; border: 1px solid #ccc; text-align: right; color: #e74c3c; white-space: nowrap;"><t t-esc="'%.2f' % doc.grand_total_deduction"/></td>
