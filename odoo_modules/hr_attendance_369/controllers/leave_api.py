@@ -65,6 +65,11 @@ class LeaveAPI(http.Controller):
             from_date = params.get('from_date')
             to_date = params.get('to_date') or False
             reason = params.get('reason', '')
+            # Half a day is one date by definition; a to_date would only
+            # confuse the day count.
+            is_half_day = bool(params.get('is_half_day'))
+            if is_half_day:
+                to_date = False
 
             if not from_date:
                 return {'status': False, 'message': 'From date is required'}
@@ -99,6 +104,7 @@ class LeaveAPI(http.Controller):
                 'leave_type': leave_type,
                 'from_date': from_date,
                 'to_date': to_date,
+                'is_half_day': is_half_day,
                 'reason': reason,
             })
 
@@ -125,6 +131,81 @@ class LeaveAPI(http.Controller):
             # person was told they could not have.
             request.env.cr.rollback()
             _logger.error('[Leave API] Create error: %s', str(e))
+            return {'status': False, 'message': str(e)}
+
+    @http.route('/leave/preview_mail', type='jsonrpc', auth='user',
+                methods=['POST'], csrf=False)
+    def preview_mail(self, **params):
+        """The HR alert for a request that does not exist yet.
+
+        Builds an UNSAVED request from what the employee has entered and returns
+        the email's subject and rows, from the same code the real email is made
+        of. Nothing is written. Recipients go back as a count only: the employee
+        needs to know HR is told, not who is on the list.
+        """
+        try:
+            user_id, error = _resolve_user_id(params)
+            if error:
+                return error
+            employee = request.env['hr.employee'].sudo().search(
+                [('user_id', '=', user_id)], limit=1)
+            if not employee:
+                return {'status': False,
+                        'message': 'No employee record is linked to this user. Please contact HR.'}
+            cfg = request.env['hr.leave.config'].sudo().search(
+                [('company_id', '=', employee.company_id.id)], limit=1)
+            recipients = cfg._get_notify_emails() if cfg else []
+            if params.get('sample'):
+                from datetime import date, timedelta
+                today = date.today()
+                vals = {'leave_type': 'casual',
+                        'from_date': today + timedelta(days=(7 - today.weekday()) or 7),
+                        'reason': 'Sample reason, as the employee types it.'}
+            else:
+                is_half = bool(params.get('is_half_day'))
+                vals = {
+                    'leave_type': params.get('leave_type') or 'casual',
+                    'from_date': params.get('from_date') or False,
+                    'to_date': (False if is_half else params.get('to_date')) or False,
+                    'is_half_day': is_half,
+                    'reason': params.get('reason') or '',
+                }
+            # sudo only to build an unsaved record for the caller's own
+            # employee; it is never flushed.
+            draft = request.env['hr.leave.request'].sudo().new(
+                dict(vals, hr_employee_id=employee.id))
+            return {
+                'status': True,
+                'enabled': bool(recipients),
+                'recipients': len(recipients),
+                'subject': draft.submit_mail_subject(),
+                'rows': [{'label': l, 'value': v} for l, v in draft.submit_mail_rows()],
+                'intro': 'A leave request is waiting for a decision.',
+                'footer': 'Sent automatically by the Attendance Suite when a request '
+                          'is submitted. Recipients are configured under Leave > Leave Policy.',
+            }
+        except Exception as e:
+            _logger.error('[Leave API] preview_mail error: %s', str(e))
+            return {'status': False, 'message': str(e)}
+
+    @http.route('/leave/preview_paid', type='jsonrpc', auth='user',
+                methods=['POST'], csrf=False)
+    def preview_paid(self, **params):
+        """How much of the caller's draft leave would be paid, and how much LOP.
+
+        Priced by the same code the saved request uses, for the caller's own
+        employee only. Nothing is written.
+        """
+        try:
+            data = request.env['hr.leave.request'].preview_paid_split(
+                params.get('from_date') or False,
+                params.get('to_date') or False,
+                bool(params.get('is_half_day')),
+                params.get('leave_type') or 'casual',
+            )
+            return {'status': True, 'message': 'OK', 'data': data}
+        except Exception as e:
+            _logger.error('[Leave API] preview_paid error: %s', str(e))
             return {'status': False, 'message': str(e)}
 
     @http.route('/leave/request/my_requests', type='jsonrpc', auth='user',
@@ -228,14 +309,71 @@ class LeaveAPI(http.Controller):
                 return {'status': False, 'message': 'Request not found'}
 
             # Employees may cancel their own request; managers may cancel any.
-            if leave.employee_user_id.id != request.env.user.id and not _is_leave_manager():
+            is_manager = _is_leave_manager()
+            if leave.employee_user_id.id != request.env.user.id and not is_manager:
                 return {'status': False,
                         'message': 'You can only cancel your own leave requests.'}
+            # Approved leave is HR's to undo: the employee asks instead.
+            if leave.state == 'approved' and not is_manager:
+                return {'status': False,
+                        'message': 'This leave is already approved. Use Request cancellation '
+                                   'and HR will decide.'}
 
             leave.action_cancel()
             return {'status': True, 'message': 'Leave request cancelled'}
         except Exception as e:
             _logger.error('[Leave API] Cancel error: %s', str(e))
+            return {'status': False, 'message': str(e)}
+
+    @http.route('/leave/request/request_cancel', type='jsonrpc', auth='user',
+                methods=['POST'], csrf=False)
+    def request_cancel(self, **params):
+        """Employee asks HR to cancel their own APPROVED leave."""
+        try:
+            leave = request.env['hr.leave.request'].sudo().browse(int(params.get('request_id') or 0))
+            if not leave.exists():
+                return {'status': False, 'message': 'Request not found'}
+            if leave.employee_user_id.id != request.env.user.id:
+                return {'status': False,
+                        'message': 'You can only ask to cancel your own leave.'}
+            leave.action_request_cancel(params.get('reason') or '')
+            return {'status': True, 'message': 'Cancellation request sent to HR'}
+        except Exception as e:
+            _logger.error('[Leave API] request_cancel error: %s', str(e))
+            return {'status': False, 'message': str(e)}
+
+    @http.route('/leave/request/approve_cancel', type='jsonrpc', auth='user',
+                methods=['POST'], csrf=False)
+    def approve_cancel(self, **params):
+        """HR approves a cancellation request: the leave is cancelled."""
+        try:
+            if not _is_leave_manager():
+                return {'status': False,
+                        'message': 'Only leave managers/admins can decide cancellations.'}
+            leave = request.env['hr.leave.request'].sudo().browse(int(params.get('request_id') or 0))
+            if not leave.exists():
+                return {'status': False, 'message': 'Request not found'}
+            leave.action_approve_cancel()
+            return {'status': True, 'message': 'Leave cancelled'}
+        except Exception as e:
+            _logger.error('[Leave API] approve_cancel error: %s', str(e))
+            return {'status': False, 'message': str(e)}
+
+    @http.route('/leave/request/reject_cancel', type='jsonrpc', auth='user',
+                methods=['POST'], csrf=False)
+    def reject_cancel(self, **params):
+        """HR keeps the leave; the employee sees the reason."""
+        try:
+            if not _is_leave_manager():
+                return {'status': False,
+                        'message': 'Only leave managers/admins can decide cancellations.'}
+            leave = request.env['hr.leave.request'].sudo().browse(int(params.get('request_id') or 0))
+            if not leave.exists():
+                return {'status': False, 'message': 'Request not found'}
+            leave.action_reject_cancel(params.get('reason') or '')
+            return {'status': True, 'message': 'Leave kept'}
+        except Exception as e:
+            _logger.error('[Leave API] reject_cancel error: %s', str(e))
             return {'status': False, 'message': str(e)}
 
     @http.route('/leave/request/report', type='jsonrpc', auth='user',

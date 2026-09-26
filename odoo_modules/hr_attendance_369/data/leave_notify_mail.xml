@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!--
+            The submission alert. A thin wrapper on purpose: the subject and the
+            body come from hr.leave.request.submit_mail_subject() and
+            submit_mail_html(), the same code the Leave Policy preview, the
+            leave form's "Email to HR" tab and the app's Preview button use, so
+            a preview is always exactly what HR receives.
+
+            Recipients are NOT set here: they come from
+            hr.leave.config.notify_emails at send time, per company, passed as
+            email_values by hr.leave.request._notify_submitted(). The approve
+            link travels the same way (ctx record_url).
+
+            noupdate: HR may reword the wrapper. migrations/19.0.10.2.0 moved
+            existing databases onto this version once.
+        -->
+        <record id="mail_template_leave_submitted" model="mail.template">
+            <field name="name">Leave Request: Submitted (HR alert)</field>
+            <field name="model_id" ref="model_hr_leave_request"/>
+            <field name="subject">{{ object.submit_mail_subject() }}</field>
+            <field name="email_from">{{ object.hr_employee_id.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="body_html" type="html">
+<div><t t-out="object.submit_mail_html(ctx.get('record_url'))"/></div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

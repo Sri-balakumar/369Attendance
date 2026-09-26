@@ -1,3 +1,7 @@
+from datetime import timedelta
+
+import pytz
+
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -7,20 +11,15 @@ from .num_to_words import amount_in_words
 class Payslip(models.Model):
     """One employee's pay for one month.
 
-    The figures are worked out here rather than read from hr.employee.report,
-    for two reasons found while building this:
+    The figures are worked out here rather than read from hr.employee.report:
+    that report is regenerated on demand and stores nothing a confirmed
+    payslip could rely on, and its earnings model counts attendance dates
+    rather than graded days.
 
-    * that report selects leave by START DATE only, so a leave running from
-      30 August into September charges every one of its days to August, and a
-      leave that began in July is invisible in August. Wrong on a report;
-      wrong money on a payslip.
-    * it adds present days to paid-leave days, so somebody with approved leave
-      who also checked in is counted twice.
-
-    Days are therefore counted from hr.attendance.day.status -- the module's
-    canonical one-row-per-day ladder -- as SETS of dates, which makes double
-    counting impossible, and leave is matched by the dates that actually fall
-    inside the period.
+    Days are counted from hr.attendance.day.status -- the module's canonical
+    one-row-per-day ladder -- as SETS of dates, which makes double counting
+    impossible, and leave is matched by the dates that actually fall inside
+    the period.
 
     Note what is NOT used: `hr.attendance.day.status.deduction_amount`. Its own
     docstring calls it "a DISPLAY figure" that is never summed into pay -- it
@@ -59,6 +58,12 @@ class Payslip(models.Model):
     absent_days = fields.Float(string='Absent Days')
     leave_days_paid = fields.Float(string='Paid Leave Days')
     leave_days_unpaid = fields.Float(string='Unpaid Leave Days')
+    comp_off_days = fields.Float(
+        string='Comp Off Days',
+        help='Days taken as compensatory off -- time already worked on a '
+             'weekly off or public holiday, being taken back. Counted apart '
+             'from paid leave because it spends no leave allowance, and it is '
+             'never a loss of pay.')
     lop_days = fields.Float(
         string='LOP Days',
         help='Absent days, half of each half day, and unpaid leave.')
@@ -114,11 +119,16 @@ class Payslip(models.Model):
     def _count_days(self):
         """Day counts for the period, as sets so nothing is counted twice.
 
-        Returns (present, half, absent, paid_leave, unpaid_leave).
+        Returns (present, half, absent, paid_leave, unpaid_leave, comp_off).
+
+        `day_off` rows are counted by none of them, and that is deliberate: a
+        weekly off or public holiday is outside `working_days` already, so it
+        is paid by never being in the divisor. Work done on one is repaid as a
+        compensatory off, not as salary.
 
         Leave is split by the dates that actually fall INSIDE the period, so a
         leave crossing a month boundary contributes only its days in this
-        month -- the bug the monthly report has.
+        month.
         """
         self.ensure_one()
         rows = self.env['hr.attendance.day.status'].search([
@@ -130,29 +140,74 @@ class Payslip(models.Model):
         for row in rows:
             by_status.setdefault(row.status, set()).add(row.date)
 
-        present = len(by_status.get('present', set()) | by_status.get('late', set()))
+        present_dates = by_status.get('present', set()) | by_status.get('late', set())
+        absent_dates = set(by_status.get('absent', set()))
+        leave_dates_by_request = {}
+        for row in rows.filtered(lambda r: r.status == 'leave'):
+            leave_dates_by_request.setdefault(row.leave_request_id, set()).add(row.date)
+
+        # Past working days with NO row at all. Only the absence cron creates
+        # Absent rows, and it only ever stamps today, after late_until_hour --
+        # so with that hour at 0, a server that was down, or days before the
+        # module was installed, a no-show had no row and was paid in full while
+        # the employee report showed the same day as absent. Grade such days
+        # from the source data instead. Days after yesterday are left alone:
+        # they have not happened yet, and today may still get its check-in.
+        DayStatus = self.env['hr.attendance.day.status']
+        Config = self.env['hr.attendance.late.config']
+        graded = {row.date for row in rows}
+        last_day = min(self.run_id.date_to, fields.Date.context_today(self) - timedelta(days=1))
+        if self.run_id.date_from <= last_day:
+            cfg = Config.get_config_for_employee(self.employee_id.id)
+            try:
+                tz = pytz.timezone(cfg.get('timezone') or self.employee_id.tz or 'UTC')
+            except Exception:
+                tz = pytz.utc
+            day = self.run_id.date_from
+            while day <= last_day:
+                if day not in graded and Config.is_working_day(day, self.employee_id.id):
+                    if DayStatus._has_attendance_on(self.employee_id, day, tz):
+                        present_dates.add(day)
+                    else:
+                        leave = DayStatus._find_leave(self.employee_id, day)
+                        if leave:
+                            leave_dates_by_request.setdefault(leave, set()).add(day)
+                        else:
+                            absent_dates.add(day)
+                day += timedelta(days=1)
+
+        present = len(present_dates)
         half = len(by_status.get('half_day', set()))
-        absent = len(by_status.get('absent', set()))
+        absent = len(absent_dates)
 
         # Split this month's leave dates into paid and unpaid, in proportion
         # to how the leave request itself was assessed. Proportional rather
         # than chronological because the request records totals, not a
         # day-by-day paid/unpaid breakdown.
-        paid_leave = unpaid_leave = 0.0
-        leave_dates_by_request = {}
-        for row in rows.filtered(lambda r: r.status == 'leave'):
-            leave_dates_by_request.setdefault(row.leave_request_id, set()).add(row.date)
+        paid_leave = unpaid_leave = comp_off = 0.0
         for request, dates in leave_dates_by_request.items():
             days_here = float(len(dates))
+            # A half-day leave marks its one date as Leave, but it is half a
+            # day: counting the date would pay out (or dock) a whole one.
+            if request and request.is_half_day:
+                days_here = min(days_here, 0.5)
             total = request.number_of_days or days_here
             if not request or not total:
                 unpaid_leave += days_here
                 continue
             unpaid_share = (request.unpaid_days or 0.0) / total
             unpaid_leave += round(days_here * unpaid_share, 2)
-            paid_leave += round(days_here * (1.0 - unpaid_share), 2)
+            covered = round(days_here * (1.0 - unpaid_share), 2)
+            # A comp off is reported on its own line rather than as paid leave.
+            # Split OUT of the covered days, never added alongside them, so the
+            # two can never sum to more than the days actually taken.
+            if request.leave_type == 'comp_off':
+                comp_off += covered
+            else:
+                paid_leave += covered
 
-        return present, float(half), float(absent), paid_leave, unpaid_leave
+        return (present, float(half), float(absent),
+                paid_leave, unpaid_leave, comp_off)
 
     def _earning_and_deduction_lines(self):
         """The employee's configured components, as line values.
@@ -214,7 +269,10 @@ class Payslip(models.Model):
                     'The configuration for %s gives no working days in %s.',
                     employee.name, date_from.strftime('%B %Y')))
 
-            present, half, absent, paid_leave, unpaid_leave = slip._count_days()
+            (present, half, absent, paid_leave, unpaid_leave,
+             comp_off) = slip._count_days()
+            # comp_off is absent from this sum on purpose: the day was worked
+            # already, so taking it back is not a loss of pay.
             lop_days = absent + (half / 2.0) + unpaid_leave
 
             earnings, deductions = slip._earning_and_deduction_lines()
@@ -251,6 +309,7 @@ class Payslip(models.Model):
                 'absent_days': absent,
                 'leave_days_paid': paid_leave,
                 'leave_days_unpaid': unpaid_leave,
+                'comp_off_days': comp_off,
                 'lop_days': lop_days,
                 'paid_days': max(working_days - lop_days, 0.0),
                 'monthly_wage': employee.monthly_wage or 0.0,

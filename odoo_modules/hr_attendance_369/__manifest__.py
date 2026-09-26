@@ -1,6 +1,6 @@
 {
     'name': 'Attendance Suite (Late, Leave, WFH, Reports, Devices)',
-    'version': '19.0.8.6.0',
+    'version': '19.0.10.3.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Late tracking & deductions, leave requests, work-from-home, '
                'monthly employee reports and device registration in one module',
@@ -60,6 +60,8 @@
         'data/help_document_data.xml',
         'data/paper_format.xml',
         'data/absent_stamp_cron.xml',
+        'data/comp_off_expiry_cron.xml',
+        'data/leave_notify_mail.xml',
         'data/auto_approve_cron.xml',
         'data/payslip_sequence.xml',
         'data/salary_component_data.xml',
@@ -89,6 +91,9 @@
         'views/employee_report_views.xml',
         'views/payslip_run_views.xml',
         'views/payslip_views.xml',
+        'views/comp_off_views.xml',
+        'views/comp_off_redemption_views.xml',
+        'views/leave_balance_views.xml',
         # --- menu LAST: every menuitem references an action defined above ---
         'views/menu.xml',
         # --- reports ---

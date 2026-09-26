@@ -49,8 +49,22 @@
                     <button name="action_cancel" type="object"
                             string="Cancel"
                             class="btn-secondary"
-                            invisible="state not in ('draft', 'pending', 'approved')"
+                            invisible="state not in ('draft', 'pending')"
                             confirm="Are you sure you want to cancel this leave request?"/>
+
+                    <!-- Approved leave: only HR cancels it (employees ask from the app). -->
+                    <button name="action_approve_cancel" type="object"
+                            string="Approve Cancellation"
+                            class="btn-warning"
+                            invisible="state != 'approved' or not cancel_requested"
+                            confirm="Cancel this approved leave? Its days go back to the employee's balance."
+                            groups="hr_attendance_369.group_leave_manager,base.group_system"/>
+                    <button name="action_cancel" type="object"
+                            string="Cancel Leave"
+                            class="btn-secondary"
+                            invisible="state != 'approved' or cancel_requested"
+                            confirm="Cancel this approved leave? Its days go back to the employee's balance."
+                            groups="hr_attendance_369.group_leave_manager,base.group_system"/>
 
                     <button name="action_reset_to_draft" type="object"
                             string="Reset to Draft"
@@ -91,6 +105,10 @@
                             <field name="is_half_day"
                                    readonly="state != 'draft'"/>
                             <field name="number_of_days" readonly="1"/>
+                            <field name="comp_off_balance" readonly="1"
+                                   invisible="leave_type != 'comp_off'"/>
+                            <field name="comp_off_earned_dates" readonly="1"
+                                   invisible="leave_type != 'comp_off' or not comp_off_earned_dates"/>
                             <field name="paid_days" readonly="1"/>
                             <field name="unpaid_days" readonly="1"/>
                             <field name="deduction_amount" readonly="1"/>
@@ -104,7 +122,35 @@
                                    invisible="not auto_approved"/>
                             <field name="rejection_reason" readonly="1"
                                    invisible="state != 'rejected'"/>
+                            <field name="cancel_requested" readonly="1"
+                                   invisible="not cancel_requested"/>
+                            <field name="cancel_reason" readonly="1"
+                                   invisible="not cancel_reason"/>
+                            <field name="cancel_requested_on" readonly="1"
+                                   invisible="not cancel_requested"/>
+                            <field name="cancel_reject_reason" readonly="1"
+                                   invisible="not cancel_reject_reason"/>
                         </group>
+                    </group>
+
+                    <group string="Compensatory Off Used"
+                           invisible="leave_type != 'comp_off' or not comp_off_redemption_ids">
+                        <field name="comp_off_redemption_ids" nolabel="1" colspan="2" readonly="1">
+                            <list create="0" delete="0">
+                                <field name="credit_id"/>
+                                <field name="date_earned"/>
+                                <field name="credit_source"/>
+                                <field name="days" sum="Days"/>
+                                <field name="request_state"/>
+                            </list>
+                        </field>
+                    </group>
+
+                    <field name="notify_enabled" invisible="1"/>
+                    <group string="Email to HR" invisible="not notify_enabled">
+                        <div colspan="2" class="border rounded p-3 bg-white">
+                            <field name="mail_preview_html" readonly="1" nolabel="1"/>
+                        </div>
                     </group>
 
                     <group string="Reason">
@@ -131,6 +177,8 @@
                 <filter string="Pending" name="pending" domain="[('state', '=', 'pending')]"/>
                 <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
                 <filter string="Rejected" name="rejected" domain="[('state', '=', 'rejected')]"/>
+                <filter string="Cancellation Requested" name="cancel_requested"
+                        domain="[('cancel_requested', '=', True)]"/>
                 <separator/>
                 <filter string="My Requests" name="my_requests" domain="[('employee_user_id', '=', uid)]"/>
                 <separator/>
@@ -151,7 +199,7 @@
         <field name="res_model">hr.leave.request</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_leave_request_search"/>
-        <field name="context">{'search_default_pending': 1}</field>
+        <field name="context">{'search_default_pending': 1, 'guide_key': 'leave_all'}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No leave requests yet
@@ -166,6 +214,7 @@
     <record id="action_my_leave_requests" model="ir.actions.act_window">
         <field name="name">My Leave Requests</field>
         <field name="res_model">hr.leave.request</field>
+        <field name="context">{'guide_key': 'leave_my'}</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_leave_request_search"/>
         <field name="domain">[('employee_user_id', '=', uid)]</field>
@@ -178,7 +227,7 @@
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_leave_request_search"/>
         <field name="domain">[('state', '=', 'approved')]</field>
-        <field name="context">{'search_default_group_employee': 1}</field>
+        <field name="context">{'search_default_group_employee': 1, 'guide_key': 'leave_approved_report'}</field>
     </record>
 
 </odoo>

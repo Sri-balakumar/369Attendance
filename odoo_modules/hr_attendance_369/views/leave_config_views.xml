@@ -40,20 +40,51 @@
                         </group>
                     </group>
 
+                    <group string="Compensatory Off Settings">
+                        <group>
+                            <field name="comp_off_enabled"/>
+                            <field name="comp_off_expiry_days"
+                                   invisible="not comp_off_enabled"/>
+                        </group>
+                        <group>
+                            <field name="comp_off_carry_forward_enabled"
+                                   invisible="not comp_off_enabled"/>
+                            <field name="comp_off_max_carry_forward_days"
+                                   invisible="not comp_off_enabled or not comp_off_carry_forward_enabled"/>
+                        </group>
+                    </group>
+
+                    <group string="Notifications">
+                        <group>
+                            <field name="notify_on_submit"/>
+                        </group>
+                        <group>
+                            <field name="notify_emails"
+                                   invisible="not notify_on_submit"
+                                   placeholder="hr@example.com, manager@example.com"/>
+                        </group>
+                    </group>
+                    <div invisible="not notify_on_submit" class="mb-3">
+                        <div class="text-muted small mb-1">Email preview, with a sample request. This is exactly what HR receives.</div>
+                        <div class="border rounded p-3 bg-white">
+                            <field name="notify_preview_html" readonly="1" nolabel="1"/>
+                        </div>
+                    </div>
+
                     <group string="Unpaid Leave / Deduction Settings">
                         <group>
                             <field name="unpaid_leave_deduction_enabled"/>
                         </group>
                     </group>
 
-                    <div class="text-muted mt-3">
-                        <p><b>How it works:</b></p>
-                        <ul>
-                            <li>Each employee gets the configured paid leave days per year.</li>
-                            <li>When an employee exceeds their paid leave quota, the leave becomes unpaid.</li>
-                            <li>Unpaid leave deduction = Employee Monthly Wage ÷ Working Days in Month.</li>
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <strong>How paid and unpaid leave are worked out</strong>
+                        <ul class="mb-0">
+                            <li>Each employee gets the paid leave days set per year, and per month.</li>
+                            <li>Once an employee has used up their paid leave, further leave becomes <b>unpaid</b>.</li>
+                            <li>Unpaid leave deduction = <b>Employee Monthly Wage ÷ Working Days in Month</b>.</li>
                             <li>Half day unpaid = half the daily rate.</li>
-                            <li>Admin can change these settings at any time.</li>
+                            <li>Changes apply to requests decided from now on.</li>
                         </ul>
                     </div>
                 </sheet>
@@ -65,6 +96,7 @@
     <record id="action_leave_config" model="ir.actions.act_window">
         <field name="name">Leave Policy Configuration</field>
         <field name="res_model">hr.leave.config</field>
+        <field name="context">{'guide_key': 'leave_policy'}</field>
         <field name="view_mode">list,form</field>
     </record>
 
