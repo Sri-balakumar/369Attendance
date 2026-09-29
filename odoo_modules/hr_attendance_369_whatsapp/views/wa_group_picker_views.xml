@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_wa_group_picker_form" model="ir.ui.view">
+        <field name="name">hr.attendance.wa.group.picker.form</field>
+        <field name="model">hr.attendance.wa.group.picker</field>
+        <field name="arch" type="xml">
+            <form string="Choose WhatsApp Group">
+                <field name="config_id" invisible="1"/>
+                <div class="mb-3">
+                    <button name="action_refresh" type="object"
+                            string="Load Groups" class="btn-secondary"
+                            icon="fa-refresh"/>
+                    <span class="text-muted ms-2">
+                        The groups this WhatsApp number has joined.
+                    </span>
+                </div>
+
+                <div class="alert alert-warning" role="status"
+                     invisible="not fetch_error">
+                    Could not load the group list. Paste the group address on
+                    the WhatsApp Group form instead, then use Send Test.
+                    <field name="fetch_error" nolabel="1" readonly="1"
+                           class="d-block mt-1"/>
+                </div>
+
+                <field name="line_ids" nolabel="1">
+                    <list editable="bottom" create="false" delete="false">
+                        <field name="selected" widget="boolean_toggle"/>
+                        <field name="name" readonly="1" force_save="1"/>
+                        <field name="member_count" readonly="1" force_save="1"/>
+                        <field name="group_jid" readonly="1" force_save="1"
+                               optional="hide"/>
+                    </list>
+                </field>
+
+                <footer>
+                    <button name="action_use" type="object" string="Use This Group"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

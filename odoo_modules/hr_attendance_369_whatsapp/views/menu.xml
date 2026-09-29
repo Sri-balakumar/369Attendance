@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_wa_config"
+              name="WhatsApp Group"
+              parent="hr_attendance_369.menu_late_config_root"
+              action="action_wa_config"
+              sequence="40"
+              groups="hr_attendance.group_hr_attendance_manager"/>
+
+</odoo>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- So HR can see whether a check-in was posted to the group. -->
+    <record id="view_attendance_form_inherit_wa_present" model="ir.ui.view">
+        <field name="name">hr.attendance.form.wa.present</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.hr_attendance_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='check_out']" position="after">
+                <field name="wa_present_state" invisible="not wa_present_state"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

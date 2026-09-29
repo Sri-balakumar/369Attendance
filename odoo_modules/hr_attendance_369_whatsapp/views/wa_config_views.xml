@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_wa_config_list" model="ir.ui.view">
+        <field name="name">hr.attendance.wa.config.list</field>
+        <field name="model">hr.attendance.wa.config</field>
+        <field name="arch" type="xml">
+            <list string="WhatsApp Group">
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="group_name"/>
+                <field name="template"/>
+                <field name="enabled" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wa_config_form" model="ir.ui.view">
+        <field name="name">hr.attendance.wa.config.form</field>
+        <field name="model">hr.attendance.wa.config</field>
+        <field name="arch" type="xml">
+            <form string="WhatsApp Group">
+                <header>
+                    <button name="action_fetch_config" type="object"
+                            string="Fetch from Panel" class="btn-secondary"
+                            groups="base.group_system"/>
+                    <button name="action_open_group_picker" type="object"
+                            string="Choose Group" class="btn-primary"/>
+                    <button name="action_send_test" type="object"
+                            string="Send Test" class="btn-secondary"
+                            invisible="not group_jid"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="group_name" placeholder="No group chosen yet"/></h1>
+                    </div>
+                    <div class="text-muted mb-3">
+                        On an employee's first check-in of the day, this group
+                        gets one line tagging them, e.g.
+                        <b>@Employee present 9:30 AM</b>.
+                        The tag uses the employee's Work Mobile (then Work
+                        Phone, Private Phone), with the country code.
+                    </div>
+                    <group>
+                        <group string="Posting">
+                            <field name="enabled" widget="boolean_toggle"/>
+                            <field name="company_id" groups="base.group_multi_company"
+                                   options="{'no_create': True}"/>
+                            <field name="group_jid" placeholder="120363...@g.us"/>
+                            <field name="template"/>
+                            <field name="default_country_code"/>
+                        </group>
+                        <group string="Gateway" groups="base.group_system">
+                            <field name="gateway_api_key" password="True"
+                                   placeholder="Paste the setup key (wa1_...)"/>
+                            <field name="gateway_url"/>
+                            <field name="instance_name"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wa_config" model="ir.actions.act_window">
+        <field name="name">WhatsApp Group</field>
+        <field name="res_model">hr.attendance.wa.config</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Post who is present to a WhatsApp group
+            </p>
+            <p>
+                Create one, paste the setup key, choose the group, send a test
+                and tick Enabled.
+            </p>
+        </field>
+    </record>
+
+</odoo>

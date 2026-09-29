@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_wa_config_manager,hr.attendance.wa.config.manager,model_hr_attendance_wa_config,hr_attendance.group_hr_attendance_manager,1,1,1,1
+access_wa_config_admin,hr.attendance.wa.config.admin,model_hr_attendance_wa_config,base.group_system,1,1,1,1
+access_wa_group_picker_manager,hr.attendance.wa.group.picker.manager,model_hr_attendance_wa_group_picker,hr_attendance.group_hr_attendance_manager,1,1,1,1
+access_wa_group_picker_line_manager,hr.attendance.wa.group.picker.line.manager,model_hr_attendance_wa_group_picker_line,hr_attendance.group_hr_attendance_manager,1,1,1,1

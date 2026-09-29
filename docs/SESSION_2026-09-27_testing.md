@@ -7,6 +7,35 @@ Live server: `369application` on this PC (Odoo 19, port 8069). Tablet: Samsung S
 
 ## Remaining work
 
+### WhatsApp group roll call (29 Sep): "@Employee present 9:30 AM" on first check-in
+- [x] **New addon `odoo_modules/hr_attendance_369_whatsapp`.** On an employee's first check-in of the day, from any path (app Check In, KRA Start Workday through the bridge, WFH, backend), it posts one line to a chosen WhatsApp group, tagging them. It depends only on `hr_attendance_369` and ships switched off.
+  - **Gateway:** the same Evolution API panel sales_automation uses, through its own small client. `whatsapp_gateway` can't be installed here because it and `whatsapp_neonize` both define `whatsapp.session`, and live has neonize for KRA.
+  - **Menu:** Attendances → Attendance Status → Configuration → *WhatsApp Group*.
+  - **Setup:** paste the setup key (`wa1_…`), then *Fetch from Panel*, *Choose Group* (Load Groups, tick one) and *Send Test*, then tick *Enabled*.
+  - **The tag:** it takes the employee's Work Mobile, then Work Phone, then Private Phone, and adds `91` to a 10-digit number. It sends `@<digits>` in the text and `<digits>@s.whatsapp.net` in `mentioned`, which is what makes WhatsApp show the name. With no number, the message uses the bold `*Name*` instead.
+  - **When it sends:** the check-in only marks the record `pending`. The cron *Attendance: post check-ins to WhatsApp group* then sends it: straight away, with a 5-minute safety run, 3 tries, and it gives up 2 h after the check-in. The attendance form shows *WhatsApp Group Post*: Sent / Failed / Skipped.
+  - **Never posted:** check-ins more than 60 min old (HR back-fills), and any check-in that isn't the day's first.
+- [x] **KRA (`C:\Projects\APK's\KRA_KPI`):** the "🟢 Workday started" group post is removed:
+  - `kpi_work_session.py`, `kpi_wa_group_report.py` and `kpi_wa_group_event.py` (the event is off the settings list);
+  - the app's `services/waGroup.js` and Maestro `42-config-wa-events.yaml`.
+
+  The Workday-ended and task-event group posts are unchanged. `kra_kpi_module` is now 19.0.5.3.
+- [x] **Tested on a scratch copy of live** with a fake Evolution gateway (24/24 checks). Install, upgrade, setup key, panel config, group list, and one post per first check-in all work. Sent text: `@919876543210 present 1:35 PM` with `mentioned`. Also checked:
+  - no phone gives `*Name*`;
+  - no resend;
+  - back-fill not posted;
+  - gateway down: failed after 3 tries, and the check-in is kept;
+  - KRA Start Workday: exactly one attendance post, and nothing from KRA.
+
+  Backup taken: `_db_backup/369application_before_wa_group_2026-09-29.dump`.
+- [ ] **Deploy to live:**
+  - Copy `hr_attendance_369_whatsapp` into the server addons folder, and `KRA_KPI/odoo_modules/kra_kpi_module` too.
+  - Run `-u kra_kpi_module -i hr_attendance_369_whatsapp`.
+- [ ] **Configure on live:** paste the setup key and choose the group. If *Load Groups* returns HTTP 400, the hosted panel is dropping the query string; paste the group address (`1203…@g.us`) by hand instead. Then Send Test and tick Enabled.
+- [ ] **Employees:** fill in Work Mobile with the WhatsApp number, so the tag works.
+- [ ] **One real check-in:** check that the tag shows as the person's name in the group.
+- [ ] **KRA Maestro test 42** now expects *Workday ended* to be the enabled event on the test database.
+
 - [x] **Upgrade live again** — done 28 Sep 17:50 (exit 0, no errors; backup `_db_backup/369application_before_joiner_fix_2026-09-28.dump`, old module in `_db_backup/addons_before_joiner_fix`). Live now has:
   - `models/leave_request.py`: comp-off leave no longer eats the paid-leave quota (`_paid_quota_left` excludes `comp_off`). Committed 29 Sep.
   - `models/payslip.py` + `models/hr_employee.py`: the new-joiner payroll fix below. Not committed yet.
