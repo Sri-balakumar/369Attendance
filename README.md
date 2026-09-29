@@ -104,7 +104,7 @@ npm run verify
 ```
 App.js              entry point
 src/
-  screens/          SplashScreen, ServerScreen, LoginScreen,
+  screens/          SplashScreen, auth/ (AuthScreen: server + sign-in steps),
                     home/ (HomeScreen, AttendanceCard, StatTiles, RecentActivity, QuickActions),
                     leave/ (LeaveScreen, LeaveApplySheet, LeaveBalanceStrip, LeaveRequestCard)
   services/         odoo.js — the live JSON-RPC client (auth, attendance, leave)

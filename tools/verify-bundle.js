@@ -143,6 +143,9 @@ function load(file, stack = []) {
   }).code;
 
   const req = (request) => {
+    // Images and other binary assets: Metro hands the app an opaque asset id
+    // (a number), so that is what a require of one returns here too.
+    if (/\.(png|jpe?g|gif|webp|mp4|ttf|otf)$/i.test(request)) return 1;
     const target = resolve(file, request);
     if (target) return load(target, [...stack, file]);
     if (STUBS[request]) return STUBS[request];

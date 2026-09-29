@@ -1,151 +1,104 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, Easing, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../theme';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSession, routeFor } from '../state/SessionContext';
 
-const { width } = Dimensions.get('window');
+const INTRO = require('../../assets/splash.mp4');
+
+// The video's own edge colour (near-white), behind it: it fills whatever the
+// video does not cover and shows before the first frame is drawn.
+const BG = '#FEFEFE';
+const VIDEO_W = 1080;
+const VIDEO_H = 2340;
+// Drawn a little smaller than the screen allows: the video's background is
+// the same white as BG, so the shrink leaves no visible edge, just a smaller logo.
+const SIZE = 0.65;
+// The intro runs 4.6 s. If it cannot play at all -- a decoder problem, a
+// browser that blocks autoplay -- the app must still open, so this is the
+// longest anyone is ever held here.
+const SAFETY_MS = 6000;
 
 /**
+ * The Attendly intro, played once per cold start. A tap anywhere skips it.
+ *
  * Routes by the session rules, not by a fixed next screen:
  *   no server        -> Server
  *   server, no user  -> Login
  *   server + user    -> Home
- * Always a reset, so nothing stale sits underneath.
+ * Always a reset, so nothing stale sits underneath, and never before the
+ * stored session has been read -- otherwise a signed-in user would flash the
+ * login.
+ *
+ * The native launch splash (app.json) is plain white, the same as the video's
+ * first frame, so launch -> intro has no visible seam.
  */
 export default function SplashScreen({ navigation }) {
-  const { colors, fonts, fontSize, withAlpha } = useTheme();
   const { server, user, hydrated } = useSession();
+  const { width, height } = useWindowDimensions();
+  // The whole video, never cropped ("contain"), so the logo is not blown up on
+  // a wide tablet. Centred; its plain white background runs into BG around it.
+  const scale = Math.min(width / VIDEO_W, height / VIDEO_H) * SIZE;
+  const box = { width: Math.round(VIDEO_W * scale), height: Math.round(VIDEO_H * scale) };
+  const [finished, setFinished] = useState(false);
+  const navigated = useRef(false);
 
-  const fade = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.82)).current;
-  const textFade = useRef(new Animated.Value(0)).current;
-  const ring = useRef(new Animated.Value(0)).current;
+  const player = useVideoPlayer(INTRO, (p) => {
+    p.loop = false;
+    p.muted = true;
+    p.play();
+  });
+
+  // play() in the setup above is enough on a phone, but on the web it runs
+  // before the <video> element exists and is lost. Asking again once the view
+  // is mounted is harmless on native.
+  useEffect(() => {
+    player.play();
+  }, [player]);
+
+  // Finished = the video reached its end, failed, or ran out of time.
+  useEffect(() => {
+    const end = player.addListener('playToEnd', () => setFinished(true));
+    const status = player.addListener('statusChange', ({ status: s }) => {
+      if (s === 'error') setFinished(true);
+    });
+    const safety = setTimeout(() => setFinished(true), SAFETY_MS);
+    return () => {
+      end.remove();
+      status.remove();
+      clearTimeout(safety);
+    };
+  }, [player]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fade, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 8, bounciness: 8 }),
-      Animated.timing(textFade, {
-        toValue: 1,
-        duration: 500,
-        delay: 280,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(ring, { toValue: 1, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        Animated.timing(ring, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [fade, scale, textFade, ring]);
-
-  // Hold the splash for its animation, but never route before the stored
-  // session has been read — otherwise a signed-in user flashes the Login screen.
-  useEffect(() => {
-    if (!hydrated) return undefined;
-    const t = setTimeout(() => {
-      navigation.reset({ index: 0, routes: [{ name: routeFor({ server, user }) }] });
-    }, 1600);
-    return () => clearTimeout(t);
-  }, [hydrated, server, user, navigation]);
+    if (!finished || !hydrated || navigated.current) return;
+    navigated.current = true;
+    navigation.reset({ index: 0, routes: [{ name: routeFor({ server, user }) }] });
+  }, [finished, hydrated, server, user, navigation]);
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={colors.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
+    <Pressable
+      style={styles.root}
+      onPress={() => setFinished(true)}
+      accessibilityRole="button"
+      accessibilityLabel="Skip intro"
+    >
+      <StatusBar style="dark" />
+      <VideoView
+        player={player}
+        // Explicit size, not absoluteFill: the web build's <video> keeps its
+        // own 1080x1920 size unless told the box it has to fill.
+        style={{ position: 'absolute', top: (height - box.height) / 2, left: (width - box.width) / 2, ...box }}
+        contentFit="contain"
+        nativeControls={false}
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
+        surfaceType="textureView"
       />
-
-      {/* Two oversized soft circles give the flat gradient some depth. */}
-      <View style={[styles.blob, { top: -width * 0.35, right: -width * 0.3, width: width * 0.9, height: width * 0.9, borderRadius: width, backgroundColor: withAlpha(colors.onHeader, 0.07) }]} />
-      <View style={[styles.blob, { bottom: -width * 0.4, left: -width * 0.25, width: width * 0.85, height: width * 0.85, borderRadius: width, backgroundColor: withAlpha(colors.onHeader, 0.05) }]} />
-
-      <View style={styles.center}>
-        <View style={styles.badgeWrap}>
-          <Animated.View
-            style={[
-              styles.pulseRing,
-              {
-                borderColor: withAlpha(colors.onHeader, 0.5),
-                opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
-                transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }],
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.badge,
-              {
-                backgroundColor: withAlpha(colors.onHeader, 0.18),
-                borderColor: withAlpha(colors.onHeader, 0.35),
-                opacity: fade,
-                transform: [{ scale }],
-              },
-            ]}
-          >
-            <Ionicons name="finger-print" size={52} color={colors.onHeader} />
-          </Animated.View>
-        </View>
-
-        <Animated.View style={{ opacity: textFade, alignItems: 'center' }}>
-          <Text style={[styles.wordmark, { color: colors.onHeader, fontFamily: fonts.bold, fontSize: fontSize.display }]}>
-            369 Attendance
-          </Text>
-          <Text
-            style={{
-              color: withAlpha(colors.onHeader, 0.75),
-              fontFamily: fonts.medium,
-              fontSize: fontSize.base,
-              marginTop: 8,
-              letterSpacing: 0.2,
-            }}
-          >
-            Attendance, leave & WFH in one place
-          </Text>
-        </Animated.View>
-      </View>
-
-      <Animated.Text
-        style={{
-          opacity: textFade,
-          color: withAlpha(colors.onHeader, 0.6),
-          fontFamily: fonts.medium,
-          fontSize: fontSize.xxs,
-          textAlign: 'center',
-          marginBottom: 34,
-          letterSpacing: 0.4,
-        }}
-      >
-        by Alphalize Technologies
-      </Animated.Text>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'space-between' },
-  blob: { position: 'absolute' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  badgeWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
-  pulseRing: { position: 'absolute', width: 118, height: 118, borderRadius: 59, borderWidth: 1.5 },
-  badge: {
-    width: 118,
-    height: 118,
-    borderRadius: 40,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wordmark: { letterSpacing: -0.5 },
+  root: { flex: 1, backgroundColor: BG },
 });

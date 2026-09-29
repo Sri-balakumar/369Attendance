@@ -1,26 +1,26 @@
 {
   "expo": {
-    "name": "369 Attendance",
-    "slug": "369-attendance",
+    "name": "Attendly",
+    "slug": "attendly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "att369",
+    "scheme": "attendly",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-blank.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4F46E5"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.alphalize.att369"
+      "bundleIdentifier": "com.alphalize.attendly"
     },
     "android": {
-      "package": "com.alphalize.att369",
+      "package": "com.alphalize.attendly",
       "adaptiveIcon": {
-        "backgroundColor": "#4F46E5",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -36,7 +36,8 @@
         {
           "color": "#4F46E5"
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

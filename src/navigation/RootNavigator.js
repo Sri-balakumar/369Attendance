@@ -10,8 +10,7 @@ import { installNotificationHandler, dataOf } from '../push/registerDevice';
 import { openNotificationTarget } from '../utils/notificationTarget';
 import { markNotificationsRead } from '../services/odoo';
 import SplashScreen from '../screens/SplashScreen';
-import ServerScreen from '../screens/ServerScreen';
-import LoginScreen from '../screens/LoginScreen';
+import AuthScreen from '../screens/auth/AuthScreen';
 import MainTabs from './MainTabs';
 import LeaveScreen from '../screens/leave/LeaveScreen';
 import WfhScreen from '../screens/wfh/WfhScreen';
@@ -136,8 +135,10 @@ export default function RootNavigator() {
         }}
       >
         <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Server" component={ServerScreen} options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'slide_from_right' }} />
+        {/* Both login steps are one screen, so the hero art can pan between
+            them; the step is picked by which name was navigated to. */}
+        <Stack.Screen name="Server" component={AuthScreen} initialParams={{ step: 0 }} />
+        <Stack.Screen name="Login" component={AuthScreen} initialParams={{ step: 1 }} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="Leave" component={LeaveScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Wfh" component={WfhScreen} options={{ animation: 'slide_from_right' }} />
