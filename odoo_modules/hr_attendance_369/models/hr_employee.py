@@ -99,7 +99,8 @@ class HrEmployee(models.Model):
 
         # Paid leave taken this year, comp off deliberately excluded -- the
         # same rule hr.leave.config.get_employee_leave_balance follows, so the
-        # list and the single-employee API cannot disagree.
+        # list and the single-employee API cannot disagree. paid_days, not
+        # number_of_days: the unpaid (LOP) part of a request never used quota.
         taken = {
             employee.id: total for employee, total in Leave._read_group(
                 [('hr_employee_id', 'in', self.ids),
@@ -108,7 +109,7 @@ class HrEmployee(models.Model):
                  ('from_date', '>=', year_start),
                  ('from_date', '<=', year_end)],
                 groupby=['hr_employee_id'],
-                aggregates=['number_of_days:sum'])
+                aggregates=['paid_days:sum'])
         }
 
         # Comp off earned: every credit still available, whatever year it was

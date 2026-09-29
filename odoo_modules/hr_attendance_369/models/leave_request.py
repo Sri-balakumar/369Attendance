@@ -409,6 +409,9 @@ class LeaveRequest(models.Model):
         base = [
             ('hr_employee_id', '=', employee_id),
             ('state', 'not in', ('rejected', 'cancelled', 'draft')),
+            # Comp off is paid from days already worked, not from this
+            # allowance; its paid_days must not eat the paid-leave quota.
+            ('leave_type', '!=', 'comp_off'),
         ]
         if rec_id is not None:
             base += [('id', '!=', rec_id), ('id', '<', rec_id)]

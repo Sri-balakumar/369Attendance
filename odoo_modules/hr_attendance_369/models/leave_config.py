@@ -193,7 +193,9 @@ class LeaveConfig(models.Model):
         if not config or not config.paid_leave_enabled:
             return {'has_quota': False}
 
-        # Count all approved leave days this year.
+        # Count the PAID days of approved leave this year. paid_days, not
+        # number_of_days: a request that ran past the quota is part unpaid
+        # (LOP), and those unpaid days never came out of this allowance.
         #
         # Compensatory off is EXCLUDED: it is drawn from days the employee
         # already worked, not from this allowance, so counting it here would
@@ -205,7 +207,7 @@ class LeaveConfig(models.Model):
             ('from_date', '>=', f'{year}-01-01'),
             ('from_date', '<=', f'{year}-12-31'),
         ])
-        total_used = sum(r.number_of_days for r in used_records)
+        total_used = sum(r.paid_days for r in used_records)
         total_allowed = config.paid_leave_days_per_year
 
         # What the NEXT request would actually get, as _compute_paid_status
