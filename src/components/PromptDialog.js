@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
+import { Modal, View, Text, Pressable, Animated, Easing, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 import AppTextInput from './AppTextInput';
@@ -82,6 +82,11 @@ export default function PromptDialog({
             shadows.raised,
           ]}
         >
+          {/* keyboardShouldPersistTaps: with the keyboard up, the first tap on
+              a button used to only dismiss the keyboard, so HR pressed Keep
+              leave or Reject twice. Inside this ScrollView the tap goes to the
+              button as well. */}
+          <ScrollView keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
           <View style={[styles.icon, { backgroundColor: withAlpha(accent, 0.13), borderRadius: radii.md }]}>
             <Ionicons name={icon} size={26} color={accent} />
           </View>
@@ -157,6 +162,7 @@ export default function PromptDialog({
               </Text>
             </Pressable>
           </View>
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
