@@ -59,6 +59,12 @@
                             invisible="state != 'approved' or not cancel_requested"
                             confirm="Cancel this approved leave? Its days go back to the employee's balance."
                             groups="hr_attendance_369.group_leave_manager,base.group_system"/>
+                    <button name="%(hr_attendance_369.action_leave_keep_wizard)d" type="action"
+                            string="Keep Leave"
+                            class="btn-secondary"
+                            invisible="state != 'approved' or not cancel_requested"
+                            context="{'default_leave_id': id}"
+                            groups="hr_attendance_369.group_leave_manager,base.group_system"/>
                     <button name="action_cancel" type="object"
                             string="Cancel Leave"
                             class="btn-secondary"

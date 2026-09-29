@@ -69,6 +69,7 @@
         # --- wizards ---
         'wizard/late_reason_wizard_views.xml',
         'wizard/checkout_confirm_wizard_views.xml',
+        'wizard/leave_keep_wizard_views.xml',
         # --- views (all actions defined here) ---
         'views/hr_attendance_views.xml',
         'views/late_config_views.xml',

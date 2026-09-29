@@ -95,6 +95,7 @@ export const GUIDES = {
             _t("Only working days are counted. Days off and holidays inside the dates are not charged."),
             _t("If Auto-Approval is on, a request nobody answers is approved after the wait, and OdooBot shows as the approver."),
             _t("Approved leave shows as Leave in Day Status."),
+            _t("Cancellation Requested lists approved leave an employee wants to cancel. Open it and press Approve Cancellation, or Keep Leave with a reason."),
         ],
     },
     leave_my: {
@@ -120,7 +121,8 @@ export const GUIDES = {
         model: "hr.comp.off.credit",
         title: _t("How Compensatory Off works"),
         steps: [
-            _t("A credit is created automatically when someone checks in on a day off or a public holiday."),
+            _t("A credit is earned when someone declares \"I'm working today\" on a day off or a public holiday, then checks in and out. A full day earns 1, a short shift 0.5."),
+            _t("Press Grant on a Declared credit when the check-out never came."),
             _t("Read Days Left rather than the status: a credit stays Available until it expires or is cancelled."),
             _t("Employees spend credits by asking for leave of type Compensatory Off. The oldest credits are used first."),
             _t("Credits expire after the time set in Leave Policy (0 = never). Only the unspent part lapses."),

@@ -248,7 +248,7 @@
               name="Employee Details"
               parent="hr_attendance.menu_hr_attendance_root"
               sequence="55"
-              groups="hr.group_hr_manager"/>
+              groups="-hr.group_hr_manager,base.group_system"/>
 
     <menuitem id="menu_salary_component"
               name="Salary Components"

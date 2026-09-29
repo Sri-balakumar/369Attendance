@@ -13,6 +13,8 @@ access_help_document_user,attendance.help.document.user,model_attendance_help_do
 access_leave_request_user,hr.leave.request.user,model_hr_leave_request,base.group_user,1,1,1,0
 access_leave_request_manager,hr.leave.request.manager,model_hr_leave_request,hr_attendance_369.group_leave_manager,1,1,1,1
 access_leave_request_admin,hr.leave.request.admin,model_hr_leave_request,base.group_system,1,1,1,1
+access_leave_keep_wizard_manager,hr.leave.keep.wizard.manager,model_hr_leave_keep_wizard,hr_attendance_369.group_leave_manager,1,1,1,1
+access_leave_keep_wizard_admin,hr.leave.keep.wizard.admin,model_hr_leave_keep_wizard,base.group_system,1,1,1,1
 access_leave_config_manager,hr.leave.config.manager,model_hr_leave_config,hr_attendance_369.group_leave_manager,1,1,1,1
 access_leave_config_user,hr.leave.config.user,model_hr_leave_config,base.group_user,1,0,0,0
 access_leave_config_admin,hr.leave.config.admin,model_hr_leave_config,base.group_system,1,1,1,1

@@ -33,10 +33,12 @@
                             <field name="paid_leave_days_per_year"/>
                             <field name="paid_leave_days_per_month"/>
                         </group>
-                        <group>
+                        <!-- Paid-leave carry forward is stored but not applied
+                             anywhere, so it is hidden rather than offered.
+                             Comp-off carry forward below is real. -->
+                        <group invisible="1">
                             <field name="carry_forward_enabled"/>
-                            <field name="max_carry_forward_days"
-                                   invisible="not carry_forward_enabled"/>
+                            <field name="max_carry_forward_days"/>
                         </group>
                     </group>
 
