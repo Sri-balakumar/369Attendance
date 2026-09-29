@@ -1,3 +1,5 @@
+import pytz
+
 from odoo import api, exceptions, fields, models, _
 from odoo.tools import float_is_zero
 
@@ -49,6 +51,35 @@ class HrEmployee(models.Model):
         if working_days <= 0:
             return 0.0
         return round(self.monthly_wage / working_days, 2)
+
+    def _employment_window(self, tz=None):
+        """(first_day, last_day, assumed): the dates the employee is on the
+        payroll.
+
+        The joining date is the stock hr.version `contract_date_start`. An
+        employee created without one is taken to have joined on the day the
+        record was created, in `tz`, so a record made mid-month does not turn
+        the days before it existed into absences; `assumed` is True in that
+        case, so a payslip can say the joining date is missing. Staff who were
+        here before their record existed need the real joining date set, or
+        their first month is short. `last_day` is the departure date, or None
+        while they are still here.
+
+        Both stock fields are hr.group_hr_manager-only, hence the sudo().
+        """
+        self.ensure_one()
+        dates = self.sudo()
+        first = dates.contract_date_start if 'contract_date_start' in dates._fields else False
+        assumed = False
+        if not first and dates.create_date:
+            try:
+                zone = tz or pytz.timezone(dates.tz or 'UTC')
+            except Exception:
+                zone = pytz.utc
+            first = pytz.utc.localize(dates.create_date).astimezone(zone).date()
+            assumed = True
+        last = dates.departure_date if 'departure_date' in dates._fields else False
+        return first or None, last or None, assumed
 
 
     # ------------------------------------------------------------------

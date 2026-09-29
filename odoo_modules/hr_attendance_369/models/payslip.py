@@ -119,7 +119,11 @@ class Payslip(models.Model):
     def _count_days(self):
         """Day counts for the period, as sets so nothing is counted twice.
 
-        Returns (present, half, absent, paid_leave, unpaid_leave, comp_off).
+        Returns (present, half, absent, paid_leave, unpaid_leave, comp_off,
+        not_employed, join_assumed). `not_employed` is the working days in the
+        period before the employee joined or after they left: neither worked
+        nor absent. `join_assumed` is True when no joining date is on file and
+        the record's creation date stood in for it.
 
         `day_off` rows are counted by none of them, and that is deliberate: a
         weekly off or public holiday is outside `working_days` already, so it
@@ -156,14 +160,34 @@ class Payslip(models.Model):
         DayStatus = self.env['hr.attendance.day.status']
         Config = self.env['hr.attendance.late.config']
         graded = {row.date for row in rows}
+        cfg = Config.get_config_for_employee(self.employee_id.id)
+        try:
+            tz = pytz.timezone(cfg.get('timezone') or self.employee_id.tz or 'UTC')
+        except Exception:
+            tz = pytz.utc
+
+        # Working days before the employee joined or after they left. A record
+        # created on the 27th used to owe 23 absences for a month it was never
+        # part of. Such days are neither paid nor absent, and are kept out of
+        # every other count so nothing below can claim them.
+        first_day, last_employed, join_assumed = self.employee_id._employment_window(tz)
+        outside = set()
+        day = self.run_id.date_from
+        while day <= self.run_id.date_to:
+            if ((first_day and day < first_day) or (last_employed and day > last_employed)) \
+                    and Config.is_working_day(day, self.employee_id.id):
+                outside.add(day)
+            day += timedelta(days=1)
+        present_dates -= outside
+        absent_dates -= outside
+        half_dates = by_status.get('half_day', set()) - outside
+
         last_day = min(self.run_id.date_to, fields.Date.context_today(self) - timedelta(days=1))
-        if self.run_id.date_from <= last_day:
-            cfg = Config.get_config_for_employee(self.employee_id.id)
-            try:
-                tz = pytz.timezone(cfg.get('timezone') or self.employee_id.tz or 'UTC')
-            except Exception:
-                tz = pytz.utc
-            day = self.run_id.date_from
+        if last_employed:
+            last_day = min(last_day, last_employed)
+        first_graded = max(self.run_id.date_from, first_day) if first_day else self.run_id.date_from
+        if first_graded <= last_day:
+            day = first_graded
             while day <= last_day:
                 if day not in graded and Config.is_working_day(day, self.employee_id.id):
                     if DayStatus._has_attendance_on(self.employee_id, day, tz):
@@ -177,7 +201,7 @@ class Payslip(models.Model):
                 day += timedelta(days=1)
 
         present = len(present_dates)
-        half = len(by_status.get('half_day', set()))
+        half = len(half_dates)
         absent = len(absent_dates)
 
         # Split this month's leave dates into paid and unpaid, in proportion
@@ -207,7 +231,7 @@ class Payslip(models.Model):
                 paid_leave += covered
 
         return (present, float(half), float(absent),
-                paid_leave, unpaid_leave, comp_off)
+                paid_leave, unpaid_leave, comp_off, float(len(outside)), join_assumed)
 
     def _earning_and_deduction_lines(self):
         """The employee's configured components, as line values.
@@ -270,7 +294,7 @@ class Payslip(models.Model):
                     employee.name, date_from.strftime('%B %Y')))
 
             (present, half, absent, paid_leave, unpaid_leave,
-             comp_off) = slip._count_days()
+             comp_off, not_employed, join_assumed) = slip._count_days()
             # comp_off is absent from this sum on purpose: the day was worked
             # already, so taking it back is not a loss of pay.
             lop_days = absent + (half / 2.0) + unpaid_leave
@@ -289,6 +313,25 @@ class Payslip(models.Model):
                     'code': 'LOP',
                     'sequence': 900,
                     'amount': lop_amount,
+                    'category': 'deduction',
+                })
+            # Someone who joined or left mid-month is paid for the days they
+            # were here: the other days come off at the same daily rate, on
+            # their own line rather than dressed up as absences.
+            not_employed_amount = round(daily_rate * not_employed, 2)
+            if not_employed_amount:
+                # No joining date on file means the record's creation date
+                # stood in for it. Say so on the line: for staff who were here
+                # before the record, HR fixes it by setting the joining date.
+                if join_assumed:
+                    name = _('Not on payroll (%s days; joining date not set)', '%g' % not_employed)
+                else:
+                    name = _('Not on payroll (%s days)', '%g' % not_employed)
+                deductions.append({
+                    'name': name,
+                    'code': 'NOTEMP',
+                    'sequence': 910,
+                    'amount': not_employed_amount,
                     'category': 'deduction',
                 })
 
@@ -311,7 +354,7 @@ class Payslip(models.Model):
                 'leave_days_unpaid': unpaid_leave,
                 'comp_off_days': comp_off,
                 'lop_days': lop_days,
-                'paid_days': max(working_days - lop_days, 0.0),
+                'paid_days': max(working_days - lop_days - not_employed, 0.0),
                 'monthly_wage': employee.monthly_wage or 0.0,
                 'gross_earnings': gross,
                 'total_deductions': total_deductions,
