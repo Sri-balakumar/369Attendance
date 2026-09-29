@@ -1,0 +1,20 @@
+[
+  {"goto": "http://localhost:8069/web/session/logout"},
+  {"wait": 2000},
+  {"login": ["e2e.hrmanager", "e2e369test"]},
+  {"click": ".o_navbar_apps_menu button, .o_navbar_apps_menu > *"},
+  {"wait": 1000},
+  {"clickText": "Attendances"},
+  {"waitFor": ".o_menu_sections", "timeout": 20000},
+  {"wait": 1500},
+  {"log": "[...document.querySelectorAll('.o_menu_sections *')].filter(e => (e.innerText||'').trim() === 'Help').map(e => e.tagName + '.' + e.className)"},
+  {"eval": "(() => { const e = [...document.querySelectorAll('.o_menu_sections *')].find(e => (e.innerText||'').trim() === 'Help'); if (!e) throw new Error('no Help'); e.click(); return true; })()"},
+  {"wait": 1200},
+  {"log": "[...document.querySelectorAll('.o-dropdown--menu .dropdown-item, .o-dropdown--menu a, .dropdown-menu.show a')].map(e => e.innerText.trim()).filter(Boolean)"},
+  {"shot": "C:/Projects/APK's/369Attendance/screenshots/odoo-web/07-hr-help-menu.png"},
+  {"eval": "(() => { const e = [...document.querySelectorAll('.o-dropdown--menu .dropdown-item, .o-dropdown--menu a, .dropdown-menu.show a')].find(e => /manual/i.test(e.innerText)); if (!e) throw new Error('no manual item'); e.click(); return true; })()", "optional": true},
+  {"wait": 4000, "optional": true},
+  {"log": "({title: document.title, crumbs: [...document.querySelectorAll('.o_breadcrumb, .breadcrumb, h1')].map(e => e.innerText.trim()).slice(0,3), rows: [...document.querySelectorAll('.o_data_row, .o_kanban_record')].length})", "optional": true},
+  {"shot": "C:/Projects/APK's/369Attendance/screenshots/odoo-web/10-hr-manual.png", "optional": true},
+  {"goto": "http://localhost:8069/web/session/logout"}
+]

@@ -1,0 +1,12 @@
+[
+  {"appLogin": ["e2e.hrmanager", "e2e369test"]},
+  {"tap": "HR"},
+  {"waitBody": "TODAY", "timeout": 30000},
+  {"wait": 3000},
+  {"log": "[...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).filter(l => /: [0-9]+$/.test(l))"},
+  {"press": "[aria-label^='Absent:']"},
+  {"wait": 2500},
+  {"log": "(() => { const t = document.body.innerText; const i = t.indexOf('TODAY'); return t.slice(i, i + 300).split(String.fromCharCode(10)).join(' | '); })()"},
+  {"shot": "C:/Projects/APK's/369Attendance/screenshots/app-web/hr-03-absent-tile.png"},
+  {"appLogout": true}
+]
