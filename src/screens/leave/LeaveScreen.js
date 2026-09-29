@@ -355,6 +355,7 @@ export default function LeaveScreen({ navigation }) {
         tone="warning"
         icon="return-down-back-outline"
         required
+        requiredMessage="Give a reason — HR sees this."
         loading={cancelling}
         onConfirm={onConfirmRequest}
         onCancel={() => setRequestTarget(null)}

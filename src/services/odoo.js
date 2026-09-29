@@ -592,9 +592,18 @@ export const canEditAttendanceConfig = () => canDo('hr.attendance.late.config', 
  * The three are independent: attendance_groups.xml gives group_leave_manager
  * and group_wfh_manager implied_ids = [base.group_user] only, so neither
  * implies hr.group_hr_manager and a user can hold any combination.
+ *
+ * Two more split HR from admin:
+ *
+ *   admin    -> write on ir.config_parameter (base.group_system only -- the
+ *               same "Settings" access Odoo itself calls administrator).
+ *               Gates the employee-details setup screens, which HR does not use.
+ *   balances -> write on hr.comp.off.credit (hr.group_hr_user 1,1,1,0 and up;
+ *               base.group_user is 1,0,0,0), so an HR Officer who holds none of
+ *               the manager hats still reaches Comp Off and Leave Balances.
  */
 export async function fetchCapabilities() {
-  const [attendance, leave, wfh, payroll] = await Promise.all([
+  const [attendance, leave, wfh, payroll, admin, balances] = await Promise.all([
     canDo('hr.attendance.late.config', 'write'),
     canDo('hr.leave.config', 'write'),
     canDo('hr.wfh.request', 'unlink'),
@@ -602,8 +611,10 @@ export async function fetchCapabilities() {
     // Kept separate because they are different jobs, and the ACL could be
     // re-cut to hand payroll to somebody who does not set office hours.
     canDo('hr.payslip', 'write'),
+    canDo('ir.config_parameter', 'write'),
+    canDo('hr.comp.off.credit', 'write'),
   ]);
-  return { attendance, leave, wfh, payroll };
+  return { attendance, leave, wfh, payroll, admin, balances };
 }
 
 /** Write changed fields, then hand back the server's own version of the row. */
@@ -726,6 +737,21 @@ export async function fetchDayStatuses({ year, month, limit = 300 } = {}) {
 export async function fetchAbsentToday() {
   const rows = await callKw('hr.attendance.day.status', 'search_read', [
     [['date', '=', todayKey()], ['status', '=', 'absent']],
+    DAY_STATUS_FIELDS,
+  ], { order: 'employee_id' });
+  return rows || [];
+}
+
+/**
+ * Everybody's graded day for today -- the HR tab's "who is in" board.
+ *
+ * A row exists once someone checks in, once approved leave covers the day,
+ * or once the cron stamps an absentee after the late window. Readable in full
+ * by hr.group_hr_user and up (day_status_rule_hr).
+ */
+export async function fetchTodayStatuses() {
+  const rows = await callKw('hr.attendance.day.status', 'search_read', [
+    [['date', '=', todayKey()]],
     DAY_STATUS_FIELDS,
   ], { order: 'employee_id' });
   return rows || [];
@@ -885,6 +911,18 @@ export async function countPendingLeave() {
   );
 }
 export const countPendingWfh = () => countPending('hr.wfh.request');
+
+/** The two leave queues HR works from, counted apart for the HR tab. */
+export async function countLeaveApprovals() {
+  const known = await knownFields('hr.leave.request', ['cancel_requested']).catch(() => null);
+  const [pending, cancels] = await Promise.all([
+    countPending('hr.leave.request'),
+    known && known.length
+      ? countPending('hr.leave.request', [['cancel_requested', '=', true]])
+      : Promise.resolve(0),
+  ]);
+  return { pending, cancels };
+}
 
 /** Approved leave overlapping a month -- the Approved Leaves Report. */
 export async function fetchApprovedLeaves({ year, month } = {}) {

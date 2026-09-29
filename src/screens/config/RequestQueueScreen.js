@@ -34,7 +34,8 @@ export default function RequestQueueScreen({ navigation, route }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
 
   const filters = isWfh ? WFH_FILTERS : LEAVE_FILTERS;
-  const [state, setState] = useState('pending');
+  // The HR tab opens this straight on a chip (Pending or Cancellation).
+  const [state, setState] = useState(route?.params?.state || 'pending');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

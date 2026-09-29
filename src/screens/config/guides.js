@@ -8,11 +8,21 @@
  * holidays are always paid.
  */
 export const GUIDES = {
+  hrHome: {
+    title: 'Your HR page',
+    steps: [
+      'Today shows who is present, late, on leave or absent. Tap a box to see the names.',
+      'Absent is marked once the late window ends, so early in the day it may be empty.',
+      'Approvals shows what is waiting for you. The red number is how many.',
+      'Open a request, check it, then Approve or Reject. Rules and settings are handled by your admin.',
+    ],
+  },
   hub: {
     title: 'Admin menu',
     intro:
       'Each row opens one admin screen, and every screen starts with a yellow guide like this one. ' +
-      'A red badge shows how many items are waiting for you. You only see the sections your role allows.',
+      'A red badge shows how many items are waiting for you. This full menu is for admins; ' +
+      'HR users get the simpler HR tab instead.',
   },
 
   lateRecords: {
@@ -80,6 +90,15 @@ export const GUIDES = {
       'Only a pending request can be decided. If another manager got there first, the screen says so.',
     ],
   },
+  requestDetailCancel: {
+    title: 'How to decide a cancellation',
+    steps: [
+      'This leave is already approved. The employee is asking to cancel it; their reason is in the orange box.',
+      'Approve cancellation cancels the leave and gives the days back to their balance.',
+      'Keep leave leaves it approved. Type why; the employee sees it.',
+      'Refused once payroll for those dates is confirmed or paid.',
+    ],
+  },
   approvedLeaves: {
     title: 'How to read Approved Leaves',
     steps: [
@@ -92,9 +111,9 @@ export const GUIDES = {
   compOff: {
     title: 'How Compensatory Off works',
     steps: [
-      'A credit is created automatically when someone checks in on a weekly off or a public holiday.',
-      'Filter with the chips in the header: Available, Expired, Cancelled or All.',
-      'Tap a credit to see its details, or to cancel or restore it.',
+      'A credit is earned when someone taps I’m working today on a weekly off or a public holiday, then checks in and out. A full day earns 1, a short shift ½.',
+      'Filter with the chips in the header. Declared means they said they are working but have not checked out yet.',
+      'Tap a credit to see its details, or to grant, cancel or restore it.',
       'Tap Add a credit for a day the system missed.',
     ],
   },
@@ -111,6 +130,7 @@ export const GUIDES = {
     title: 'How to manage this credit',
     steps: [
       'The details show how much was credited, used and is left, and when it expires.',
+      'Grant as earned makes a Declared credit Available when the check-out never came.',
       'Cancel credit stops the unspent part counting towards the balance.',
       'Restore brings a cancelled or expired credit back.',
       'There is no edit: used days come from the employee’s leave requests.',

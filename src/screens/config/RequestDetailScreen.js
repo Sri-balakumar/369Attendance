@@ -78,18 +78,26 @@ export default function RequestDetailScreen({ navigation, route }) {
 
   const decide = async (fn, successText) => {
     setBusy(true);
+    let ok = false;
     try {
       await fn();
-      showToast(successText, 'success');
-      navigation.goBack();
+      ok = true;
     } catch (e) {
       // Commonly "Only pending requests can be approved." -- someone else
-      // decided it first. Show the server's own words and refresh.
+      // decided it first. Show the server's own words.
       showToast(e?.message || 'The server refused that.', 'danger');
-      setLoading(true);
-      load();
     } finally {
       setBusy(false);
+    }
+    // Re-read the row whatever happened, BEFORE leaving. On the tablet a Keep
+    // leave that the server had applied left this screen showing the old
+    // "Cancellation requested" box and both buttons -- the way back never
+    // happened -- so the screen must never depend on goBack to stop showing
+    // a decision that is already made.
+    load();
+    if (ok) {
+      showToast(successText, 'success');
+      if (navigation.canGoBack()) navigation.goBack();
     }
   };
 
@@ -102,7 +110,7 @@ export default function RequestDetailScreen({ navigation, route }) {
   const canDirectCancel = !isWfh && cancelAware && row.state === 'approved' && !row.cancel_requested;
 
   return (
-    <AdminScreen guide={GUIDES.requestDetail}
+    <AdminScreen guide={cancelAsk ? GUIDES.requestDetailCancel : GUIDES.requestDetail}
       navigation={navigation}
       title={row?.employee_name || 'Request'}
       subtitle={isWfh ? 'Work from home' : 'Leave request'}
@@ -355,7 +363,9 @@ export default function RequestDetailScreen({ navigation, route }) {
             visible={confirmCancel}
             title={cancelAsk ? 'Approve the cancellation?' : 'Cancel this approved leave?'}
             message={`${row.employee_name}'s leave is cancelled and its days go back to the balance. Refused if that month's payroll is already confirmed or paid.`}
-            confirmLabel={cancelAsk ? 'Approve cancellation' : 'Cancel leave'}
+            // "Approve cancellation" wraps onto two lines in the dialog's
+            // half-width button; the title already says what is approved.
+            confirmLabel={cancelAsk ? 'Approve' : 'Cancel leave'}
             cancelLabel="Back"
             tone="warning"
             icon="return-down-back-outline"

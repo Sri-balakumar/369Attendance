@@ -17,6 +17,15 @@ import { clearSession, fetchCapabilities } from '../services/odoo';
 const SERVER_KEY = '@369att:server';
 const USER_KEY = '@369att:user';
 
+const NO_CAPS = {
+  attendance: false,
+  leave: false,
+  wfh: false,
+  payroll: false,
+  admin: false,
+  balances: false,
+};
+
 const SessionContext = createContext(null);
 
 export function SessionProvider({ children }) {
@@ -29,7 +38,7 @@ export function SessionProvider({ children }) {
   //
   // Never persisted: an ACL can be re-cut between launches, and a stale `true`
   // would mount a section whose every write then fails.
-  const [caps, setCaps] = useState({ attendance: false, leave: false, wfh: false, payroll: false });
+  const [caps, setCaps] = useState(NO_CAPS);
 
   // Read both keys once at startup. Splash waits for this before routing.
   useEffect(() => {
@@ -61,7 +70,7 @@ export function SessionProvider({ children }) {
    */
   useEffect(() => {
     if (!user) {
-      setCaps({ attendance: false, leave: false, wfh: false, payroll: false });
+      setCaps(NO_CAPS);
       return undefined;
     }
     let cancelled = false;
@@ -75,7 +84,7 @@ export function SessionProvider({ children }) {
   }, [user]);
 
   // The tab itself: any one surface is enough to earn it.
-  const canManage = caps.attendance || caps.leave || caps.wfh || caps.payroll;
+  const canManage = caps.attendance || caps.leave || caps.wfh || caps.payroll || caps.balances;
 
   const saveServer = useCallback(async (next) => {
     setServer(next);

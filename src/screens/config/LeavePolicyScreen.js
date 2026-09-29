@@ -64,13 +64,11 @@ export default function LeavePolicyScreen({ navigation }) {
     const next = {};
     const perYear = Number(draft.paid_leave_days_per_year);
     const perMonth = Number(draft.paid_leave_days_per_month);
-    const carry = Number(draft.max_carry_forward_days);
     const compExpiry = Number(draft.comp_off_expiry_days);
     const compCarry = Number(draft.comp_off_max_carry_forward_days);
 
     if (!Number.isFinite(perYear) || perYear < 0) next.paid_leave_days_per_year = 'Days per year, 0 or more.';
     if (!Number.isFinite(perMonth) || perMonth < 0) next.paid_leave_days_per_month = 'Days per month, 0 or more.';
-    if (!Number.isFinite(carry) || carry < 0) next.max_carry_forward_days = 'Days, 0 or more.';
     if (!Number.isFinite(compExpiry) || compExpiry < 0) next.comp_off_expiry_days = 'Days, 0 or more (0 never expires).';
     if (!Number.isFinite(compCarry) || compCarry < 0) next.comp_off_max_carry_forward_days = 'Days, 0 or more.';
     // Not a hard rule on the server, but a monthly accrual that cannot reach
@@ -89,8 +87,6 @@ export default function LeavePolicyScreen({ navigation }) {
         paid_leave_days_per_year: Math.round(perYear),
         paid_leave_days_per_month: perMonth,
         unpaid_leave_deduction_enabled: Boolean(draft.unpaid_leave_deduction_enabled),
-        carry_forward_enabled: Boolean(draft.carry_forward_enabled),
-        max_carry_forward_days: Math.round(carry),
         comp_off_enabled: Boolean(draft.comp_off_enabled),
         comp_off_expiry_days: Math.round(compExpiry),
         comp_off_carry_forward_enabled: Boolean(draft.comp_off_carry_forward_enabled),
@@ -115,7 +111,7 @@ export default function LeavePolicyScreen({ navigation }) {
     <AdminScreen guide={GUIDES.leavePolicy}
       navigation={navigation}
       title="Leave Policy"
-      subtitle={config?.company_id ? config.company_id[1] : 'Paid days and carry forward'}
+      subtitle={config?.company_id ? config.company_id[1] : 'Paid days and comp off'}
       loading={loading}
       error={error}
       onRetry={() => {
@@ -172,28 +168,10 @@ export default function LeavePolicyScreen({ navigation }) {
         />
       </Section>
 
-      <Section title="Carry forward" icon="repeat-outline" tone="info">
-        <SwitchRow
-          label="Carry forward"
-          help="Let unused paid days roll into next year, up to the cap below."
-          value={draft.carry_forward_enabled}
-          onValueChange={(v) => set('carry_forward_enabled', v)}
-          last
-        />
-        {draft.carry_forward_enabled ? (
-          <View style={{ marginTop: spacing.md }}>
-            <AppTextInput
-              label="Maximum days carried"
-              value={draft.max_carry_forward_days}
-              onChangeText={(v) => set('max_carry_forward_days', v.replace(/[^0-9]/g, ''))}
-              icon="albums-outline"
-              error={errors.max_carry_forward_days}
-              keyboardType="number-pad"
-            />
-          </View>
-        ) : null}
-      </Section>
-
+      {/* No paid-leave carry forward section: the server stores the switch but
+          nothing applies it, so offering it would promise days that never
+          arrive. Paid leave resets each year. Comp-off carry forward is real
+          and stays below. */}
       <Section title="Compensatory off" icon="swap-horizontal-outline" tone="info">
         <SwitchRow
           label="Compensatory off"
@@ -216,7 +194,7 @@ export default function LeavePolicyScreen({ navigation }) {
             </View>
             <SwitchRow
               label="Carry forward"
-              help="Let unused comp offs roll into next year, up to the cap below. Unlike the paid-leave carry forward above, this one is applied."
+              help="Let unused comp offs roll into next year, up to the cap below. Paid leave does not carry forward."
               value={draft.comp_off_carry_forward_enabled}
               onValueChange={(v) => set('comp_off_carry_forward_enabled', v)}
               last={!draft.comp_off_carry_forward_enabled}

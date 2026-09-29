@@ -24,6 +24,9 @@ export default function PromptDialog({
   tone = 'danger',
   icon = 'create-outline',
   required = false,
+  // Who reads the reason decides the wording: HR's rejection is read by the
+  // employee, an employee's cancellation request is read by HR.
+  requiredMessage = 'Give a reason — the employee sees this.',
   loading = false,
   onConfirm,
   onCancel,
@@ -55,7 +58,7 @@ export default function PromptDialog({
 
   const submit = () => {
     if (required && !value.trim()) {
-      setError('Give a reason — the employee sees this.');
+      setError(requiredMessage);
       return;
     }
     onConfirm(value.trim());

@@ -9,9 +9,10 @@ import { useTheme } from '../theme';
 const ICONS = {
   Home: ['home', 'home-outline'],
   Config: ['options', 'options-outline'],
+  HR: ['people', 'people-outline'],
   Profile: ['person', 'person-outline'],
 };
-const LABELS = { Home: 'Home', Config: 'Config', Profile: 'Profile' };
+const LABELS = { Home: 'Home', Config: 'Config', HR: 'HR', Profile: 'Profile' };
 
 /** Visual height of the pill. Screens need it to know what to scroll clear of. */
 export const BAR_HEIGHT = 62;

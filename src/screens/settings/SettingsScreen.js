@@ -26,7 +26,7 @@ import { prettyHost } from '../../utils/url';
 export default function SettingsScreen({ navigation }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
-  const { server, user, canManage } = useSession();
+  const { server, user, canManage, caps } = useSession();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -104,7 +104,9 @@ export default function SettingsScreen({ navigation }) {
               marginTop: spacing.lg,
             }}
           >
-            Attendance, work-from-home and leave rules live in Config.
+            {caps.admin
+              ? 'Attendance, work-from-home and leave rules live in Config.'
+              : 'Today’s attendance and your approvals are in the HR tab.'}
           </Text>
         ) : null}
       </ScrollView>

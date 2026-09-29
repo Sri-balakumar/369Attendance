@@ -54,11 +54,11 @@ export function LateRow({ row, style }) {
  * employee-facing screens. This one is HR-manager-only -- the Config tab is not
  * mounted otherwise -- and the deduction is the reason a manager opens it.
  */
-export function DayStatusRow({ row, showEmployee = true, style }) {
+export function DayStatusRow({ row, showEmployee = true, showMoney = true, style }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const meta = dayStatusMeta(row.status);
   const tone = colors[meta.tone] || colors.muted;
-  const deduction = Number(row.deduction_amount) || 0;
+  const deduction = showMoney ? Number(row.deduction_amount) || 0 : 0;
 
   return (
     <Card padded={false} style={style}>

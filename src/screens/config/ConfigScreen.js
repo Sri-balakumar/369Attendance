@@ -30,6 +30,11 @@ import {
  *
  * The tab itself is mounted when ANY section would render; see canManage in
  * SessionContext.
+ *
+ * This is the ADMIN menu: only users with Odoo Settings access (caps.admin)
+ * get it. Everyone else with HR rights gets the much smaller HR tab instead
+ * (HrHomeScreen: today's attendance and approvals, no configuration). See
+ * MainTabs.
  */
 const BALANCE_ROWS = [
   { key: 'CompOff', icon: 'sunny-outline', tone: 'primary', label: 'Compensatory Off', caption: 'Credits for days off worked' },
@@ -72,12 +77,12 @@ function sectionsFor(caps, counts) {
         },
         { key: 'ApprovedLeaves', icon: 'checkmark-done-outline', tone: 'success', label: 'Approved Leaves Report', caption: 'What was granted' },
         ...BALANCE_ROWS,
-        { key: 'LeavePolicy', icon: 'shield-checkmark-outline', tone: 'info', label: 'Leave Policy', caption: 'Paid days, carry forward' },
+        { key: 'LeavePolicy', icon: 'shield-checkmark-outline', tone: 'info', label: 'Leave Policy', caption: 'Paid days, comp off' },
       ],
     });
-  } else if (caps.attendance) {
-    // hr.group_hr_manager holds full access on hr.comp.off.credit and reads
-    // the balance fields, even without the leave-manager hat.
+  } else if (caps.attendance || caps.balances) {
+    // HR Managers and HR Officers both write hr.comp.off.credit and read the
+    // balance fields, even without the leave-manager hat.
     out.push({ title: 'Leave balances', items: BALANCE_ROWS });
   }
 
@@ -109,6 +114,9 @@ function sectionsFor(caps, counts) {
         { key: 'AutoApproval', icon: 'flash-outline', tone: 'accent', label: 'Auto-Approval', caption: 'Leave and WFH, one policy' },
       ],
     });
+  }
+
+  if (caps.attendance && caps.admin) {
     out.push({
       title: 'Employee details',
       items: [
@@ -278,7 +286,7 @@ export default function ConfigScreen({ navigation }) {
   );
 }
 
-function MenuRow({ item, last, onPress }) {
+export function MenuRow({ item, last, onPress }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const tone = colors[item.tone] || colors.primary;
   return (
