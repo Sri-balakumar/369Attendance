@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
-  Switch,
   Animated,
+  Easing,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { radii } from '../theme/tokens';
-import { AppTextInput, PrimaryButton, ConfirmDialog, useToast } from '../components';
+import { AppTextInput, PrimaryButton, ConfirmDialog } from '../components';
 import { useSession } from '../state/SessionContext';
 import { authenticate } from '../services/odoo';
 import { prettyHost } from '../utils/url';
@@ -30,19 +30,46 @@ import { prettyHost } from '../utils/url';
 export default function LoginScreen({ navigation }) {
   const { colors, fonts, fontSize, spacing, radii, shadows, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
-  const showToast = useToast();
   const { server, signIn, changeServer } = useSession();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [confirmChange, setConfirmChange] = useState(false);
 
   const shake = useRef(new Animated.Value(0)).current;
+  // The lock in the header: `pulse` breathes while the server is asked,
+  // `unlock` (0 closed -> 1 open) plays once the password is accepted.
+  const pulse = useRef(new Animated.Value(0)).current;
+  const unlock = useRef(new Animated.Value(0)).current;
   const passwordRef = useRef(null);
+
+  useEffect(() => {
+    if (!loading) {
+      pulse.stopAnimation();
+      pulse.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 450, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 450, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [loading, pulse]);
+
+  // Resolves when the shackle has lifted, so the app opens on an open lock.
+  const playUnlock = () =>
+    new Promise((resolve) => {
+      Animated.sequence([
+        Animated.timing(unlock, { toValue: 1, duration: 480, easing: Easing.out(Easing.back(2)), useNativeDriver: true }),
+        Animated.delay(220),
+      ]).start(() => resolve());
+    });
 
   const runShake = () => {
     shake.setValue(0);
@@ -74,6 +101,8 @@ export default function LoginScreen({ navigation }) {
         login: username.trim(),
         password,
       });
+      setLoading(false);
+      await playUnlock();
       await signIn(user);
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (e) {
@@ -135,13 +164,52 @@ export default function LoginScreen({ navigation }) {
         </View>
 
         <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
-          <View
-            style={[
-              styles.avatar,
-              { backgroundColor: withAlpha(colors.onHeader, 0.18), borderColor: withAlpha(colors.onHeader, 0.32) },
-            ]}
-          >
-            <Ionicons name="person-outline" size={32} color={colors.onHeader} />
+          <View style={styles.lockWrap}>
+            {/* A ring that swells and fades as the lock opens. */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.avatar,
+                styles.lockRing,
+                {
+                  borderColor: colors.success,
+                  opacity: unlock.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.7, 0] }),
+                  transform: [{ scale: unlock.interpolate({ inputRange: [0, 1], outputRange: [1, 1.55] }) }],
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: withAlpha(colors.onHeader, 0.18),
+                  borderColor: withAlpha(colors.onHeader, 0.32),
+                  transform: [
+                    { translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-6, 6] }) },
+                    { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) },
+                    { scale: unlock.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.14, 1] }) },
+                  ],
+                },
+              ]}
+            >
+              <Animated.View style={[styles.lockIcon, { opacity: unlock.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: 'clamp' }) }]}>
+                <Ionicons name="lock-closed-outline" size={32} color={colors.onHeader} />
+              </Animated.View>
+              <Animated.View
+                style={[
+                  styles.lockIcon,
+                  {
+                    opacity: unlock.interpolate({ inputRange: [0.2, 0.6], outputRange: [0, 1], extrapolate: 'clamp' }),
+                    transform: [
+                      { translateY: unlock.interpolate({ inputRange: [0, 1], outputRange: [4, -3] }) },
+                      { rotate: unlock.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-10deg'] }) },
+                    ],
+                  },
+                ]}
+              >
+                <Ionicons name="lock-open-outline" size={32} color={colors.success} />
+              </Animated.View>
+            </Animated.View>
           </View>
           <Text
             style={{
@@ -233,36 +301,6 @@ export default function LoginScreen({ navigation }) {
               style={{ marginTop: spacing.base }}
             />
 
-            <View style={styles.optionsRow}>
-              <Pressable style={styles.rememberRow} onPress={() => setRemember((r) => !r)}>
-                <Switch
-                  value={remember}
-                  onValueChange={setRemember}
-                  trackColor={{ false: colors.border, true: withAlpha(colors.primary, 0.5) }}
-                  thumbColor={remember ? colors.primary : colors.surface}
-                  style={Platform.OS === 'ios' ? { transform: [{ scale: 0.82 }] } : undefined}
-                />
-                <Text
-                  style={{
-                    color: colors.muted,
-                    fontFamily: fonts.medium,
-                    fontSize: fontSize.sm,
-                    marginLeft: Platform.OS === 'ios' ? 4 : 8,
-                  }}
-                >
-                  Remember me
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => showToast('Contact your HR administrator to reset your password.', 'info')}
-                hitSlop={8}
-              >
-                <Text style={{ color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.sm }}>
-                  Forgot password?
-                </Text>
-              </Pressable>
-            </View>
-
             {formError ? (
               <View
                 style={[
@@ -351,18 +389,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  lockWrap: { alignItems: 'center', justifyContent: 'center' },
+  lockRing: { position: 'absolute', borderWidth: 2 },
+  lockIcon: { position: 'absolute' },
   card: { borderWidth: 1 },
   // letterSpacing only: `fontSize` is a theme value and this object is
   // module level, where nothing from useTheme() is in scope. The size is
   // applied at the usage site, which already merges an inline style.
   stepLabel: { letterSpacing: 1.2 },
-  optionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-  },
-  rememberRow: { flexDirection: 'row', alignItems: 'center' },
   formError: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, marginTop: 14 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
 });

@@ -5,6 +5,8 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Animated,
+  Easing,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -94,6 +96,53 @@ export default function ServerScreen({ navigation }) {
 
   const showHint = !loadingDbs && !dbError && databases.length === 0 && !manualDb;
 
+  // The cloud in the header follows the connection. Deliberately not the
+  // Login screen's lock: signal waves while the server is asked, a green
+  // "done" pop when databases come back, a shake when it cannot be reached.
+  const status = loadingDbs ? 'loading' : dbError ? 'error' : databases.length ? 'ok' : 'idle';
+  const waves = useRef([new Animated.Value(0), new Animated.Value(0)]).current;
+  const pop = useRef(new Animated.Value(0)).current;
+  const cloudShake = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (status !== 'loading') {
+      waves.forEach((w) => {
+        w.stopAnimation();
+        w.setValue(0);
+      });
+      return undefined;
+    }
+    const loops = waves.map((w, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 550),
+          Animated.timing(w, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(w, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ])
+      )
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [status, waves]);
+
+  useEffect(() => {
+    if (status === 'ok') {
+      pop.setValue(0);
+      Animated.spring(pop, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
+    } else if (status === 'error') {
+      cloudShake.setValue(0);
+      Animated.sequence([
+        Animated.timing(cloudShake, { toValue: 1, duration: 60, useNativeDriver: true }),
+        Animated.timing(cloudShake, { toValue: -1, duration: 60, useNativeDriver: true }),
+        Animated.timing(cloudShake, { toValue: 0.6, duration: 60, useNativeDriver: true }),
+        Animated.timing(cloudShake, { toValue: 0, duration: 60, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [status, pop, cloudShake]);
+
+  const cloudIcon = { ok: 'cloud-done-outline', error: 'cloud-offline-outline' }[status] || 'cloud-outline';
+  const cloudColor = { ok: colors.success, error: colors.danger }[status] || colors.onHeader;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style="light" />
@@ -104,13 +153,37 @@ export default function ServerScreen({ navigation }) {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + spacing.xl }]}
       >
-        <View
-          style={[
-            styles.headerIcon,
-            { backgroundColor: withAlpha(colors.onHeader, 0.18), borderColor: withAlpha(colors.onHeader, 0.3) },
-          ]}
-        >
-          <Ionicons name="cloud-outline" size={26} color={colors.onHeader} />
+        <View style={styles.headerIconWrap}>
+          {waves.map((w, i) => (
+            <Animated.View
+              key={i}
+              pointerEvents="none"
+              style={[
+                styles.headerIcon,
+                styles.wave,
+                {
+                  borderColor: withAlpha(colors.onHeader, 0.7),
+                  opacity: w.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.8, 0] }),
+                  transform: [{ scale: w.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] }) }],
+                },
+              ]}
+            />
+          ))}
+          <Animated.View
+            style={[
+              styles.headerIcon,
+              {
+                backgroundColor: withAlpha(colors.onHeader, 0.18),
+                borderColor: withAlpha(status === 'ok' ? colors.success : colors.onHeader, status === 'ok' ? 0.7 : 0.3),
+                transform: [
+                  { translateX: cloudShake.interpolate({ inputRange: [-1, 1], outputRange: [-7, 7] }) },
+                  { scale: pop.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.18, 1] }) },
+                ],
+              },
+            ]}
+          >
+            <Ionicons name={cloudIcon} size={26} color={cloudColor} />
+          </Animated.View>
         </View>
         <Text
           style={{
@@ -401,6 +474,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerIconWrap: { alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center' },
+  wave: { position: 'absolute', backgroundColor: 'transparent' },
   card: { borderWidth: 1 },
   // letterSpacing only: `fontSize` is a theme value and this object is
   // module level, where nothing from useTheme() is in scope. The size is
