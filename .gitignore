@@ -49,3 +49,8 @@ web.log
 proxy.log
 web-bundle.js
 .device/
+
+# Python bytecode and local build logs
+__pycache__/
+*.pyc
+export.log

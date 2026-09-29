@@ -1,6 +1,6 @@
 {
     'name': 'KRA/KPI Workday -> Attendance Bridge',
-    'version': '19.0.2.0.0',
+    'version': '19.0.3.0.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Starting a KRA/KPI workday records an HR attendance check-in, '
                'and ending it writes the check-out',
@@ -38,6 +38,15 @@
         in the KRA app's Login Management. Picking it makes the person the
         attendance HR: they approve leave and WFH and manage compensatory
         offs, and hold no KRA role group.
+
+        **Attendance in the app.** The KRA app's Configuration screen gains an
+        "Attendance" card with one switch, "Show attendance in the app"
+        (company-wide, off by default). When on, developers and admins get a
+        floating Attendance button on Home that opens their own HR attendance
+        -- today, this week, the month's counts and a day-by-day history --
+        and admins/HR also see the whole team for any day. Read-only: the
+        check-in and check-out still come from Start/End Workday. Clients
+        never see it. Routes: /kpi_attendance/status, /mine, /team.
     """,
     'author': 'Alphalize Technologies',
     'depends': ['hr_attendance_369', 'kra_kpi_module'],
