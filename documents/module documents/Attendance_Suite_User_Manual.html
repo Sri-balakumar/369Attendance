@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- 369ai USER MANUAL: Attendance Suite (hr_attendance_369).
+     Built from the 369ai manual template. Print to A4 PDF with Chrome/Edge or WeasyPrint. -->
+<title>Attendance Suite — User Manual</title>
+<style>
+  :root{
+    --navy:#1e2a78; --orange:#f08a24; --ink:#1f2230; --muted:#6b6f80;
+    --line:#e6e8f0; --alt:#f2f4fb; --tint:#eef2fc;
+    --tip:#2e6fb0; --good:#2e8b57; --good-bg:#e7f6ea;
+    --warn-bg:#fff3da; --warn-ink:#c0701a;
+  }
+  @page{
+    size:A4; margin:22mm 20mm 20mm 20mm;
+    @bottom-left{content:"369ai · Attendance Suite"; font:8.5pt "Liberation Serif",Georgia,serif; color:#6b6f80;}
+    @bottom-right{content:"Page " counter(page); font:8.5pt "Liberation Serif",Georgia,serif; color:#6b6f80;}
+  }
+  @page:first{ margin-top:14mm; }
+  *{box-sizing:border-box}
+  html{background:#fff}
+  body{margin:0; font-family:"Liberation Serif","Times New Roman",Georgia,serif; font-size:10.5pt; line-height:1.5; color:var(--ink); background:#fff}
+  @media screen{ body{max-width:794px; margin:24px auto; padding:0 16px} }
+  p{margin:0 0 7pt}
+  b,strong{font-weight:700}
+  .k{color:var(--navy); font-weight:700}
+  code{font-family:"DejaVu Sans Mono",monospace; font-size:8.5pt; background:#f1f2f6; padding:1px 4px; border-radius:3px}
+  .arr{color:var(--navy); font-weight:700}
+
+  .topbar{height:7px; background:var(--navy); border-bottom:3px solid var(--orange); margin:0 -8mm 10pt}
+  .cover{background:var(--navy); color:#fff; text-align:center; border-radius:9px; padding:26pt 20pt 22pt; margin-bottom:18pt}
+  .cover h1{margin:0; font-size:31pt; letter-spacing:1.5pt; font-weight:700; text-transform:uppercase}
+  .cover .sub{color:var(--orange); font-size:15pt; font-weight:700; margin:12pt 0 10pt}
+  .cover .meta{font-size:10pt; color:#d5d9ee}
+
+  h2{color:var(--navy); font-size:15pt; margin:16pt 0 9pt; padding-bottom:5pt; border-bottom:1.6px solid var(--orange); page-break-after:avoid}
+
+  .flow{display:flex; align-items:center; gap:6pt; margin:10pt 0 10pt}
+  .flow .card{flex:1; border:1px solid #d9dcea; border-radius:6px; padding:8pt 9pt; min-height:66pt}
+  .flow .card b{display:block; color:var(--navy); font-size:10.5pt; margin-bottom:2pt}
+  .flow .card span{font-size:8.5pt; color:var(--muted); line-height:1.35}
+  .flow .to{color:var(--orange); font-size:13pt}
+
+  .note{border-left:3px solid var(--orange); background:var(--tint); border-radius:0 5px 5px 0; padding:8pt 12pt; margin:10pt 0 12pt; font-size:9.5pt; page-break-inside:avoid}
+  .note .lbl{font-weight:700; text-transform:uppercase; font-size:8.5pt; letter-spacing:.3pt; margin-right:4pt}
+  .note.start .lbl{color:var(--warn-ink)}
+  .note.tip{border-color:var(--tip)}              .note.tip .lbl{color:var(--tip)}
+  .note.good{border-color:var(--good); background:var(--good-bg)} .note.good .lbl{color:var(--good)}
+  .note.imp{border-color:var(--navy)}             .note.imp .lbl{color:var(--navy)}
+  .note.warn{border-color:var(--orange); background:var(--warn-bg)} .note.warn .lbl{color:var(--warn-ink)}
+
+  .part{background:var(--navy); color:#fff; text-align:center; border-radius:6px; padding:12pt; margin:20pt 0 10pt; font-size:15pt; font-weight:700; letter-spacing:1.5pt; text-transform:uppercase; page-break-after:avoid}
+  .part-intro{color:var(--muted); margin-bottom:12pt}
+
+  h3.step{display:flex; align-items:center; gap:9pt; color:var(--navy); font-size:13pt; margin:16pt 0 7pt; page-break-after:avoid}
+  h3.step .n{display:inline-block; min-width:17pt; height:17pt; line-height:17pt; text-align:center; background:var(--orange); color:#fff; border-radius:3px; font-family:"Liberation Sans",Arial,sans-serif; font-size:10pt; font-weight:700}
+
+  ul.f{list-style:none; padding:0; margin:4pt 0 8pt}
+  ul.f li{position:relative; padding-left:13pt; margin-bottom:4pt}
+  ul.f li::before{content:""; position:absolute; left:1pt; top:6.5pt; width:4pt; height:4pt; background:var(--orange)}
+  ul.f li b:first-child{color:var(--navy)}
+  ul.f ul.f{margin:3pt 0 2pt 4pt}
+
+  table{width:100%; border-collapse:collapse; margin:8pt 0 12pt; font-size:9pt}
+  thead{display:table-header-group}
+  th{background:var(--navy); color:#fff; text-align:left; padding:6pt 8pt; font-weight:700}
+  th+th{border-left:1px solid #34408a}
+  td{padding:6pt 8pt; border-bottom:1px solid var(--line); vertical-align:top}
+  tr:nth-child(even) td{background:var(--alt)}
+  td:first-child{color:var(--navy); font-weight:700}
+  tr{page-break-inside:avoid}
+
+  ul.tips{margin:4pt 0 12pt; padding-left:14pt}
+  ul.tips li{margin-bottom:3pt}
+
+  /* Additions to the template: screenshots, "in plain words" line, worked example box */
+  figure.shot{margin:10pt 0 14pt; page-break-inside:avoid; text-align:center}
+  figure.shot img{max-width:100%; border:1px solid #d9dcea; border-radius:6px; box-shadow:0 1px 3px rgba(30,42,120,.08)}
+  figure.shot.tall img{max-width:78%}
+  figure.shot figcaption{font-size:8.5pt; color:var(--muted); margin-top:4pt; font-style:italic}
+  p.plain{font-size:11pt; color:var(--navy); font-style:italic; margin:0 0 8pt}
+  .ex{border:1px dashed #c9cde3; border-radius:6px; padding:8pt 12pt; margin:10pt 0 12pt; font-size:9.5pt; page-break-inside:avoid}
+  .ex .lbl{display:block; font-weight:700; text-transform:uppercase; font-size:8.5pt; letter-spacing:.3pt; color:var(--navy); margin-bottom:3pt}
+  .ex p:last-child{margin-bottom:0}
+  ol.story{margin:4pt 0 10pt; padding-left:16pt}
+  ol.story li{margin-bottom:4pt}
+</style>
+</head>
+<body>
+
+<!-- ===================== COVER ===================== -->
+<div class="topbar"></div>
+<div class="cover">
+  <h1>Attendance Suite</h1>
+  <div class="sub">Late Tracking · Leave · Work From Home · Payroll · Reports</div>
+  <div class="meta">User Manual &nbsp;|&nbsp; 369ai</div>
+</div>
+
+<!-- ===================== WHAT THIS DOES ===================== -->
+<h2>What this does</h2>
+<p><span class="k">Attendance Suite</span> takes care of everything that happens around a check-in. When someone checks in, it works out what kind of day it was: on time, late, a half day, on leave, absent or a day off. We call that the <span class="k">Day Status</span>. It lets people ask for <span class="k">leave</span> or to <span class="k">work from home</span>, and it tells everyone up front whether a leave will be paid. People who work on a Sunday or a holiday get a day back later, called a <span class="k">compensatory off</span>. At the end of the month, all of this feeds the <b>payslips</b> and the <b>monthly report</b>, so pay always matches attendance.</p>
+<p>HR sets the rules once: office hours, holidays, how much paid leave people get, and who approves what. After that the module runs on its own. One idea runs through all of it: <b>coming in late costs nothing, a half day costs half a day's pay, and an absent day is simply not paid.</b> Sundays and public holidays are always paid.</p>
+
+<div class="flow">
+  <div class="card"><b>1. Check in</b><span>From the 369 Attendance app, the kiosk or Odoo</span></div><span class="to">→</span>
+  <div class="card"><b>2. Day is graded</b><span>Present, Late, Half Day, Leave, Absent or Day Off</span></div><span class="to">→</span>
+  <div class="card"><b>3. Requests decided</b><span>Leave and work from home approved, paid days worked out</span></div><span class="to">→</span>
+  <div class="card"><b>4. Pay &amp; reports</b><span>Payslips and the monthly report use the same days</span></div>
+</div>
+
+<div class="note start"><span class="lbl">Before you start:</span> Setup is done once in Odoo by an <b>HR Manager</b>, and a <b>Settings administrator</b> handles the Employee Details screens. Make sure each employee has a <b>Monthly Wage</b> on their employee form, and that your company has a <b>Leave Policy</b>. Without a Leave Policy, every leave counts as unpaid. Employees who only check in and ask for leave don't need to set up anything.</div>
+
+<h2>How the manual is arranged</h2>
+<p>The manual follows the way the module is used. <b>Part 1 – Setting Up</b> is the one-time work: office hours, holidays, leave rules, approvals and employee details. <b>Part 2 – Everyday Use</b> is the day-to-day work: check-ins, late arrivals, daily status, leave, compensatory off and work from home. <b>Part 3 – Payroll, Reports &amp; Access</b> is the month-end work, and who is allowed to see what. At the end you'll find status tables, a month-end checklist, quick tips and a "what to do if" table.</p>
+<p>Every section starts with a line in <i>italics</i> that says in plain words what the screen is for. The dashed boxes marked <b>Example</b> walk through a real case with numbers.</p>
+
+<h2>Key words used in this manual</h2>
+<table>
+  <thead><tr><th style="width:24%">Word</th><th>What it means in plain terms</th></tr></thead>
+  <tbody>
+    <tr><td>Working day</td><td>A normal workday: one of the ticked weekdays that isn't a public holiday. Only working days can be late, absent or counted as leave.</td></tr>
+    <tr><td>Day off</td><td>A weekly off, such as Sunday, or a public holiday. Nobody is ever absent on a day off, and it is always paid.</td></tr>
+    <tr><td>Daily rate</td><td>One day's pay: the Monthly Wage divided by the number of working days that month. Every deduction is "so many days × the daily rate".</td></tr>
+    <tr><td>Grace minutes</td><td>A few minutes of allowance. Arrive within them and you are still on time.</td></tr>
+    <tr><td>Late window</td><td>A cut-off hour. After it, nobody is "late" any more, and anyone who hasn't come in is marked absent.</td></tr>
+    <tr><td>Day status</td><td>The one-word label each person gets for each day: Present, Late, Half Day, Leave, Absent or Day Off.</td></tr>
+    <tr><td>Half day</td><td>Coming in very late, or leaving very early. It is the only status that cuts pay, by half a day.</td></tr>
+    <tr><td>Not earned</td><td>How an absent day is handled. It isn't subtracted as a penalty; it just isn't counted among the days paid.</td></tr>
+    <tr><td>Paid leave allowance</td><td>How many paid leave days a person gets per year and per month. Leave is paid only while both still have room.</td></tr>
+    <tr><td>Loss of Pay (LOP)</td><td>Days that are not paid: unpaid leave, absent days, and half of each half day.</td></tr>
+    <tr><td>Compensatory off</td><td>A day off given back to someone who worked on a Sunday or a holiday. It is kept separate from paid leave.</td></tr>
+    <tr><td>"I am working today"</td><td>A button in the app for days off. Tapping it lets the person check in, and starts their compensatory off.</td></tr>
+    <tr><td>Office timezone</td><td>The office's clock. All check-in times on these screens are shown in office time, wherever the person is.</td></tr>
+    <tr><td>Auto-approval</td><td>If nobody answers a request within a set time, the system approves it.</td></tr>
+  </tbody>
+</table>
+
+<h2>A day in the life</h2>
+<p>This short story shows how the pieces fit together. It uses a 9:30 start with 15 grace minutes, a late window ending at 11:00, and a Monthly Wage of 26,000 in a month with 26 working days, so one day's pay is 1,000.</p>
+<ol class="story">
+  <li><b>Monday.</b> Priya checks in from the app at 9:50. That's after 9:45, so the day is <b>Late (20 min)</b>. The app asks why, and Priya types "bus was late". Being late costs nothing.</li>
+  <li><b>Tuesday.</b> Priya doesn't come in and hasn't asked for leave. At 11:00 the late window closes, and within half an hour Priya is marked <b>Absent</b>. HR sees the name in <b>Absent Today</b>. That day won't be paid: 1,000 less this month.</li>
+  <li><b>Wednesday.</b> Priya asks for two days of leave next week. Before sending, the app shows that 1 day is paid and 1 day is unpaid, because this month's paid day is already used. HR approves it. The unpaid day will cost 1,000.</li>
+  <li><b>Sunday.</b> There's a stock count, so Priya taps <b>I am working today</b>, checks in at 9:00 and out at 16:00. That earns <b>1 compensatory off</b> day, to take any time before it expires.</li>
+  <li><b>Month end.</b> HR runs payroll. Priya's payslip shows the absent day and the unpaid leave day as Loss of Pay: 2 days, 2,000. The late Monday and the Sunday cost nothing.</li>
+</ol>
+
+<!-- ===================== PART 1 ===================== -->
+<div class="part">Part 1 — Setting Up</div>
+<p class="part-intro">Done in Odoo by an HR Manager, once, and again only when a rule changes. If your office hours, holidays and leave policy are already in place, skip to Part 2.</p>
+
+<h3 class="step"><span class="n">1</span>Where everything lives</h3>
+<p class="plain">Everything is inside the Attendances app. Here is what each menu is for.</p>
+<p>Open <b>Attendances</b> from the Odoo main menu. The module adds these menus:</p>
+<ul class="f">
+  <li><b>Attendance Status</b> — see who was late, what each day was, who is absent today, and a monthly lateness count.
+    <ul class="f"><li><b>Configuration <span class="arr">→</span> Office Hours &amp; Working Days</b> and <b>Public Holidays</b> — the rules for a normal workday.</li></ul></li>
+  <li><b>Devices</b> — which phone belongs to which employee.</li>
+  <li><b>Leave Requests</b> — ask for leave, approve it, and see balances and compensatory offs.
+    <ul class="f"><li><b>Configuration <span class="arr">→</span> Leave Policy</b> and <b>Auto-Approval</b> — how much paid leave people get, and automatic approval.</li></ul></li>
+  <li><b>Work From Home</b> — ask for and approve work-from-home days.</li>
+  <li><b>Employee Details</b> — which extra details you record about staff, salary parts and ID numbers.</li>
+  <li><b>Payroll</b> — monthly payroll runs and payslips.</li>
+  <li><b>Employee Report</b> — the monthly attendance and pay report, with PDF and Excel.</li>
+  <li><b>Help</b> — user guides like this one. They are managed under <b>Configuration <span class="arr">→</span> Help Documents</b>.</li>
+</ul>
+<p>Every screen opens with a yellow <b>How to use</b> box that explains it in a few steps. What a person sees depends on their role; see <b>Who can do what</b> in Part 3.</p>
+<figure class="shot"><img src="manual_img/01-menu.png" alt="The Attendances app with the Leave Requests menu open"><figcaption>The Attendances app with the Leave Requests menu open.</figcaption></figure>
+
+<h3 class="step"><span class="n">2</span>Office hours and working days</h3>
+<p class="plain">Tell the system when the working day starts and ends, and which days people work. Everything else is judged against this.</p>
+<p>Open <b>Attendance Status <span class="arr">→</span> Configuration <span class="arr">→</span> Office Hours &amp; Working Days</b>. You need one record for the company. Fill in:</p>
+<ul class="f">
+  <li><b>Late Tracking</b> — the main switch. Turn it off and check-ins are still recorded, but nobody is ever marked late.</li>
+  <li><b>Require Late Reason</b> — when someone is late, they must say why. In the app, a box pops up right after a late check-in.</li>
+  <li><b>Company</b>, <b>Department</b> and <b>Office Timezone</b> — who these rules are for, and which clock to use. Leave Department empty for the whole company.</li>
+  <li><b>Grace Minutes</b> — how many minutes after the start time still count as on time.</li>
+  <li><b>Office Start</b> and <b>Office End</b> — the working day, for example 09:30 to 18:30.</li>
+  <li><b>Daily Paid Hours</b> — filled in for you as End minus Start. If lunch isn't paid, lower it, for example to 8 instead of 9.</li>
+  <li><b>Working Days</b> — tick the days people work. Unticked days are weekly offs: nobody is ever absent then, and they are always paid.</li>
+</ul>
+<p>The <b>Day Status Ladder</b> settings handle the in-between cases. Each one is switched off while it is 0.</p>
+<table>
+  <thead><tr><th style="width:32%">Setting</th><th>What it does, in plain words</th></tr></thead>
+  <tbody>
+    <tr><td>Late Window Ends</td><td>The cut-off hour. Anyone who hasn't checked in by then is marked <b>Absent</b>. Anyone who arrives after it is simply <b>Present</b>, with the arrival time shown so it's still visible.</td></tr>
+    <tr><td>Half Day After</td><td>Arrive after this hour and the day counts as a <b>Half Day</b>.</td></tr>
+    <tr><td>Half Day Below Ratio</td><td>Work less than this share of the Daily Paid Hours and the day becomes a <b>Half Day</b>. With 0.5, anyone who works under half their hours gets a half day. It is decided when they check out.</td></tr>
+    <tr><td>Day Off Needs 'I Am Working Today'</td><td>On a Sunday or holiday, the app won't let someone check in until they tap <b>I am working today</b>. This is how they earn a compensatory off.</td></tr>
+    <tr><td>KRA Workday Creates Attendance</td><td>Only if you use the KRA/KPI app. Starting the workday there checks the person in; ending it checks them out.</td></tr>
+  </tbody>
+</table>
+<div class="ex"><span class="lbl">Example: how different arrivals are graded</span>
+<p>Rules: 9:30 start, 15 grace minutes, 8 Daily Paid Hours, Late Window Ends 11:00, Half Day After 13:00, ratio 0.5.</p>
+<table>
+  <thead><tr><th style="width:34%">What happened</th><th style="width:24%">Day status</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>In at 9:40</td><td>Present</td><td>Within the 15 grace minutes.</td></tr>
+    <tr><td>In at 9:50</td><td>Late (20 min)</td><td>After 9:45. The minutes count from 9:30. Costs nothing.</td></tr>
+    <tr><td>In at 11:20</td><td>Present (11:20 AM)</td><td>After the late window, so no longer counted as late.</td></tr>
+    <tr><td>In at 13:30</td><td>Half Day</td><td>After 13:00. Half a day's pay is cut.</td></tr>
+    <tr><td>In 9:30, out 12:30</td><td>Half Day</td><td>3 hours is less than half of 8 hours.</td></tr>
+    <tr><td>Not in by 11:00</td><td>Absent</td><td>Marked within 30 minutes after 11:00.</td></tr>
+    <tr><td>Not in, leave approved</td><td>Leave</td><td>Paid or unpaid, as the leave says.</td></tr>
+  </tbody>
+</table>
+<p>When more than one rule fits, the order is: Half Day first, then Late, then Present.</p>
+</div>
+<figure class="shot tall"><img src="manual_img/02-office-hours.png" alt="The Office Hours and Working Days form"><figcaption>Office Hours &amp; Working Days: hours, grace minutes, the day status ladder and working days.</figcaption></figure>
+<p><b>Different hours for one department.</b> Add a second record and pick the <b>Department</b>. For example, Sales can start at 10:00 while everyone else starts at 9:30. A department record <b>replaces</b> the company record completely for its people, so fill in every field, not just the ones that differ.</p>
+<div class="note warn"><span class="lbl">Watch out:</span> Late minutes are counted from the <b>start time</b>, not from the end of the grace period. With a 9:30 start and 15 grace minutes, 9:45 is on time, but 9:50 is <b>20 minutes late</b>, not 5.</div>
+<div class="note tip"><span class="lbl">Tip:</span> When you save changes here, the last 3 months are re-checked under the new rules automatically. The <b>Recompute Late Records</b> button does the same whenever you want, for example after adding a holiday.</div>
+<div class="note imp"><span class="lbl">Important:</span> If there is no record at all, the ladder is off. Nobody is ever marked absent or given a half day until you create one.</div>
+
+<h3 class="step"><span class="n">3</span>Public holidays</h3>
+<p class="plain">List the days the whole company is off, so nobody is marked absent and everyone is paid.</p>
+<p>Open <b>Attendance Status <span class="arr">→</span> Configuration <span class="arr">→</span> Public Holidays</b>. Add one row per holiday with a <b>Holiday Name</b> and a <b>Date</b>. You can type straight into the list, or use the calendar view.</p>
+<ul class="f">
+  <li><b>Counts</b> — shows whether the holiday falls on a normal workday. Only then does it change the month's working days.</li>
+  <li><b>Company</b> — a holiday applies to the whole company. You can't set a holiday for one department.</li>
+</ul>
+<div class="ex"><span class="lbl">Example: why holidays change the daily rate</span>
+<p>March has 26 working days. With a 26,000 wage, one day's pay is 1,000. Add a holiday on a Wednesday and March has 25 working days, so one day's pay becomes 1,040. Everyone still gets 26,000 for a full month, but an absent day or a half day that month costs a little more. A holiday on a Sunday changes nothing, because Sunday was already off.</p>
+</div>
+<div class="note good"><span class="lbl">Good to know:</span> Only one holiday is allowed per date. If two festivals fall on the same day, put both names in one row, for example "Onam / Guru Jayanthi".</div>
+
+<h3 class="step"><span class="n">4</span>Leave policy</h3>
+<p class="plain">Decide how many paid leave days people get, and what happens to leave beyond that.</p>
+<p>Open <b>Leave Requests <span class="arr">→</span> Configuration <span class="arr">→</span> Leave Policy</b>. Keep one record per company.</p>
+<table>
+  <thead><tr><th style="width:36%">Field</th><th style="width:13%">Starts at</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td>Enable Paid Leave</td><td>On</td><td>Turn it off and every leave is unpaid.</td></tr>
+    <tr><td>Paid Leave Days Per Year</td><td>12</td><td>Paid leave days per calendar year.</td></tr>
+    <tr><td>Paid Leave Days Per Month</td><td>1</td><td>The most paid leave anyone can take in a single month.</td></tr>
+    <tr><td>Enable Unpaid Leave Deduction</td><td>On</td><td>Unpaid leave days are cut from pay at the daily rate. Off just records them.</td></tr>
+    <tr><td>Enable Compensatory Off</td><td>On</td><td>Working a Sunday or holiday earns a day back.</td></tr>
+    <tr><td>Comp Off Expires After (Days)</td><td>0</td><td>How long someone has to use a compensatory off. 0 means it never expires.</td></tr>
+    <tr><td>Carry Comp Off Forward</td><td>On</td><td>Unused compensatory offs move into the new year.</td></tr>
+    <tr><td>Max Comp Off Carried Forward</td><td>5</td><td>The most compensatory off days that move into the new year.</td></tr>
+    <tr><td>Email HR on Submission</td><td>Off</td><td>Sends an email to the <b>Notification Recipients</b> each time someone asks for leave.</td></tr>
+  </tbody>
+</table>
+<div class="ex"><span class="lbl">Example: the yearly and monthly limits together</span>
+<p>The policy gives 12 paid days a year and 1 per month. Priya has used 3 paid days this year, so 9 are left for the year. Priya hasn't taken any leave in June, so 1 is left for June. Priya asks for 2 days in June: <b>1 is paid, 1 is unpaid</b>. The monthly limit is what decides it. July brings 1 fresh paid day again.</p>
+</div>
+<figure class="shot tall"><img src="manual_img/03-leave-policy.png" alt="The Leave Policy form"><figcaption>Leave Policy: the paid allowance, compensatory off and the HR email.</figcaption></figure>
+<div class="note imp"><span class="lbl">Important:</span> Leave is paid only while <b>both</b> the yearly and the monthly allowance have room. Whatever is left over is unpaid. With no Leave Policy saved at all, every leave is unpaid.</div>
+<div class="note good"><span class="lbl">Good to know:</span> The allowance starts fresh each calendar year. Unused <b>paid</b> leave does not carry into the next year. Only compensatory offs carry forward.</div>
+
+<h3 class="step"><span class="n">5</span>Auto-approval</h3>
+<p class="plain">If a manager forgets to answer a request, the system can approve it for them after a while.</p>
+<p>Open <b>Leave Requests <span class="arr">→</span> Configuration <span class="arr">→</span> Auto-Approval</b>. The same screen is also under Work From Home. Create one record for your company.</p>
+<ul class="f">
+  <li><b>Auto-approve Leave Requests</b> and <b>Approve after</b> — how long a leave request can wait before it's approved automatically, in minutes, hours or days.</li>
+  <li>The same two settings for <b>Work From Home Requests</b>. You can switch on one, the other, or both.</li>
+</ul>
+<div class="ex"><span class="lbl">Example</span>
+<p>Leave auto-approval is set to 24 hours. Priya asks for leave on Monday at 10:00, and nobody opens it. Around 10:00 on Tuesday it becomes <b>Approved</b>, with <b>OdooBot</b> shown as the approver and <b>Auto</b> ticked. If the manager rejects it on Monday afternoon, auto-approval never happens.</p>
+</div>
+<div class="note good"><span class="lbl">Good to know:</span> The system checks every 10 minutes, so approval can come up to 10 minutes after the wait. Auto-approval ships switched off. A wait of 0 also means off.</div>
+
+<h3 class="step"><span class="n">6</span>Devices</h3>
+<p class="plain">Keep a record of which phone belongs to which employee.</p>
+<p>Open <b>Devices</b> and click an employee. Type the 10-digit <b>Device ID</b> shown on their phone and set a <b>PIN</b>, then save. <b>Device Name</b> and <b>Last Used</b> fill in by themselves.</p>
+<ul class="f">
+  <li><b>One phone per person</b> — adding a second phone is refused. Replace the old one instead.</li>
+  <li><b>Active</b> — switch it off for a lost or replaced phone, instead of deleting it.</li>
+</ul>
+<div class="note good"><span class="lbl">Good to know:</span> Devices is a record of who owns which phone. In the current version, it doesn't stop anyone checking in from another phone.</div>
+
+<h3 class="step"><span class="n">7</span>Employee details</h3>
+<p class="plain">Choose which extra details you keep about staff, how salaries are split, and which ID numbers you record.</p>
+<p>The <b>Employee Details</b> menu is for Settings administrators. Everything here starts <b>switched off</b>, so nothing new appears on the employee form until you turn it on.</p>
+<ul class="f">
+  <li><b>Field Settings</b> — which details you record. Start with the <b>Everyone</b> record and switch on sections: Salary Breakup, Statutory Identifiers, Bank &amp; Payment, Personal &amp; Emergency, and Employment History. Add a <b>Per employee</b> record only for someone who needs something different.</li>
+  <li><b>Salary Components</b> — the parts of a salary, such as Basic or HRA. Eight ready-made ones start switched off: Basic, HRA, Conveyance, Medical, Special, PF, ESI and Professional Tax. Each is an <b>Earning</b> or a <b>Deduction</b>, and is a fixed amount or a percentage. Drag them into the order they should print on the payslip.</li>
+  <li><b>Statutory ID Types</b> — the official ID numbers you keep. Seven ready-made ones start switched off: PAN, Aadhaar, UAN, PF Number, ESIC Number, Passport Number and Driving Licence. <b>Required</b> means everyone must have one. <b>Confidential</b> hides it from other staff. A <b>Validation Pattern</b> can check the number is typed in the right format.</li>
+</ul>
+<div class="ex"><span class="lbl">Example: splitting a 30,000 salary</span>
+<table>
+  <thead><tr><th style="width:30%">Component</th><th style="width:22%">Type</th><th>How it's worked out</th></tr></thead>
+  <tbody>
+    <tr><td>Basic</td><td>Earning</td><td>Fixed 15,000</td></tr>
+    <tr><td>HRA</td><td>Earning</td><td>40% of Basic = 6,000</td></tr>
+    <tr><td>Special</td><td>Earning</td><td>Fixed 9,000</td></tr>
+    <tr><td>PF</td><td>Deduction</td><td>12% of Basic = 1,800</td></tr>
+  </tbody>
+</table>
+<p>The earnings add up to 30,000, which matches the Monthly Wage, so payroll can go ahead. The 1,800 PF is taken off to give the net pay.</p>
+</div>
+<div class="note imp"><span class="lbl">Important:</span> Employees never see salary. They can fill in their own personal, ID and qualification details from <b>My Profile</b>, but only the fields you switched on here.</div>
+
+<h3 class="step"><span class="n">8</span>The employee form</h3>
+<p class="plain">A few things the module adds to each employee in the Employees app.</p>
+<ul class="f">
+  <li><b>Monthly Wage</b> — on the <b>Payroll</b> tab, under <b>Attendance Deductions</b>. Every deduction and payslip starts from this number. If it's 0, nothing is ever deducted.</li>
+  <li><b>Salary breakup</b> — the salary components for this person. The earnings must add up to the Monthly Wage. <b>Copy the component gross onto Monthly Wage</b> makes them match in one click.</li>
+  <li><b>Comp Off</b> — a button at the top that opens this person's compensatory offs.</li>
+  <li><b>Devices</b> tab — their registered phone and PIN.</li>
+  <li><b>Employment</b> and <b>Detail Fields</b> tabs — confirmation date, notice period, past jobs, qualifications and other details you switched on in Field Settings.</li>
+</ul>
+
+<h3 class="step"><span class="n">9</span>Help documents</h3>
+<p class="plain">Manage the guides people see under the Help menu.</p>
+<p>Open <b>Attendances <span class="arr">→</span> Configuration <span class="arr">→</span> Help Documents</b>. Each record is one card, with a title, a short description and an icon. Upload a PDF, write the guide as HTML, or both. <b>Open guide</b> shows the HTML, and <b>Open in PDF doc</b> opens the PDF. Untick <b>Active</b> to hide a card.</p>
+
+<!-- ===================== PART 2 ===================== -->
+<div class="part">Part 2 — Everyday Use</div>
+<p class="part-intro">The screens HR and managers use every day. Employees mostly use the 369 Attendance app; whatever they do there shows up on these screens.</p>
+
+<h3 class="step"><span class="n">1</span>Checking in and out</h3>
+<p class="plain">How a check-in gets into the system, and the few rules it has to follow.</p>
+<p>A check-in can come from the <b>369 Attendance app</b>, from the Odoo <b>kiosk</b>, or be typed in by HR on the attendance form. All of them create the same attendance record, and the day is graded the moment it arrives.</p>
+<ul class="f">
+  <li><b>Once a day</b> — after someone checks out, they can't check in again the same day. They must wait until tomorrow.</li>
+  <li><b>Days off</b> — on a Sunday or holiday, the app first asks them to tap <b>I am working today</b>. Then check-in works as normal.</li>
+  <li><b>Late reason</b> — after a late check-in, the app asks for a reason. HR entering a late check-in in Odoo must type one before saving.</li>
+  <li><b>Work from home</b> — on a day with approved work from home, the check-in is marked <b>Work From Home</b> by itself. There's no special button.</li>
+  <li><b>Times</b> — check-in times on every screen are shown in office time, so a person working from another city still looks right.</li>
+</ul>
+<div class="note warn"><span class="lbl">Watch out:</span> If HR checks someone out by mistake, they cannot check in again that day. Check the name before you press <b>Check Out Now</b>.</div>
+
+<h3 class="step"><span class="n">2</span>Late Records</h3>
+<p class="plain">A list of everyone who came in late, how late they were, and why.</p>
+<p>Open <b>Attendance Status <span class="arr">→</span> Late Records</b>. Each row is one late check-in, with the time in office time, the <b>Late Time</b>, the <b>Late Reason</b> and the <b>Work Location</b>.</p>
+<ul class="f">
+  <li><b>Filters</b> — <b>Late Only</b>, <b>On Time</b>, <b>Has Reason</b> and <b>Missing Reason</b>. Group by Employee or Month to see who is often late.</li>
+  <li><b>Enter Late Reason</b> — on the form, opens a small box to type or change the reason.</li>
+  <li><b>Check Out Now</b> — checks out someone who forgot to. It asks you to confirm first.</li>
+  <li><b>Late Attendance Report</b> — tick the rows you want, then <b>Print <span class="arr">→</span> Late Attendance Report</b>. You get a PDF with the expected time, how late, and the reason.</li>
+</ul>
+<div class="note good"><span class="lbl">Good to know:</span> Being late is recorded and shows in reports, but it never cuts pay. Only a half day does.</div>
+
+<h3 class="step"><span class="n">3</span>Day Status</h3>
+<p class="plain">One line per person per day, saying what kind of day it was.</p>
+<p>Open <b>Attendance Status <span class="arr">→</span> Day Status</b>. It shows this month by default. The colours make problems easy to spot:</p>
+<table>
+  <thead><tr><th style="width:18%">Status</th><th style="width:13%">Colour</th><th>What it means</th><th style="width:20%">Effect on pay</th></tr></thead>
+  <tbody>
+    <tr><td>Present</td><td>Plain</td><td>On time, or arrived after the late window.</td><td>Full day paid</td></tr>
+    <tr><td>Late</td><td>Blue</td><td>After the grace minutes but before the late window.</td><td>Full day paid</td></tr>
+    <tr><td>Half Day</td><td>Amber</td><td>Came in too late, or worked too few hours.</td><td>Half a day cut</td></tr>
+    <tr><td>Leave</td><td>Green</td><td>Didn't come in, but had approved leave.</td><td>As the leave says</td></tr>
+    <tr><td>Absent</td><td>Red</td><td>A workday with no check-in and no leave.</td><td>Not paid</td></tr>
+    <tr><td>Day Off</td><td>Grey</td><td>Sunday or a public holiday. "Day Off - Worked" if they came in.</td><td>Always paid</td></tr>
+  </tbody>
+</table>
+<figure class="shot"><img src="manual_img/04-day-status.png" alt="The Day Status list"><figcaption>Day Status, with its How to use box. Rows appear here as people check in.</figcaption></figure>
+<p>Use the filters <b>Absent</b>, <b>Half Day</b>, <b>Leave</b>, <b>Late</b>, <b>Day Off</b> and <b>Has Deduction</b> to narrow the list. If you fix someone's attendance or leave, open their day and press <b>Recompute</b> to grade it again.</p>
+
+<h3 class="step"><span class="n">4</span>Absent Today</h3>
+<p class="plain">Who should be at work today but hasn't turned up.</p>
+<p>Open <b>Attendance Status <span class="arr">→</span> Absent Today</b>. It lists everyone expected today who hasn't checked in. People on approved leave or an approved work-from-home day are left out.</p>
+<ul class="f">
+  <li><b>When it fills up</b> — the system checks every 30 minutes, starting once the <b>Late Window Ends</b> hour has passed. Early in the morning the list is empty; that's normal.</li>
+  <li><b>If they turn up later</b> — once they check in, they drop off the list by themselves.</li>
+  <li><b>Marked absent by mistake?</b> — approve their leave, or add their attendance, and the day is corrected.</li>
+</ul>
+<div class="note warn"><span class="lbl">Watch out:</span> If <b>Late Window Ends</b> is left at 0, this list stays empty all day. Payroll still treats a past workday with no check-in and no leave as absent.</div>
+
+<h3 class="step"><span class="n">5</span>Monthly Summary</h3>
+<p class="plain">A quick count of how often each person was late in a month.</p>
+<p>Open <b>Attendance Status <span class="arr">→</span> Monthly Summary</b>. Pick the <b>Month</b> and <b>Year</b>. You can pick a <b>Department</b> or some <b>Employees</b>, or leave both empty for everyone. Press <b>Generate Summary</b>. You get one line per person with <b>Total Late Days</b> and <b>Total Late Time</b>.</p>
+<ul class="f">
+  <li>Only the first check-in of each day counts.</li>
+  <li>Arriving after the late window is not counted as late.</li>
+  <li>Each run replaces the last one, so you can run it as often as you like.</li>
+</ul>
+<div class="note tip"><span class="lbl">Tip:</span> Only HR Managers can create the summary. For anything to do with pay, use <b>Employee Report <span class="arr">→</span> Generate Report</b> instead.</div>
+
+<h3 class="step"><span class="n">6</span>Asking for leave</h3>
+<p class="plain">How someone asks for time off, and how the system decides which days are paid.</p>
+<p>Most people ask from the app, which shows how many days will be paid before they send it. In Odoo, open <b>Leave Requests <span class="arr">→</span> My Leave Requests</b> and press <b>New</b>:</p>
+<ul class="f">
+  <li><b>Leave Type</b> — Sick, Casual, Annual, Personal, Emergency, Compensatory Off, or Other. All types except Compensatory Off come out of the same paid allowance.</li>
+  <li><b>From Date</b> and <b>To Date</b> — for one day, leave To Date empty. Tick <b>Half Day</b> for half of the first day.</li>
+  <li><b>Reason</b> — required.</li>
+</ul>
+<figure class="shot"><img src="manual_img/05-leave-request.png" alt="A new leave request form"><figcaption>A new leave request. The bar on the right shows where it is: Draft, Pending Approval, Approved.</figcaption></figure>
+<p>Press <b>Submit for Approval</b>. The request becomes <b>Pending Approval</b>, and the form shows:</p>
+<table>
+  <thead><tr><th style="width:24%">Figure</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td>Number of Days</td><td>Only workdays are counted. A Sunday or holiday in the middle of the leave is free.</td></tr>
+    <tr><td>Paid Days</td><td>As many days as the yearly and monthly allowance both still allow.</td></tr>
+    <tr><td>Unpaid Days</td><td>The rest. These are Loss of Pay.</td></tr>
+    <tr><td>Deduction Amount</td><td>Unpaid days × one day's pay in that month.</td></tr>
+  </tbody>
+</table>
+<div class="ex"><span class="lbl">Example: a leave over a weekend</span>
+<p>Priya asks for Friday to Tuesday. Sunday is a weekly off and Monday is a public holiday. Only <b>3 days</b> are counted: Friday, Saturday and Tuesday. With 1 paid day left this month, 1 day is paid and 2 are unpaid. With a daily rate of 1,000, the deduction is 2,000.</p>
+</div>
+<p>If <b>Email HR on Submission</b> is on in the Leave Policy, HR gets an email for each new request. It shows the employee, department, leave type, dates, paid and unpaid days, and the reason, with a <b>Review and approve</b> button.</p>
+<div class="note warn"><span class="lbl">Watch out:</span> A request is refused if its dates overlap another request that isn't rejected or cancelled. That includes an unsent draft. It is also refused if every day in it is already a day off.</div>
+
+<h3 class="step"><span class="n">7</span>Approving leave</h3>
+<p class="plain">Where managers say yes or no, and handle requests to cancel approved leave.</p>
+<p>Open <b>Leave Requests <span class="arr">→</span> All Leave Requests</b>. It opens on the <b>Pending</b> filter, so you only see requests waiting for you. Open one, check the dates, the reason and how many days are paid, then press <b>Approve</b> or <b>Reject</b>. Approved leave shows as Leave in Day Status straight away.</p>
+<p><b>Cancelling approved leave.</b> Once leave is approved, the employee can't just cancel it. From the app they send a <b>cancellation request</b> with a reason, and the leave stays approved until HR decides. Pick the <b>Cancellation Requested</b> filter to find these, open one, and choose:</p>
+<ul class="f">
+  <li><b>Approve Cancellation</b> — the leave is cancelled and the days go back to their balance.</li>
+  <li><b>Keep Leave</b> — the leave stays. Type why; the employee sees your reason in the app.</li>
+  <li><b>Cancel Leave</b> — a manager can also cancel approved leave directly, without a request.</li>
+</ul>
+<div class="note warn"><span class="lbl">Watch out:</span> Leave can't be cancelled once payroll for those dates is confirmed or paid. Put the payroll run back to draft first. Also, cancelling leave in the past turns those days into <b>Absent</b> if the person didn't check in.</div>
+<div class="note tip"><span class="lbl">Tip:</span> To give a reason when rejecting, reject from the app. The Odoo <b>Reject</b> button rejects without asking for one.</div>
+
+<h3 class="step"><span class="n">8</span>Approved Leaves Report</h3>
+<p class="plain">Every leave that has been approved, in one place.</p>
+<p>Open <b>Leave Requests <span class="arr">→</span> Approved Leaves Report</b>. It is grouped by employee. Use the date filters, or group by month, to see who was off when. The paid and unpaid days here are exactly what payroll uses. Requests still waiting for a decision are in All Leave Requests, not here.</p>
+
+<h3 class="step"><span class="n">9</span>Compensatory Off</h3>
+<p class="plain">A day off given back to people who worked on a Sunday or a holiday.</p>
+<div class="flow">
+  <div class="card"><b>1. Say so</b><span>Tap "I am working today" in the app</span></div><span class="to">→</span>
+  <div class="card"><b>2. Work</b><span>Check in and out as usual</span></div><span class="to">→</span>
+  <div class="card"><b>3. Earn</b><span>A full day earns 1; a short day earns ½</span></div><span class="to">→</span>
+  <div class="card"><b>4. Use it</b><span>Ask for leave of type Compensatory Off</span></div>
+</div>
+<p>Open <b>Leave Requests <span class="arr">→</span> Compensatory Off</b> to see every credit. A day counts as a full day if the person worked at least Daily Paid Hours × Half Day Below Ratio. If the ratio is 0, it's half the Daily Paid Hours instead. When they use it, the oldest credit is used first, so nothing expires by accident.</p>
+<div class="ex"><span class="lbl">Example</span>
+<p>Daily Paid Hours is 8 and the ratio is 0.5, so a full day needs 4 hours. Priya works Sunday 5 January from 9:00 to 15:00, which is 6 hours: that earns <b>1 day</b>. Arun works the same Sunday for 3 hours, which earns <b>½ day</b>. With credits set to expire after 60 days, Priya's credit must be used by 6 March. Priya asks for Compensatory Off on 20 January, and once it's approved the credit shows as used.</p>
+</div>
+<p>On a credit, HR can press:</p>
+<ul class="f">
+  <li><b>Grant</b> — when someone said they were working but never checked out. Set <b>Days Earned</b> to ½ first if it was a short day.</li>
+  <li><b>Cancel Credit</b> — for a credit that shouldn't have been given. Not possible once leave has used it.</li>
+  <li><b>Restore</b> — brings back a cancelled or expired credit, with a fresh expiry date.</li>
+</ul>
+<div class="note good"><span class="lbl">Good to know:</span> Look at <b>Days Left</b> rather than the status. On 1 January, unused credits from last year move over, newest first, up to the limit in the Leave Policy. The rest expire. When a credit expires, only the unused part is lost.</div>
+
+<h3 class="step"><span class="n">10</span>Leave Balances</h3>
+<p class="plain">How much paid leave and compensatory off each person has left this year.</p>
+<p>Open <b>Leave Requests <span class="arr">→</span> Leave Balances</b>. There is one row per employee:</p>
+<ul class="f">
+  <li><b>Allowed</b>, <b>Leave Taken</b> and <b>Paid Leave Left</b> — their paid leave, from the Leave Policy.</li>
+  <li><b>Comp Off Earned</b>, <b>Comp Off Used</b> and <b>Comp Off Left</b> — kept separately. Taking a compensatory off doesn't touch their paid leave.</li>
+  <li><b>Credits</b> — opens that person's compensatory offs.</li>
+</ul>
+<p>These numbers are worked out fresh each time you open the screen, so you can't sort or filter by them.</p>
+
+<h3 class="step"><span class="n">11</span>Work From Home</h3>
+<p class="plain">Ask for a day at home, and have that day's check-in recorded as working from home.</p>
+<p>Employees ask from the app, or in Odoo under <b>Work From Home <span class="arr">→</span> My WFH Requests</b>: press <b>New</b>, pick the <b>WFH Date</b>, give a reason and press <b>Submit for Approval</b>. Managers open <b>All WFH Requests</b>, which opens on the <b>Pending</b> filter, and press <b>Approve</b>.</p>
+<ul class="f">
+  <li><b>No special check-in</b> — on the approved day, the person checks in as usual and it's marked Work From Home. The request then shows <b>Checked In</b> and later <b>Checked Out</b>.</li>
+  <li><b>Same rules</b> — a work-from-home day is graded like an office day. Starting late is Late, and not checking in is Absent.</li>
+  <li><b>Rejecting</b> — done from the app, where the manager types a reason. The Odoo form has <b>Approve</b> and <b>Cancel</b> only.</li>
+</ul>
+
+<h3 class="step"><span class="n">12</span>Help</h3>
+<p class="plain">Open the user guides from inside Odoo.</p>
+<p>The <b>Help</b> menu opens <b>Help &amp; User Guide</b>, with a card for each guide. Press <b>Open guide</b> to read it in a new tab. From there, <b>Open in PDF doc</b> gives the printable version. This manual is one of the cards.</p>
+
+<!-- ===================== PART 3 ===================== -->
+<div class="part">Part 3 — Payroll, Reports &amp; Access</div>
+<p class="part-intro">Month-end work for HR Managers. Payroll and the monthly report both read the same day statuses and leave, so they always agree with the screens in Part 2.</p>
+
+<h3 class="step"><span class="n">1</span>How pay is worked out</h3>
+<p class="plain">The few simple rules that turn a month of attendance into a salary.</p>
+<p>Pay is built up from days. One day's pay is the Monthly Wage divided by that month's working days. Present days, late days, paid leave, Sundays and holidays are all paid in full. Three things reduce pay: an <b>absent day</b> (not paid), an <b>unpaid leave day</b> (not paid), and a <b>half day</b> (half paid).</p>
+<div class="ex"><span class="lbl">Example: Priya's month</span>
+<p>Monthly Wage 26,000. The month has 25 working days after one holiday, so one day's pay is 1,040.</p>
+<table>
+  <thead><tr><th style="width:40%">What happened</th><th style="width:18%">Days</th><th>Effect on pay</th></tr></thead>
+  <tbody>
+    <tr><td>Present, including 3 late days</td><td>20</td><td>Paid in full. Late costs nothing.</td></tr>
+    <tr><td>Half day</td><td>1</td><td>520 cut (half a day)</td></tr>
+    <tr><td>Paid leave</td><td>1</td><td>Paid in full</td></tr>
+    <tr><td>Unpaid leave</td><td>2</td><td>2,080 not paid</td></tr>
+    <tr><td>Absent</td><td>1</td><td>1,040 not paid</td></tr>
+    <tr><td>Sundays and the holiday</td><td>—</td><td>Always paid</td></tr>
+  </tbody>
+</table>
+<p>Loss of Pay is 3.5 days (1 absent + ½ half day + 2 unpaid), which is 3,640. Priya is paid <b>26,000 − 3,640 = 22,360</b>, before deductions like PF.</p>
+</div>
+
+<h3 class="step"><span class="n">2</span>Payroll Runs</h3>
+<p class="plain">Create the month's payslips for everyone in a few clicks.</p>
+<p>Open <b>Payroll <span class="arr">→</span> Payroll Runs</b>, press <b>New</b>, choose the <b>Month</b> and <b>Year</b>, and save. There is one run per company per month.</p>
+<div class="flow">
+  <div class="card"><b>1. Generate</b><span>Generate Payslips makes one for each employee</span></div><span class="to">→</span>
+  <div class="card"><b>2. Check</b><span>Fix any salary mismatch, then generate again</span></div><span class="to">→</span>
+  <div class="card"><b>3. Confirm</b><span>Locks the month's figures</span></div><span class="to">→</span>
+  <div class="card"><b>4. Mark Paid</b><span>Once the salaries have been paid out</span></div>
+</div>
+<ul class="f">
+  <li><b>Generate Payslips</b> — you can press it again as often as you like while the run is Draft. It rebuilds every payslip from the latest attendance.</li>
+  <li><b>Confirm</b> — not allowed while any payslip's salary parts don't add up to the Monthly Wage. A yellow box tells you which ones.</li>
+  <li><b>Back to Draft</b> — reopens a confirmed run to fix something. A paid run can't be reopened.</li>
+  <li><b>Print All Payslips</b> — one PDF with every payslip in the run.</li>
+</ul>
+<div class="note imp"><span class="lbl">Important:</span> After you confirm a run, no leave in that month can be cancelled. Put the run back to draft first.</div>
+
+<h3 class="step"><span class="n">3</span>Payslips</h3>
+<p class="plain">One employee's pay for one month, with the days behind it.</p>
+<p>Open <b>Payroll <span class="arr">→</span> Payslips</b>. Payslips are made by the payroll run; you don't type them in. Each one shows every earning and deduction, and the days behind the pay. Press <b>Print Payslip</b> for the PDF.</p>
+<table>
+  <thead><tr><th style="width:28%">On the payslip</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td>Working days</td><td>The month's workdays, not counting Sundays and holidays.</td></tr>
+    <tr><td>LOP days</td><td>Absent days + half of each half day + unpaid leave days. A compensatory off is never LOP.</td></tr>
+    <tr><td>Paid days</td><td>Working days minus LOP days.</td></tr>
+    <tr><td>Net pay</td><td>Earnings minus deductions minus the LOP amount, rounded and also written in words.</td></tr>
+    <tr><td>Leave tab</td><td>Paid leave at the start of the month, taken this month, and left at the end.</td></tr>
+  </tbody>
+</table>
+<p>The <b>With Loss of Pay</b> and <b>Wage Mismatch</b> filters show the payslips worth a second look.</p>
+
+<h3 class="step"><span class="n">4</span>Generate Report</h3>
+<p class="plain">A monthly attendance and pay report for everyone, ready to download.</p>
+<p>Open <b>Employee Report <span class="arr">→</span> Generate Report</b>. Pick the <b>Month</b>, <b>Year</b> and <b>Company</b>, then <b>All Employees</b> or <b>Selected Employees</b>. You can also narrow it to one <b>Department</b>. Press <b>Generate Report</b>.</p>
+<figure class="shot"><img src="manual_img/06-report-wizard.png" alt="The Employee Monthly Report wizard"><figcaption>Generate Report: choose the period, the company and the employees.</figcaption></figure>
+<p>The report has two tabs:</p>
+<ul class="f">
+  <li><b>Employee Summary</b> — one line per person: working days, present days, late days and time, paid and unpaid leave, compensatory off, deductions and the <b>Final Amount</b>. The buttons on each line show that person's days, late arrivals or leave.</li>
+  <li><b>Day-wise Details</b> — every day for every person, with times, late minutes and leave.</li>
+</ul>
+<p>At the top, <b>⟳ Refresh</b> recalculates from the latest data. <b>⇩ PDF Report</b> and <b>⇩ Excel Export</b> download it. The Excel file has a summary sheet and a detailed sheet.</p>
+<div class="note warn"><span class="lbl">Watch out:</span> Refresh uses today's Leave Policy. If you've changed the policy since that month, an old report can change when you refresh it.</div>
+
+<h3 class="step"><span class="n">5</span>Past Reports</h3>
+<p class="plain">Every report you have made, kept for later.</p>
+<p>Open <b>Employee Report <span class="arr">→</span> Past Reports</b>. Each row is one saved report, with its dates, total deductions and final amount. Open one to look at it again, or press Refresh inside it to update it. For a new month, use Generate Report. Only HR can see saved reports; for an employee this list is empty.</p>
+
+<h3 class="step"><span class="n">6</span>What happens automatically</h3>
+<p class="plain">Jobs the system runs by itself, and the only email it sends.</p>
+<table>
+  <thead><tr><th style="width:30%">Job</th><th style="width:18%">How often</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Mark absentees</td><td>Every 30 minutes</td><td>After the late window, marks anyone who hasn't checked in as Absent, or as Leave if they have approved leave.</td></tr>
+    <tr><td>Auto-approve requests</td><td>Every 10 minutes</td><td>Approves leave and work-from-home requests that waited longer than the Auto-Approval time.</td></tr>
+    <tr><td>Expire compensatory offs</td><td>Once a day</td><td>Expires overdue credits, clears "working today" declarations that never happened, and on 1 January carries credits into the new year.</td></tr>
+  </tbody>
+</table>
+<p>The only email is the <b>new leave request</b> alert to HR, if it is switched on in the Leave Policy. Approvals, rejections and cancellations aren't emailed; employees see the result in the app.</p>
+
+<h3 class="step"><span class="n">7</span>Who can do what</h3>
+<p class="plain">Each role can do everything in the rows above it, plus its own row.</p>
+<p>Roles are set on each user in <b>Settings <span class="arr">→</span> Users</b>.</p>
+<table>
+  <thead><tr><th style="width:26%">Role</th><th>What they can do</th></tr></thead>
+  <tbody>
+    <tr><td>Employee</td><td>Check in, ask for leave and work from home, and see their own requests. Can view Late Records, Day Status, Devices, Approved Leaves Report, Compensatory Off, Employee Report and Help. Rule screens are view-only.</td></tr>
+    <tr><td>HR Officer</td><td>Adds Leave Balances, and can see everyone's day status and compensatory offs.</td></tr>
+    <tr><td>Leave Manager</td><td>Adds All Leave Requests with Approve, Reject, Approve Cancellation, Keep Leave and Cancel Leave, plus Leave Policy and Auto-Approval.</td></tr>
+    <tr><td>WFH Manager</td><td>Adds All WFH Requests with Approve, plus Auto-Approval for work from home. Separate from Leave Manager.</td></tr>
+    <tr><td>HR Manager</td><td>Adds Absent Today, Monthly Summary and Payroll, and can change office hours, holidays and devices.</td></tr>
+    <tr><td>Settings Administrator</td><td>Adds Employee Details (Field Settings, Salary Components, Statutory ID Types) and every manager action.</td></tr>
+  </tbody>
+</table>
+
+<!-- ===================== REFERENCE ===================== -->
+<h2>Status reference — leave requests</h2>
+<table>
+  <thead><tr><th style="width:24%">State</th><th>What it means</th><th style="width:30%">What you can do</th></tr></thead>
+  <tbody>
+    <tr><td>Draft</td><td>Saved in Odoo, but not sent yet.</td><td>Submit for Approval, or Cancel.</td></tr>
+    <tr><td>Pending Approval</td><td>Waiting for a manager, or for auto-approval.</td><td>Approve, Reject, or Cancel.</td></tr>
+    <tr><td>Approved</td><td>Granted. Shows as Leave in Day Status.</td><td>Only cancelled through HR.</td></tr>
+    <tr><td>Rejected</td><td>Turned down.</td><td>Reset to Draft, change it, and send again.</td></tr>
+    <tr><td>Cancelled</td><td>Withdrawn. The days are back in the balance.</td><td>Reset to Draft.</td></tr>
+  </tbody>
+</table>
+
+<h2>Status reference — compensatory off</h2>
+<table>
+  <thead><tr><th style="width:24%">State</th><th>What it means</th><th style="width:30%">What you can do</th></tr></thead>
+  <tbody>
+    <tr><td>Declared</td><td>They tapped "I am working today" but haven't checked out yet.</td><td>Wait for check-out, or press Grant.</td></tr>
+    <tr><td>Available</td><td>Earned and ready to use. Check Days Left.</td><td>Use it with a Compensatory Off leave.</td></tr>
+    <tr><td>Consumed</td><td>Fully used by approved leave.</td><td>Comes back if that leave is cancelled.</td></tr>
+    <tr><td>Expired</td><td>Not used in time, or over the year-end limit.</td><td>Restore.</td></tr>
+    <tr><td>Cancelled</td><td>Taken back by HR.</td><td>Restore.</td></tr>
+  </tbody>
+</table>
+
+<h2>Status reference — work from home and payroll</h2>
+<table>
+  <thead><tr><th style="width:24%">State</th><th>What it means</th><th style="width:30%">What you can do</th></tr></thead>
+  <tbody>
+    <tr><td>WFH: Pending</td><td>Waiting for a WFH Manager.</td><td>Approve in Odoo, or reject in the app.</td></tr>
+    <tr><td>WFH: Approved</td><td>They may work from home that day.</td><td>Check in as usual; Cancel if plans change.</td></tr>
+    <tr><td>WFH: Checked In / Out</td><td>The day was used.</td><td>—</td></tr>
+    <tr><td>Payroll: Draft</td><td>Payslips can still be rebuilt.</td><td>Confirm.</td></tr>
+    <tr><td>Payroll: Confirmed</td><td>Figures locked. Leave in that month can't be cancelled.</td><td>Mark Paid, or Back to Draft.</td></tr>
+    <tr><td>Payroll: Paid</td><td>Done.</td><td>Can't be undone.</td></tr>
+  </tbody>
+</table>
+
+<h2>Month-end checklist</h2>
+<ol class="story">
+  <li>Open <b>All Leave Requests</b> and decide every pending request and cancellation request for the month.</li>
+  <li>Open <b>Day Status</b> with the <b>Absent</b> filter. Anyone wrongly absent needs their leave approved or attendance added.</li>
+  <li>Check <b>Compensatory Off</b> for <b>Declared</b> credits, and press Grant where the check-out was missed.</li>
+  <li>Make sure every employee has a <b>Monthly Wage</b>, and that their salary parts add up to it.</li>
+  <li>Create the <b>Payroll Run</b>, press Generate Payslips, fix any mismatch, then Confirm.</li>
+  <li>Run <b>Generate Report</b> for the month and download the PDF or Excel for your records.</li>
+  <li>Once salaries are paid, press <b>Mark Paid</b> and print the payslips.</li>
+</ol>
+
+<h2>Quick tips</h2>
+<ul class="tips">
+  <li>Late costs nothing. A half day costs half a day. An absent day just isn't paid.</li>
+  <li>Late minutes count from the start time, not from the end of the grace minutes.</li>
+  <li>Leave is paid only while both the yearly and the monthly allowance have room.</li>
+  <li>Sundays and holidays inside a leave are free.</li>
+  <li>Save a Leave Policy before anyone asks for leave; without one, all leave is unpaid.</li>
+  <li>Employees can't cancel approved leave themselves. HR decides.</li>
+  <li>Set Late Window Ends, or nobody is ever marked absent during the day.</li>
+  <li>Salary parts must add up to the Monthly Wage before payroll can be confirmed.</li>
+  <li>A compensatory off is separate from paid leave, and the oldest one is used first.</li>
+</ul>
+
+<h2>If something goes wrong</h2>
+<table>
+  <thead><tr><th style="width:36%">What you see</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>Someone came in late but isn't in Late Records</td><td>Check <b>Late Tracking</b> is on in Office Hours &amp; Working Days, for their company or their department. Someone arriving after the late window counts as Present, not Late.</td></tr>
+    <tr><td>Absent Today is always empty</td><td><b>Late Window Ends</b> is 0, or that time hasn't come yet today. Set the hour in Office Hours &amp; Working Days.</td></tr>
+    <tr><td>Nobody is ever marked half day</td><td>Half Day After and Half Day Below Ratio are both 0. Set at least one.</td></tr>
+    <tr><td>A leave came out unpaid</td><td>The yearly or the monthly allowance is used up, or no Leave Policy is saved. Check Leave Balances and the Leave Policy.</td></tr>
+    <tr><td>An employee can't cancel approved leave</td><td>That's on purpose. They send a cancellation request from the app, and HR chooses Approve Cancellation or Keep Leave.</td></tr>
+    <tr><td>Cancelling a leave says payroll is confirmed</td><td>Open that month's payroll run, press <b>Back to Draft</b>, then cancel the leave.</td></tr>
+    <tr><td>The payroll run won't confirm</td><td>A payslip's salary parts don't match the Monthly Wage. On the employee, press <b>Copy the component gross onto Monthly Wage</b>, then Generate Payslips again.</td></tr>
+    <tr><td>Check-in is refused on a Sunday or holiday</td><td>The employee must tap <b>I am working today</b> in the app first. That also earns their compensatory off.</td></tr>
+    <tr><td>Check-in is refused later the same day</td><td>They already checked out today. They can check in again tomorrow.</td></tr>
+    <tr><td>Monthly Summary gives an access error</td><td>Only HR Managers can create it. Ask one, or use Late Records with the Late Only filter.</td></tr>
+    <tr><td>A Compensatory Off leave is refused</td><td>Not enough credit left. Check Leave Balances. A Declared credit needs a check-out, or HR to press <b>Grant</b>.</td></tr>
+    <tr><td>Saving a late check-in asks for a reason</td><td><b>Require Late Reason</b> is on. Press <b>Enter Late Reason</b>, or switch the setting off.</td></tr>
+    <tr><td>HR didn't get the leave email</td><td>Check <b>Email HR on Submission</b> and the recipients in the Leave Policy, and that Odoo's outgoing mail server works.</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

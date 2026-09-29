@@ -1,0 +1,29 @@
+{
+  "_README": [
+    "IMAGE n in 369-attendance-hr-manual.md -> the file below. Drop the capture into this folder under exactly that name and rebuild; nothing in the Markdown changes.",
+    "A slot with no file on disk still renders a bordered plate and caption.",
+    "Shoot on the phone in portrait, signed in as an HR user (HR tab visible). Do not include real personal data."
+  ],
+  "_status": "17 of 21 captured",
+  "1": { "file": "01-hr-home.png", "capture": "HAVE IT. HR tab for a user with leave and WFH rights: Your HR page guide folded, APPROVALS with Leave requests (2) and Work from home requests (1), Cancellation requests with no badge, TODAY boxes on Present, bottom bar Home / HR / Profile." },
+  "2": { "file": "02-hr-guide-open.png", "capture": "HR tab with the yellow Your HR page box tapped open so its four numbered reminders show, APPROVALS rows visible beneath." },
+  "3": { "file": "03-hr-officer-today-only.png", "capture": "HAVE IT. HR tab for an HR Officer with no approval rights: guide folded, TODAY section only, no APPROVALS section." },
+  "4": { "file": "04-hr-leave-manager.png", "capture": "HAVE IT. HR tab for a Leave Manager without WFH rights: Leave requests and Cancellation requests (badge 1), no Work from home requests row, TODAY below." },
+  "5": { "file": "05-leave-queue.png", "capture": "HAVE IT. All Leave Requests on the Pending chip with the How to approve leave guide open, 2 requests line, a Casual 2-day card and a Comp Off half-day card, both Pending." },
+  "6": { "file": "06-leave-detail-compoff.png", "capture": "HAVE IT. Pending Comp Off leave request: Dates, Days Half day, Paid / unpaid 0.5 / 0, Earned on, Comp-off balance, Submitted, REASON, Reject and Approve buttons." },
+  "7": { "file": "07-leave-detail-unpaid.png", "capture": "HAVE IT. Pending two-day Casual leave request with Paid / unpaid 1 / 1, REASON, Reject and Approve buttons." },
+  "8": { "file": "08-approve-confirm.png", "capture": "HAVE IT. Approve this request? window over a Comp Off request, with Cancel and Approve." },
+  "9": { "file": "09-reject-reason.png", "capture": "HAVE IT. Reject this request? window over a Comp Off leave request with a reason typed into Reason for rejection. The test employee in this shot is named Administrator; retake with an ordinary test employee if preferred." },
+  "10": { "file": "10-rejected-detail.png", "capture": "Open a rejected leave request from the Rejected chip: status chip Rejected, Decided by row, REASON card, the red REJECTED BECAUSE box with the reason, and the line 'Already rejected — only a pending request can be decided.' at the bottom." },
+  "11": { "file": "11-cancel-queue.png", "capture": "HAVE IT. All Leave Requests on the Cancellation chip: one Casual 2-day card showing Approved with the orange Cancel asked chip." },
+  "12": { "file": "12-cancel-detail.png", "capture": "HAVE IT. Approved Casual leave with a pending cancellation: How to decide a cancellation guide, Approved by row, REASON, orange CANCELLATION REQUESTED box with Asked time, Keep leave and Approve cancellation buttons." },
+  "13": { "file": "13-approve-cancel-confirm.png", "capture": "HAVE IT. Approve the cancellation? window with the payroll warning, Back and Approve buttons." },
+  "14": { "file": "14-cancel-queue-empty.png", "capture": "HAVE IT. Cancellation chip after the last request was decided: No cancellation requests / Nothing matches that filter this time." },
+  "15": { "file": "15-keep-leave.png", "capture": "HAVE IT. Keep this leave? window with a reason typed into Why it stays; on-screen keyboard open." },
+  "16": { "file": "16-cancel-this-leave.png", "capture": "Open an approved leave with no cancellation request (Approved chip) and tap Cancel this leave: the Cancel this approved leave? window with the payroll warning and the Back and Cancel leave buttons, the Cancel this leave button visible behind it." },
+  "17": { "file": "17-wfh-queue.png", "capture": "HAVE IT. All WFH Requests on the Pending chip with the How to approve work from home guide, one Work from home card, Pending." },
+  "18": { "file": "18-wfh-detail.png", "capture": "HAVE IT. Pending work-from-home request: Date, Submitted, REASON, Reject and Approve buttons." },
+  "19": { "file": "19-wfh-approve-confirm.png", "capture": "HAVE IT. Approve this request? window for a work-from-home day, saying the employee will be able to check in from home on the date." },
+  "20": { "file": "20-wfh-reject.png", "capture": "HAVE IT. Reject this request? window over a work-from-home request with a reason typed in." },
+  "21": { "file": "21-today-list.png", "capture": "HR tab scrolled to TODAY during working hours, with at least three people checked in: Present box selected and its rows listed beneath, ideally one row with a Late chip and one with a WFH chip. Use test employees only." }
+}
