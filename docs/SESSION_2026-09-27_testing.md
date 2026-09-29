@@ -7,21 +7,34 @@ Live server: `369application` on this PC (Odoo 19, port 8069). Tablet: Samsung S
 
 ## Remaining work
 
-- [ ] **Upgrade live again** (needs approval). It ships three uncommitted module changes together:
-  - `models/leave_request.py`: comp-off leave no longer eats the paid-leave quota (`_paid_quota_left` now excludes `comp_off`).
-  - The user manual from session `369attendance-ef`: `static/src/docs/*` plus the `help_doc_suite` record in `data/help_document_data.xml`.
-  - Follow the same steps as today: back up → upgrade a copy → upgrade live (see *How the upgrade was done*).
-- [ ] **Fix the double tap in reason dialogs.** With the keyboard open, the first tap on *Keep leave* or *Reject* only closes the keyboard, so HR must tap twice. It probably needs `keyboardShouldPersistTaps="handled"` in `src/components/PromptDialog.js`.
-- [ ] **Fix payroll for new joiners.** Days before an employee existed are counted as Absent. Test accounts created on 27 Sep got 23 absent days for September. Mid-month joiners would lose pay for days before they joined.
+- [x] **Upgrade live again** — done 28 Sep 17:50 (exit 0, no errors; backup `_db_backup/369application_before_joiner_fix_2026-09-28.dump`, old module in `_db_backup/addons_before_joiner_fix`). Live now has:
+  - `models/leave_request.py`: comp-off leave no longer eats the paid-leave quota (`_paid_quota_left` excludes `comp_off`). Committed 29 Sep.
+  - `models/payslip.py` + `models/hr_employee.py`: the new-joiner payroll fix below. Not committed yet.
+  - The user manual from session `369attendance-ef` in the Help menu (`static/src/docs/*`, record `help_doc_suite`). Committed 29 Sep.
+- [ ] **Set Administrator's joining date** (Employee form → Work Information → joining/contract start). Until then, September payroll shows 21 days as *Not on payroll (joining date not set)*.
+- [x] **Fix the double tap in reason dialogs** (code done 28 Sep, not yet checked on the tablet). The dialog body now sits in a `ScrollView` with `keyboardShouldPersistTaps="handled"` in `src/components/PromptDialog.js`.
+- [x] **Fix payroll for new joiners** (code done 28 Sep, see *Testing* below for what was verified). Working days before the joining date or after the departure date are now "not on payroll": neither paid nor absent. They come off as their own deduction line, *Not on payroll (N days)*, at the daily rate, and `paid_days` excludes them. The joining date is `contract_date_start` (Employee form → Work Information); if it's empty, the day the employee record was created is used. **Caveat:** an employee record created after the person actually started should get its joining date set, or the days in between are deducted.
+  - Verified on a copy of live (28 Sep, rolled back): an employee created today gets *Not on payroll (23 days)* and 3 paid days for September; one with joining date 15 Sep gets 12 not on payroll, 11 absent, 3 paid, net 3,000 of 26,000.
+  - **Watch out:** Administrator's record was created on 25 Sep with no joining date, so September now shows 3 absent + 21 not on payroll instead of 23 absent. Set the joining date on the employee form to change that; the line says *joining date not set* while it's missing.
+- [x] **The app in a browser** — checked 28 Sep with the Expo web build through `tools/same-origin-proxy.mjs` (app at `http://localhost:8090/`), driven in headless Chromium; tablet-sized captures in `screenshots/app-web/`:
+  - HR tab: *Leave requests · 1*, Today board with **Absent 1**; the Absent tile lists *Administrator · auto-stamped · Absent* (`hr-02`, `hr-03`).
+  - Reject a leave with a reason from the HR queue: dialog, reason typed, one press, back to "Nothing waiting" (`hr-05`–`hr-07`). The keyboard double-tap itself can't be reproduced on web (no soft keyboard); the fix is in the code and still wants one tablet press.
+  - Admin: *Absent Today* lists Administrator ("1 person has not checked in"), *Day Status* shows the 28 Sep Absent row (`adm-01`, `adm-02`).
+  - Admin: *Compensatory Off* → *Declared* chip → credit → *Grant as earned* → Available, 1 day, "Credit granted" (`adm-03`–`adm-06`).
+  - Admin: Payroll run → *Generate again* → *Generate*; the mid-month test employee's payslip shows *Not on payroll (23 days; joining date not set) 23,000.00*, net 3,000, paid days 3 (`adm-09`–`adm-11`). The live draft run was regenerated in the process; the test employees' payslips were deleted with the test data.
+  - Server screen: signal-wave ring while "Fetching databases…", then databases found; unreachable address → red cloud-offline icon with "The server did not answer within 15s" (`srv-02`–`srv-07`).
+  - How to repeat: Metro (`npx expo start --port 8081`), `node tools/same-origin-proxy.mjs 8090 8081`, headless Chromium on 9222, then `node tools/odoo-web-drive.mjs 9222 tools/odoo-web-steps/app_*.json`. The `appLogin` step signs in through the proxy and seeds the app's storage keys, the same way `tools/test-web.mjs` does.
+- [ ] **Tablet only:** press *Keep leave* / *Reject* once with the soft keyboard open and see it go through.
 - [ ] **Casual half-day leave:** decide whether it's needed. Only Comp-off has a *Half day* switch today.
-- [ ] **Check the Odoo web screens after the upgrade:**
-  - The leave form shows *Keep Leave*, and Keep Leave with no reason is refused.
-  - The *Employee Details* menu is hidden for an HR Manager. The server side is confirmed (menu group = Administrator only); it hasn't been looked at in the browser.
-- [ ] **Monday 28 Sep, after 10:00 IST:**
-  - Anyone with no check-in shows as Absent on Absent Today and Day Status.
-  - The HR tab *Today* tiles show real people, and tapping a tile lists names.
-- [ ] **Grant a Declared comp-off credit** (Admin → Compensatory Off). Not tested, because no Declared credit existed.
-- [ ] **Login step 1 cloud animation:** watch the *searching* waves and the *offline* shake on the tablet. Only the green "done" state was captured.
+- [x] **Odoo web screens after the upgrade** — checked 28 Sep in a real browser (headless Chromium driven over CDP, tablet-sized 1200×1920 captures in `screenshots/odoo-web/`), with temporary users that were deleted afterwards:
+  - The leave form shows *Keep Leave* next to *Approve Cancellation* when a cancellation is requested (`02-hr-leave-form.png`). Keep Leave with a blank reason is refused: "Missing required fields" and the field turns red (`04-hr-keep-empty-refused.png`). With a reason, the wizard closes, the request is cleared (only *Cancel Leave* remains) and the reason is saved (`05-hr-after-keep.png`).
+  - The Attendances menus for the HR Manager have no *Employee Details*; the admin's do (`06-hr-attendances-menu.png`, `08-admin-attendances-menu.png`, and the folded "+" menus in `07-hr-more-menu.png` / `09-admin-more-menu.png`).
+  - Help → *Help & User Guide* lists the new *Attendance Suite – Complete User Manual* first (`10-hr-manual.png`).
+  - Same checks also pass server-side (rendered view arch, menu visibility, wizard action).
+  - How to repeat: start `%LOCALAPPDATA%\ms-playwright\chromium_headless_shell-1228\chrome-headless-shell-win64\chrome-headless-shell.exe --headless=new --remote-debugging-port=9222 --user-data-dir=<tmp>`, then `node tools/odoo-web-drive.mjs 9222 tools/odoo-web-steps/<file>.json`. The step files expect the `e2e.hrmanager` / `e2e.admin` test users and a leave with id 14 that has a cancellation request; create them first and delete them after. Sign in with the driver's `login` step (it puts `?login=<user>` in the URL, or Odoo's remembered-users switch hides the form).
+- [x] **Monday 28 Sep, after 10:00 IST** — confirmed on the server at 17:20 and 18:05: the cron stamped Administrator Absent for 28 Sep, and the reads the app makes for Absent Today and the HR *Today* board return that row for an HR user without a permission error.
+- [x] **Grant a Declared comp-off credit** — confirmed on the server (rolled back): a Declared credit granted by an HR user becomes Available with 1 day, and the balance shows 1 earned.
+- [x] **Payslip line on live** — confirmed on the server (rolled back, with a test wage of 26,000): Administrator's September slip shows *Loss of Pay* 3,000 and *Not on payroll (21 days; joining date not set)* 21,000.
 - [ ] **Month end (after 30 Sep):**
   - Press Generate on `PAY/2026/0001` again, then Confirm.
   - Use **Mark paid** for the first time. It can't be undone and has never been tested.
