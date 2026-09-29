@@ -2431,3 +2431,107 @@ export async function saveNotifyEvent(id, values) {
 export async function submitLateReason(attendanceId, reason) {
   return callKw('hr.attendance', 'app_submit_late_reason', [Number(attendanceId), reason]);
 }
+
+/* ------------------------------------------------------------------ *
+ * Profile extras -- the work, month, balance, attendance-setup and
+ * role sections of the Profile tab.
+ *
+ * Kept apart from getMyDetails on purpose. An employee reading their own
+ * res.users gets a superuser read ONLY if every requested field is on the
+ * self-service allow-list; one field off it and the whole read fails. So the
+ * work fields below are all allow-listed ones, in their own read, and
+ * department / manager / coach come from hr.employee.public, which every
+ * user may read. Each part settles on its own, so one refusal hides one
+ * section, never the page. Nothing salary-bearing is requested.
+ * ------------------------------------------------------------------ */
+
+const PROFILE_USER_FIELDS = [
+  'job_title', 'work_email', 'work_phone', 'mobile_phone', 'barcode',
+  'work_location_id', 'employee_resource_calendar_id', 'company_id',
+];
+const m2oName = (v) => (Array.isArray(v) ? v[1] : '');
+const text = (v) => (v === false || v === null || v === undefined ? '' : String(v));
+
+export async function getProfileExtras({ uid, caps = {} }) {
+  const settled = (p) => p.then((value) => value, () => null);
+
+  const [userRow, publicRow, home, empId] = await Promise.all([
+    settled(callKw('res.users', 'read', [[uid], PROFILE_USER_FIELDS]).then((r) => r?.[0] || null)),
+    settled(
+      callKw('hr.employee.public', 'search_read', [
+        [['user_id', '=', uid]], ['department_id', 'parent_id', 'coach_id', 'job_id'],
+      ], { limit: 1 }).then((r) => r?.[0] || null)
+    ),
+    settled(getHomeData(uid)),
+    settled(getMyEmployeeId(uid)),
+  ]);
+
+  const manages = caps.leave || caps.wfh || caps.attendance;
+  const [leave, compOff, device, approvals, wfhPending, absentToday] = await Promise.all([
+    empId ? settled(fetchLeaveBalance(empId)) : null,
+    empId ? settled(fetchCompOffBalance(empId)) : null,
+    empId
+      ? settled(
+          callKw('employee.device', 'search_read', [
+            [['employee_id', '=', empId]],
+            ['device_id', 'device_name', 'device_type', 'active', 'last_used'],
+          ], { limit: 1, order: 'last_used desc' }).then((r) => r?.[0] || null)
+        )
+      : null,
+    manages && caps.leave ? settled(countLeaveApprovals()) : null,
+    manages && caps.wfh ? settled(countPendingWfh()) : null,
+    manages && caps.attendance ? settled(countAbsentToday()) : null,
+  ]);
+
+  const cfg = home?.config || null;
+  const days = cfg
+    ? ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        .filter((d) => cfg[`work_${d}`])
+        .map((d) => d[0].toUpperCase() + d.slice(1, 3))
+    : [];
+
+  return {
+    work: {
+      employeeId: text(userRow?.barcode),
+      jobTitle: text(userRow?.job_title) || m2oName(publicRow?.job_id),
+      department: m2oName(publicRow?.department_id),
+      manager: m2oName(publicRow?.parent_id),
+      coach: m2oName(publicRow?.coach_id),
+      workEmail: text(userRow?.work_email),
+      workPhone: text(userRow?.work_phone),
+      mobile: text(userRow?.mobile_phone),
+      workLocation: m2oName(userRow?.work_location_id),
+      workingHours: m2oName(userRow?.employee_resource_calendar_id),
+      company: m2oName(userRow?.company_id),
+    },
+    month: home?.month || null,
+    leave,
+    compOff,
+    setup: cfg
+      ? {
+          startHour: cfg.office_start_hour,
+          endHour: cfg.office_end_hour,
+          graceMinutes: Number(cfg.late_threshold_minutes) || 0,
+          workingDays: days,
+        }
+      : null,
+    device: device
+      ? {
+          name: text(device.device_name) || text(device.device_id),
+          type: text(device.device_type),
+          active: Boolean(device.active),
+          lastUsed: text(device.last_used),
+        }
+      : null,
+    // Undefined (not 0) when the user does not handle that queue, so the
+    // screen shows only the rows that are theirs.
+    queue: manages
+      ? {
+          leave: approvals ? approvals.pending : undefined,
+          cancels: approvals ? approvals.cancels : undefined,
+          wfh: typeof wfhPending === 'number' ? wfhPending : undefined,
+          absent: typeof absentToday === 'number' ? absentToday : undefined,
+        }
+      : null,
+  };
+}
