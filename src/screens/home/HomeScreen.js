@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet, BackHandler } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet, BackHandler, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +10,13 @@ import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
 import { Card, Skeleton, ConfirmDialog, FadeIn, useToast, useTabBarLift } from '../../components';
 import { useSession } from '../../state/SessionContext';
-import { getHomeData, toggleAttendance, declareWorkingToday, withdrawWorkingToday } from '../../services/odoo';
+import {
+  getHomeData,
+  toggleAttendance,
+  declareWorkingToday,
+  withdrawWorkingToday,
+  countUnreadNotifications,
+} from '../../services/odoo';
 import { greeting, formatLongDate, formatHourFloat } from '../../utils/time';
 import AttendanceCard from './AttendanceCard';
 import StatTiles from './StatTiles';
@@ -66,6 +73,19 @@ export default function HomeScreen({ navigation }) {
       return () => sub.remove();
     }, [])
   );
+
+  // The bell's dot: unread notifications, re-counted whenever Home comes back
+  // into view and whenever a push lands while the app is open.
+  const [unread, setUnread] = useState(0);
+  const refreshUnread = useCallback(() => {
+    countUnreadNotifications().then(setUnread).catch(() => {});
+  }, []);
+  useFocusEffect(refreshUnread);
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+    const sub = Notifications.addNotificationReceivedListener(refreshUnread);
+    return () => sub.remove();
+  }, [refreshUnread]);
 
   const [toggling, setToggling] = useState(false);
   const [confirmDeclare, setConfirmDeclare] = useState(false);
@@ -213,8 +233,8 @@ export default function HomeScreen({ navigation }) {
               <IconButton
                 icon="notifications-outline"
                 label="Notifications"
-                badge
-                onPress={() => showToast('No new notifications.', 'info')}
+                badge={unread > 0}
+                onPress={() => navigation.navigate('Notifications')}
               />
               <IconButton
                 icon="settings-outline"

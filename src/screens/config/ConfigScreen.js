@@ -127,6 +127,15 @@ function sectionsFor(caps, counts) {
     });
   }
 
+  if (caps.admin) {
+    out.push({
+      title: 'App',
+      items: [
+        { key: 'NotifySettings', icon: 'notifications-outline', tone: 'warning', label: 'Notifications', caption: 'What is sent, and to whom' },
+      ],
+    });
+  }
+
   if (caps.payroll) {
     out.push({
       title: 'Payroll',

@@ -2361,3 +2361,73 @@ export async function saveManual(id, { name, description, audience, sequence, fi
 export async function deleteManual(id) {
   await callKw(MANUAL_MODEL, 'unlink', [[Number(id)]]);
 }
+
+/* ------------------------------------------------------------------ *
+ * Notifications -- the bell feed, phone registration, and the admin's
+ * per-event switches. All of it lives in hr.attendance.notification and its
+ * two siblings on the server; a server whose module predates notifications
+ * answers "no feed" rather than an error, so the bell simply stays empty.
+ * ------------------------------------------------------------------ */
+
+const NOTIFY_MODEL = 'hr.attendance.notification';
+
+/** This user's notifications, newest first. */
+export async function fetchNotifications(limit = 50, offset = 0) {
+  try {
+    return (await callKw(NOTIFY_MODEL, 'app_feed', [], { limit, offset })) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/** Unread count for the bell badge. 0 when the server has no feed. */
+export async function countUnreadNotifications() {
+  try {
+    return Number(await callKw(NOTIFY_MODEL, 'unread_count', [])) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+export async function markNotificationsRead(ids) {
+  if (!ids?.length) return;
+  await callKw(NOTIFY_MODEL, 'mark_read', [ids.map(Number)]);
+}
+
+export async function markAllNotificationsRead() {
+  await callKw(NOTIFY_MODEL, 'mark_all_read', []);
+}
+
+/** A test to this user's own bell and phones. */
+export async function sendTestNotification() {
+  await callKw(NOTIFY_MODEL, 'action_send_test', []);
+}
+
+/** Remember this phone's Expo push token for the signed-in user. */
+export async function registerPushDevice(token, platform, device, projectId) {
+  return callKw('hr.attendance.push.device', 'register_device', [token], {
+    platform,
+    device: device || null,
+    project_id: projectId || null,
+  });
+}
+
+/** Forget this phone (sign-out), while the session is still valid. */
+export async function unregisterPushDevice(token) {
+  return callKw('hr.attendance.push.device', 'unregister_device', [token]);
+}
+
+/** Admin: every notification type with its two switches. */
+export async function fetchNotifyEvents() {
+  return (await callKw('hr.attendance.notify.event', 'app_list', [])) || [];
+}
+
+/** Admin: flip one type's switches ({ enabled?, push? }). */
+export async function saveNotifyEvent(id, values) {
+  await callKw('hr.attendance.notify.event', 'write', [[Number(id)], values]);
+}
+
+/** The employee explains their own late check-in. */
+export async function submitLateReason(attendanceId, reason) {
+  return callKw('hr.attendance', 'app_submit_late_reason', [Number(attendanceId), reason]);
+}

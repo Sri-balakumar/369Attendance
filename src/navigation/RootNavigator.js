@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
+import { useSession } from '../state/SessionContext';
+import { navRef } from './navRef';
+import { installNotificationHandler, dataOf } from '../push/registerDevice';
+import { openNotificationTarget } from '../utils/notificationTarget';
+import { markNotificationsRead } from '../services/odoo';
 import SplashScreen from '../screens/SplashScreen';
 import ServerScreen from '../screens/ServerScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -12,6 +19,9 @@ import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import AppManualScreen from '../screens/settings/AppManualScreen';
 import AppManualFormScreen from '../screens/settings/AppManualFormScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import LateReasonScreen from '../screens/attendance/LateReasonScreen';
+import NotifySettingsScreen from '../screens/config/NotifySettingsScreen';
 import LateRecordsScreen from '../screens/config/LateRecordsScreen';
 import DayStatusScreen from '../screens/config/DayStatusScreen';
 import AbsentTodayScreen from '../screens/config/AbsentTodayScreen';
@@ -62,6 +72,42 @@ const Stack = createNativeStackNavigator();
  * real pop. That is why Home's hardwareBackPress handler is scoped to focus —
  * an unconditional one there wins the race on every screen stacked above it.
  */
+installNotificationHandler();
+
+/**
+ * A tapped push opens what it is about. Held until somebody is signed in:
+ * navigating while the app is still restoring lands on a screen that
+ * immediately routes away to Login. Covers both a tap that launched the app
+ * (getLastNotificationResponseAsync) and one while it was running.
+ */
+function PushTapHandler() {
+  const { user } = useSession();
+  useEffect(() => {
+    if (!user || Platform.OS === 'web') return undefined;
+    const open = (response) => {
+      const data = dataOf(response);
+      if (!data) return;
+      if (data.notificationId) markNotificationsRead([data.notificationId]).catch(() => {});
+      const go = () => openNotificationTarget(navRef, data);
+      // The navigator may not be mounted yet on a cold start.
+      if (navRef.isReady()) go();
+      else setTimeout(go, 800);
+    };
+    let cancelled = false;
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (!cancelled && response) open(response);
+      })
+      .catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [user]);
+  return null;
+}
+
 export default function RootNavigator() {
   const { colors, isDark } = useTheme();
 
@@ -78,7 +124,8 @@ export default function RootNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navRef} theme={navTheme}>
+      <PushTapHandler />
       <Stack.Navigator
         id="RootStack"
         initialRouteName="Splash"
@@ -98,6 +145,9 @@ export default function RootNavigator() {
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="AppManual" component={AppManualScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="AppManualForm" component={AppManualFormScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="LateReason" component={LateReasonScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="NotifySettings" component={NotifySettingsScreen} options={{ animation: 'slide_from_right' }} />
 
         {/* The Attendance Status admin menu, reached from the Config tab.
             Pushed rather than nested in the tabs, so the floating bar is

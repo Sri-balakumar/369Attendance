@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearSession, fetchCapabilities } from '../services/odoo';
+import { registerForPush, unregisterFromPush } from '../push/registerDevice';
 
 /**
  * Two independently persisted things, because they have different lifetimes:
@@ -83,6 +84,24 @@ export function SessionProvider({ children }) {
     };
   }, [user]);
 
+  /**
+   * Register this phone for push once per signed-in user. Every launch sends
+   * the token again (it changes on reinstall), and a failure is silent -- the
+   * bell inside the app still works without push.
+   */
+  const pushTokenRef = useRef(null);
+  useEffect(() => {
+    if (!user) return undefined;
+    let cancelled = false;
+    (async () => {
+      const token = await registerForPush();
+      if (!cancelled) pushTokenRef.current = token;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   // The tab itself: any one surface is enough to earn it.
   const canManage = caps.attendance || caps.leave || caps.wfh || caps.payroll || caps.balances;
 
@@ -107,6 +126,10 @@ export function SessionProvider({ children }) {
   // Logout: user only. The server survives so Login can show the chip and ask
   // for credentials alone.
   const signOut = useCallback(async () => {
+    // Before the session is dropped: unregistering is an authenticated call,
+    // and without it this phone keeps receiving the previous user's news.
+    await unregisterFromPush(pushTokenRef.current);
+    pushTokenRef.current = null;
     setUser(null);
     try {
       // Drop the Odoo cookie too, or the next sign-in would carry the previous
@@ -120,6 +143,8 @@ export function SessionProvider({ children }) {
 
   // Change URL: both keys. The only route back to the Server screen.
   const changeServer = useCallback(async () => {
+    await unregisterFromPush(pushTokenRef.current);
+    pushTokenRef.current = null;
     setUser(null);
     setServer(null);
     try {
