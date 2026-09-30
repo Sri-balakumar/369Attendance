@@ -66,3 +66,8 @@ access_comp_off_redemption_manager,hr.comp.off.redemption.manager,model_hr_comp_
 access_comp_off_redemption_leave_manager,hr.comp.off.redemption.leave.manager,model_hr_comp_off_redemption,hr_attendance_369.group_leave_manager,1,1,1,1
 access_comp_off_redemption_hr_user,hr.comp.off.redemption.hr.user,model_hr_comp_off_redemption,hr.group_hr_user,1,0,0,0
 access_comp_off_redemption_user,hr.comp.off.redemption.user,model_hr_comp_off_redemption,base.group_user,1,0,0,0
+access_attendance_notification_user,hr.attendance.notification.user,model_hr_attendance_notification,base.group_user,1,1,0,0
+access_attendance_notification_admin,hr.attendance.notification.admin,model_hr_attendance_notification,base.group_system,1,1,1,1
+access_attendance_notify_event_admin,hr.attendance.notify.event.admin,model_hr_attendance_notify_event,base.group_system,1,1,0,0
+access_attendance_push_device_user,hr.attendance.push.device.user,model_hr_attendance_push_device,base.group_user,1,0,0,0
+access_attendance_push_device_admin,hr.attendance.push.device.admin,model_hr_attendance_push_device,base.group_system,1,1,1,1

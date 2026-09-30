@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================ -->
+    <!--  Notification Types: one row per event, two switches each.   -->
+    <!-- ============================================================ -->
+    <record id="view_notify_event_list" model="ir.ui.view">
+        <field name="name">hr.attendance.notify.event.list</field>
+        <field name="model">hr.attendance.notify.event</field>
+        <field name="arch" type="xml">
+            <list string="Notification Types" editable="bottom" create="false" delete="false">
+                <field name="category" readonly="1"/>
+                <field name="audience" widget="badge" readonly="1"
+                       decoration-info="audience == 'employee'"
+                       decoration-warning="audience == 'hr'"
+                       decoration-danger="audience == 'admin'"/>
+                <field name="name" readonly="1"/>
+                <field name="description" readonly="1" optional="show"/>
+                <field name="enabled" widget="boolean_toggle"/>
+                <field name="push" widget="boolean_toggle" readonly="not enabled"/>
+                <field name="code" optional="hide" readonly="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_notify_event_search" model="ir.ui.view">
+        <field name="name">hr.attendance.notify.event.search</field>
+        <field name="model">hr.attendance.notify.event</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <filter name="f_employee" string="To employees" domain="[('audience', '=', 'employee')]"/>
+                <filter name="f_hr" string="To HR" domain="[('audience', '=', 'hr')]"/>
+                <filter name="f_admin" string="To admins" domain="[('audience', '=', 'admin')]"/>
+                <separator/>
+                <filter name="f_off" string="Switched off" domain="[('enabled', '=', False)]"/>
+                <group>
+                    <filter name="g_category" string="Category" context="{'group_by': 'category'}"/>
+                    <filter name="g_audience" string="Sent to" context="{'group_by': 'audience'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_notify_event" model="ir.actions.act_window">
+        <field name="name">Notification Types</field>
+        <field name="res_model">hr.attendance.notify.event</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_g_category': 1}</field>
+        <field name="help" type="html">
+            <p>
+                Every notification the attendance app sends. <b>On</b> switches
+                one off completely; <b>Phone Push</b> off keeps it under the
+                app's bell without buzzing the phone. Admins receive every
+                HR notification as well.
+            </p>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  Sent notifications (the feed), read-only log for admins.    -->
+    <!-- ============================================================ -->
+    <record id="view_attendance_notification_list" model="ir.ui.view">
+        <field name="name">hr.attendance.notification.list</field>
+        <field name="model">hr.attendance.notification</field>
+        <field name="arch" type="xml">
+            <list string="Notifications" create="false" edit="false">
+                <field name="create_date" string="Sent"/>
+                <field name="user_id"/>
+                <field name="category" optional="show"/>
+                <field name="title"/>
+                <field name="body"/>
+                <field name="is_read" widget="boolean" string="Read"/>
+                <field name="event_code" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_attendance_notification_search" model="ir.ui.view">
+        <field name="name">hr.attendance.notification.search</field>
+        <field name="model">hr.attendance.notification</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="user_id"/>
+                <field name="title"/>
+                <field name="event_code"/>
+                <filter name="f_unread" string="Unread" domain="[('is_read', '=', False)]"/>
+                <group>
+                    <filter name="g_user" string="Recipient" context="{'group_by': 'user_id'}"/>
+                    <filter name="g_category" string="Category" context="{'group_by': 'category'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_attendance_notification" model="ir.actions.act_window">
+        <field name="name">Sent Notifications</field>
+        <field name="res_model">hr.attendance.notification</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  Registered phones                                           -->
+    <!-- ============================================================ -->
+    <record id="view_attendance_push_device_list" model="ir.ui.view">
+        <field name="name">hr.attendance.push.device.list</field>
+        <field name="model">hr.attendance.push.device</field>
+        <field name="arch" type="xml">
+            <list string="Registered Phones" create="false">
+                <field name="user_id"/>
+                <field name="device"/>
+                <field name="platform"/>
+                <field name="last_seen_at"/>
+                <field name="active" widget="boolean_toggle"/>
+                <field name="project_id" optional="hide"/>
+                <field name="token" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_attendance_push_device" model="ir.actions.act_window">
+        <field name="name">Registered Phones</field>
+        <field name="res_model">hr.attendance.push.device</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p>
+                Phones that allowed notifications in the app. A phone appears
+                here after someone signs in on it; it is retired automatically
+                when Expo reports it gone.
+            </p>
+        </field>
+    </record>
+
+    <!-- A test to the caller's own bell and phones. -->
+    <record id="action_attendance_notification_test" model="ir.actions.server">
+        <field name="name">Send Test Notification</field>
+        <field name="model_id" ref="model_hr_attendance_notification"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_send_test()</field>
+    </record>
+
+</odoo>

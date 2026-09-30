@@ -1,6 +1,6 @@
 {
     'name': 'Attendance Suite (Late, Leave, WFH, Reports, Devices)',
-    'version': '19.0.10.4.0',
+    'version': '19.0.11.0.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Late tracking & deductions, leave requests, work-from-home, '
                'monthly employee reports and device registration in one module',
@@ -41,6 +41,11 @@
         - **Help** - User Manual (the module's own guides) and Mobile App
           (the Admin / HR / Employee PDFs the phone app opens under
           Settings > App Manual, each shown only to its role).
+        - **Notifications** - phone push (Expo) plus an in-app bell for
+          employees, HR and admins: check-in/out, late, half day, absent,
+          reminders, leave / WFH / comp-off decisions, payslips, holidays,
+          HR edits to attendance, and system alerts. Every type has an
+          on/off and a push switch under Configuration > Notifications.
 
         Replaces: hr_attendance_late, hr_leave_request, hr_wfh_request,
         hr_employee_report, employee_device.
@@ -49,7 +54,7 @@
     # No KRA dependency on purpose: this suite installs standalone. The
     # workday link lives in kra_kpi_attendance_bridge, which depends on both
     # and auto-installs only where both are present.
-    'depends': ['base', 'web', 'hr', 'hr_attendance'],
+    'depends': ['base', 'web', 'mail', 'hr', 'hr_attendance'],
     'external_dependencies': {
         'python': ['pytz', 'dateutil', 'xlsxwriter'],
     },
@@ -69,6 +74,7 @@
         'data/payslip_sequence.xml',
         'data/salary_component_data.xml',
         'data/statutory_id_type_data.xml',
+        'data/notify_data.xml',
         # --- wizards ---
         'wizard/late_reason_wizard_views.xml',
         'wizard/checkout_confirm_wizard_views.xml',
@@ -98,6 +104,7 @@
         'views/comp_off_views.xml',
         'views/comp_off_redemption_views.xml',
         'views/leave_balance_views.xml',
+        'views/notification_views.xml',
         # --- menu LAST: every menuitem references an action defined above ---
         'views/menu.xml',
         # --- reports ---

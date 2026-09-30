@@ -77,9 +77,10 @@ class KpiWorkSessionAttendanceBridge(models.Model):
                         # transition for those, so the check-out has to happen
                         # here or the attendance dangles open forever.
                         sess._kra_sync_checkout()
-            except Exception:
+            except Exception as err:
                 _logger.exception(
                     "[kra-attendance] check-in sync failed for session %s", sess.id)
+                sess._kra_alert_sync_failed(_("Start Workday"), err)
         return sessions
 
     def write(self, vals):
@@ -96,9 +97,10 @@ class KpiWorkSessionAttendanceBridge(models.Model):
             try:
                 with self.env.cr.savepoint():
                     sess._kra_sync_checkout()
-            except Exception:
+            except Exception as err:
                 _logger.exception(
                     "[kra-attendance] check-out sync failed for session %s", sess.id)
+                sess._kra_alert_sync_failed(_("End Workday"), err)
         return res
 
     # ------------------------------------------------------------------ #
@@ -130,6 +132,7 @@ class KpiWorkSessionAttendanceBridge(models.Model):
                 "[kra-attendance] no hr.employee linked to user %s (%s) -- "
                 "workday session %s will not appear in attendance",
                 self.user_id.id, self.user_id.login or '', self.id)
+            self._kra_alert_no_employee()
             return self.env['hr.attendance'].browse()
 
         cfg = self.env['hr.attendance.late.config'].get_config_for_employee(employee.id)
@@ -236,6 +239,37 @@ class KpiWorkSessionAttendanceBridge(models.Model):
             return self.env['hr.employee'].browse()
         return self.env['hr.employee'].sudo().search(
             [('user_id', '=', self.user_id.id)], limit=1)
+
+    # --- Alerts (hr_attendance_369's notification centre) ----------------
+    def _kra_alert_sync_failed(self, action, err):
+        """The workday opened (or closed) in KRA but attendance did not follow,
+        so the day will grade Absent unless somebody fixes it. Both the
+        developer and the admins need to know today, not at payroll."""
+        self.ensure_one()
+        N = self.env['hr.attendance.notification']
+        employee = self._kra_employee()
+        company = employee.company_id if employee else self.env.company
+        N._notify('emp_kra_sync_failed', self.user_id, _("Workday not recorded"),
+                  _("%(action)s did not record your attendance. Check in from the "
+                    "attendance app, or ask HR to fix it.", action=action),
+                  employee or None, 'Home', include_actor=True)
+        N._notify('adm_kra_sync_failed', N._hr_users('admin', company),
+                  _("KRA attendance sync failed"),
+                  _("%(action)s for %(user)s: %(err)s",
+                    action=action, user=self.user_id.name, err=str(err)[:120]))
+
+    def _kra_alert_no_employee(self):
+        """Once a day per user: a KRA account with no employee record never
+        reaches attendance at all."""
+        self.ensure_one()
+        N = self.env['hr.attendance.notification']
+        if N._once_per_day('kra_no_employee_%s' % self.user_id.id,
+                           fields.Date.context_today(self)):
+            N._notify('adm_kra_no_employee', N._hr_users('admin', self.user_id.company_id),
+                      _("KRA user without employee"),
+                      _("%s started a workday but has no employee record, so no "
+                        "attendance is recorded. Link the user to an employee.",
+                        self.user_id.name))
 
     def _kra_day_window(self, employee, cfg, moment):
         """UTC bounds of the OFFICE-local day containing `moment`.

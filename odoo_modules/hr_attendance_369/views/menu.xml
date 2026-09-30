@@ -250,6 +250,43 @@
               groups="base.group_system"
               sequence="20"/>
 
+    <!-- ============================================================ -->
+    <!--  NOTIFICATIONS (admins) — under Attendances → Configuration  -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_attendance_notifications"
+              name="Notifications"
+              parent="hr_attendance.menu_hr_attendance_configuration"
+              groups="base.group_system"
+              sequence="60"/>
+
+    <menuitem id="menu_notify_event"
+              name="Notification Types"
+              parent="menu_attendance_notifications"
+              action="action_notify_event"
+              groups="base.group_system"
+              sequence="10"/>
+
+    <menuitem id="menu_attendance_notification_log"
+              name="Sent Notifications"
+              parent="menu_attendance_notifications"
+              action="action_attendance_notification"
+              groups="base.group_system"
+              sequence="20"/>
+
+    <menuitem id="menu_attendance_push_device"
+              name="Registered Phones"
+              parent="menu_attendance_notifications"
+              action="action_attendance_push_device"
+              groups="base.group_system"
+              sequence="30"/>
+
+    <menuitem id="menu_attendance_notification_test"
+              name="Send Test Notification"
+              parent="menu_attendance_notifications"
+              action="action_attendance_notification_test"
+              groups="base.group_system"
+              sequence="40"/>
+
     <!-- Help Documents sits under Attendances → Configuration, not the root. -->
     <menuitem id="menu_help_document"
               name="Help Documents"

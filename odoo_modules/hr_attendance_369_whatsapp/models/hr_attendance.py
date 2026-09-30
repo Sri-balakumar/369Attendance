@@ -20,7 +20,7 @@ from datetime import timedelta
 
 import pytz
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -99,6 +99,26 @@ class HrAttendance(models.Model):
         })
         return text, digits
 
+    # --- Admin alerts (hr_attendance_369's notification centre) -----------
+    @api.model
+    def _wa_alert_failed(self, rec, why):
+        N = self.env['hr.attendance.notification']
+        N._notify('adm_wa_failed', N._hr_users('admin', rec.employee_id.company_id),
+                  _("WhatsApp post failed"),
+                  _("%(emp)s's check-in was not posted to the group: %(why)s",
+                    emp=rec.employee_id.name, why=why), rec)
+
+    @api.model
+    def _wa_alert_not_ready(self, company):
+        """Once a day, not once per check-in: a switched-off gateway skips
+        every post, and one message says it."""
+        N = self.env['hr.attendance.notification']
+        if N._once_per_day('wa_not_ready_%s' % company.id, fields.Date.context_today(self)):
+            N._notify('adm_wa_not_ready', N._hr_users('admin', company),
+                      _("WhatsApp posts are being skipped"),
+                      _("The WhatsApp group post is not set up or switched off for %s. "
+                        "Check-ins are not being announced.", company.name))
+
     @api.model
     def _cron_wa_post_present(self):
         """Send every pending group post. Commits after each one, so a failure
@@ -112,9 +132,11 @@ class HrAttendance(models.Model):
             config = Config._for_company(rec.employee_id.company_id)
             if not config or not config._is_ready():
                 rec.wa_present_state = 'skipped'
+                self._wa_alert_not_ready(rec.employee_id.company_id)
             elif rec.check_in < now - STALE_AFTER:
                 _logger.warning("[wa-present] attendance %s too old to post; dropped", rec.id)
                 rec.wa_present_state = 'failed'
+                self._wa_alert_failed(rec, _("it was more than 2 hours old by the time it could be sent"))
             else:
                 try:
                     text, digits = rec._wa_present_text(config)
@@ -129,6 +151,8 @@ class HrAttendance(models.Model):
                         'wa_present_state': 'failed' if attempts >= MAX_ATTEMPTS else 'pending',
                     })
                     retry = retry or attempts < MAX_ATTEMPTS
+                    if attempts >= MAX_ATTEMPTS:
+                        self._wa_alert_failed(rec, str(err))
             self.env.cr.commit()
         if retry:
             self.env.ref('hr_attendance_369_whatsapp.ir_cron_wa_post_present').sudo()._trigger(

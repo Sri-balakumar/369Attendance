@@ -37,3 +37,7 @@ from . import num_to_words
 from . import payslip_line
 from . import payslip
 from . import payslip_run
+# Notifications: the feed, the switches and push first, then the hooks that
+# wrap every model above -- imported last so each override sits outermost.
+from . import attendance_notification
+from . import notify_hooks

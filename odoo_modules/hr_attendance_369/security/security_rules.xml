@@ -382,4 +382,38 @@
         <field name="groups" eval="[(4, ref('base.group_system'))]"/>
     </record>
 
+    <!-- ============================================================ -->
+    <!--                NOTIFICATIONS / REGISTERED PHONES             -->
+    <!-- ============================================================ -->
+
+    <!-- Your own bell, nobody else's. Rows are created with sudo by the
+         notifier; the app reads and marks them read as the user. -->
+    <record id="attendance_notification_rule_own" model="ir.rule">
+        <field name="name">Notification: own rows</field>
+        <field name="model_id" ref="model_hr_attendance_notification"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="attendance_notification_rule_admin" model="ir.rule">
+        <field name="name">Notification: administrators see all</field>
+        <field name="model_id" ref="model_hr_attendance_notification"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+
+    <record id="attendance_push_device_rule_own" model="ir.rule">
+        <field name="name">Registered phone: own rows</field>
+        <field name="model_id" ref="model_hr_attendance_push_device"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="attendance_push_device_rule_admin" model="ir.rule">
+        <field name="name">Registered phone: administrators see all</field>
+        <field name="model_id" ref="model_hr_attendance_push_device"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+
 </odoo>

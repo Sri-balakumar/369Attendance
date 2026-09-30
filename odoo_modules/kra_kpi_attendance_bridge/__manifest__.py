@@ -1,6 +1,6 @@
 {
     'name': 'KRA/KPI Workday -> Attendance Bridge',
-    'version': '19.0.3.0.0',
+    'version': '19.0.3.1.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Starting a KRA/KPI workday records an HR attendance check-in, '
                'and ending it writes the check-out',

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- The notification types. The catalog lives in Python
+         (attendance_notification.NOTIFY_CATALOG); this creates the missing
+         ones and refreshes their labels on every install and upgrade, and
+         never touches an admin's on/off switches. -->
+    <function model="hr.attendance.notify.event" name="_sync_catalog"/>
+
+    <data noupdate="1">
+
+        <!-- Check-in / check-out reminders. Every 15 minutes, because office
+             hours are per company/department and offices can sit in different
+             timezones; each reminder still goes out once a day at most. -->
+        <record id="ir_cron_notify_reminders" model="ir.cron">
+            <field name="name">Notifications: check-in and check-out reminders</field>
+            <field name="model_id" ref="model_hr_attendance_notification"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_reminders()</field>
+            <field name="interval_number">15</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+
+        <!-- Daily digests: missed check-outs, requests waiting, comp off
+             expiring, holiday tomorrow. Hourly; each fires once a day after
+             its own local hour. -->
+        <record id="ir_cron_notify_digests" model="ir.cron">
+            <field name="name">Notifications: daily digests</field>
+            <field name="model_id" ref="model_hr_attendance_notification"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_daily_digests()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

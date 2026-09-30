@@ -1,6 +1,6 @@
 {
     'name': 'Attendance: WhatsApp Group Roll Call',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Posts "@Employee present 9:30 AM" to a WhatsApp group on the '
                'first check-in of the day',
