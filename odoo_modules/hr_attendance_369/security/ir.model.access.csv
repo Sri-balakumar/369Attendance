@@ -10,6 +10,7 @@ access_late_reason_wizard_user,hr.attendance.late.reason.wizard.user,model_hr_at
 access_checkout_confirm_wizard_user,hr.attendance.checkout.confirm.wizard.user,model_hr_attendance_checkout_confirm_wizard,base.group_user,1,1,1,1
 access_help_document_manager,attendance.help.document.manager,model_attendance_help_document,hr.group_hr_manager,1,1,1,1
 access_help_document_user,attendance.help.document.user,model_attendance_help_document,base.group_user,1,0,0,0
+access_help_document_admin,attendance.help.document.admin,model_attendance_help_document,base.group_system,1,1,1,1
 access_leave_request_user,hr.leave.request.user,model_hr_leave_request,base.group_user,1,1,1,0
 access_leave_request_manager,hr.leave.request.manager,model_hr_leave_request,hr_attendance_369.group_leave_manager,1,1,1,1
 access_leave_request_admin,hr.leave.request.admin,model_hr_leave_request,base.group_system,1,1,1,1

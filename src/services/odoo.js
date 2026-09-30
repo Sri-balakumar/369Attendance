@@ -2294,3 +2294,70 @@ export async function getMyDetails(uid) {
     })),
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * App Manual -- the Mobile app shelf of attendance.help.document.
+ *
+ * The same model holds the module's own guides (section 'manual', the
+ * backend Help popup) and the PDFs this app lists (section 'app'). The
+ * server filters by role in app_bundle()/get_manual(): admins see every
+ * manual, HR and employees their own plus the Everyone ones, so nothing
+ * here decides who may read what. Only admins may write.
+ * ------------------------------------------------------------------ */
+
+const MANUAL_MODEL = 'attendance.help.document';
+
+/**
+ * The screen's one load: this person's manuals, their role, and whether they
+ * may upload. A server whose module predates app manuals has no app_bundle,
+ * so that comes back as `available: false` rather than an error -- "no
+ * manuals yet" is the honest answer to someone who came looking for one.
+ */
+export async function fetchManualBundle() {
+  try {
+    const res = await callKw(MANUAL_MODEL, 'app_bundle', []);
+    return {
+      available: true,
+      canEdit: Boolean(res?.can_edit),
+      role: res?.role || 'employee',
+      manuals: Array.isArray(res?.manuals) ? res.manuals : [],
+    };
+  } catch (e) {
+    return { available: false, canEdit: false, role: 'employee', manuals: [] };
+  }
+}
+
+/** One manual's PDF as base64 ({ id, name, filename, data }), or null. */
+export async function fetchManual(id) {
+  const res = await callKw(MANUAL_MODEL, 'get_manual', [Number(id)]);
+  return res || null;
+}
+
+/**
+ * Admin: add (no id) or update (id) an app manual. `base64` is optional on an
+ * edit -- leave it out to keep the current PDF and change only the title,
+ * audience or order. Always on the app shelf: this screen never touches the
+ * module's own guides.
+ */
+export async function saveManual(id, { name, description, audience, sequence, filename, base64 }) {
+  const vals = { section: 'app' };
+  if (name != null) vals.name = name;
+  if (description != null) vals.description = description;
+  if (audience != null) vals.audience = audience;
+  if (sequence != null) vals.sequence = Number(sequence);
+  if (base64) {
+    vals.pdf_file = base64;
+    vals.pdf_filename = filename || `${name || 'manual'}.pdf`;
+  }
+  if (id) {
+    await callKw(MANUAL_MODEL, 'write', [[Number(id)], vals]);
+    return Number(id);
+  }
+  vals.icon = '📱';
+  return callKw(MANUAL_MODEL, 'create', [vals]);
+}
+
+/** Admin: remove an app manual. */
+export async function deleteManual(id) {
+  await callKw(MANUAL_MODEL, 'unlink', [[Number(id)]]);
+}

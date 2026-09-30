@@ -17,7 +17,7 @@ export class HelpGuideDialog extends Component {
         onWillStart(async () => {
             this.state.docs = await this.orm.searchRead(
                 "attendance.help.document",
-                [["active", "=", true]],
+                [["active", "=", true], ["section", "=", "manual"]],
                 ["name", "description", "icon"],
                 { order: "sequence, id" }
             );

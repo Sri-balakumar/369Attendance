@@ -1,6 +1,6 @@
 {
     'name': 'Attendance Suite (Late, Leave, WFH, Reports, Devices)',
-    'version': '19.0.10.3.0',
+    'version': '19.0.10.4.0',
     'category': 'Human Resources/Attendance',
     'summary': 'Late tracking & deductions, leave requests, work-from-home, '
                'monthly employee reports and device registration in one module',
@@ -38,6 +38,9 @@
           turns on only what the company keeps, either once for everyone
           or per employee, and staff fill in their own details from My
           Profile. Salary is never visible to the employee.
+        - **Help** - User Manual (the module's own guides) and Mobile App
+          (the Admin / HR / Employee PDFs the phone app opens under
+          Settings > App Manual, each shown only to its role).
 
         Replaces: hr_attendance_late, hr_leave_request, hr_wfh_request,
         hr_employee_report, employee_device.

@@ -227,11 +227,28 @@
     <!-- ============================================================ -->
     <!--  98 — HELP                                                   -->
     <!-- ============================================================ -->
-    <menuitem id="menu_attendance_help"
+    <!-- Two shelves, the same layout as showroom_check: the module's own
+         guides, and the PDFs the phone app shows under Settings > App Manual.
+         Both live in attendance.help.document, split by `section`.
+         A new id, not menu_attendance_help: that record still carries the
+         popup action, which an upgrade would not clear from a heading. -->
+    <menuitem id="menu_attendance_help_root"
               name="Help"
               parent="hr_attendance.menu_hr_attendance_root"
-              action="action_attendance_help_guide"
               sequence="98"/>
+
+    <menuitem id="menu_attendance_help_module"
+              name="User Manual"
+              parent="menu_attendance_help_root"
+              action="action_attendance_help_guide"
+              sequence="10"/>
+
+    <menuitem id="menu_attendance_help_app"
+              name="Mobile App"
+              parent="menu_attendance_help_root"
+              action="action_help_document_app"
+              groups="base.group_system"
+              sequence="20"/>
 
     <!-- Help Documents sits under Attendances → Configuration, not the root. -->
     <menuitem id="menu_help_document"

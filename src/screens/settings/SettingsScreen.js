@@ -92,6 +92,32 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </Card>
 
+        {/* Everyone gets this row; the server decides which manuals each
+            role receives once they are inside. */}
+        <Pressable
+          onPress={() => navigation.navigate('AppManual')}
+          accessibilityRole="button"
+          accessibilityLabel="App Manual"
+          style={({ pressed }) => [{ marginTop: spacing.md, opacity: pressed ? 0.8 : 1 }]}
+        >
+          <Card padded={false}>
+            <View style={[styles.head, { borderBottomWidth: 0 }]}>
+              <View style={[styles.headIcon, { backgroundColor: withAlpha(colors.primary, 0.14) }]}>
+                <Ionicons name="book-outline" size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: fontSize.sm }}>
+                  App Manual
+                </Text>
+                <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: 1 }}>
+                  How to use the app, as a PDF
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+            </View>
+          </Card>
+        </Pressable>
+
         {/* Only worth saying to someone who HAS a Config tab -- pointing
             staff at a destination they cannot reach is worse than silence. */}
         {canManage ? (

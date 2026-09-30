@@ -10,6 +10,8 @@ import LeaveScreen from '../screens/leave/LeaveScreen';
 import WfhScreen from '../screens/wfh/WfhScreen';
 import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
+import AppManualScreen from '../screens/settings/AppManualScreen';
+import AppManualFormScreen from '../screens/settings/AppManualFormScreen';
 import LateRecordsScreen from '../screens/config/LateRecordsScreen';
 import DayStatusScreen from '../screens/config/DayStatusScreen';
 import AbsentTodayScreen from '../screens/config/AbsentTodayScreen';
@@ -94,6 +96,8 @@ export default function RootNavigator() {
         <Stack.Screen name="Wfh" component={WfhScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="AppManual" component={AppManualScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="AppManualForm" component={AppManualFormScreen} options={{ animation: 'slide_from_right' }} />
 
         {/* The Attendance Status admin menu, reached from the Config tab.
             Pushed rather than nested in the tabs, so the floating bar is
