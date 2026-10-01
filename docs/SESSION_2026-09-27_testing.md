@@ -146,13 +146,55 @@ Live server: `369application` on this PC (Odoo 19, port 8069). Tablet: Samsung S
   - the 15 s stalled-reply error;
   - the notification-tap screen reuse, which needs push.
 
-**Not testable yet (needs `hr_attendance_369` 11.0.0 on live):**
-- the bell list with real notifications and the Late reason screen;
-- Config › Notifications switches and Send test;
-- App Manual upload and open;
-- phone push, which also needs an EAS development build.
+**Needed `hr_attendance_369` 11.0.0 on live: upgraded the same night and tested (see *1 Oct night* below):**
+- the bell list with real notifications, and the Late reason screen: tested;
+- Config › Notifications switches and Send test: tested;
+- App Manual: opens. Upload is not tested yet (no PDF on the tablet);
+- phone push still needs an EAS development build.
 
-Late check-ins currently aren't asked for a reason at all, because in this app version the request arrives as a notification.
+### 1 Oct night: live on 11.0.0, WhatsApp roll call on, WhatsApp Group in the app, backups deleted
+- **Upgrade to `hr_attendance_369` 19.0.11.0.0**, done the way deploys are done here (stop → copy → `-u` → start; no backup, no commit):
+  - Exit was clean: no ERROR or CRITICAL lines; the 112 warnings are the usual deprecation and manifest notices.
+  - The server copy was first checked against the project: it had nothing the project lacks.
+  - Re-upgraded unchanged: `hr_attendance_369_whatsapp` 1.5.1, `_menus` 1.1.1, `kra_kpi_attendance_bridge` 3.0.0.
+  - **What it brings:**
+    - 59 notification types, all on;
+    - 2 new crons: reminders every 15 min, daily digests hourly;
+    - only bell rows: no email and no WhatsApp; push does nothing until phones register.
+- **New in the app, Config › App › WhatsApp Group** (admins and Attendances Administrators). It uses the addon's own models over `call_kw`, with no change to the addon:
+  - a status card (WhatsApp connected, group, roll call on or off, summary);
+  - Choose group from the connected phone's groups (searchable);
+  - Send test message;
+  - the "Post check-ins to the group" switch;
+  - the message words, with a live example and Reset;
+  - the daily summary switch, time and numbers (add/remove; the server checks numbers);
+  - Save.
+  - Files: `WhatsAppGroupScreen.js`, the WhatsApp block in `odoo.js`, a `ConfigScreen` row, `RootNavigator`, and a `guides.js` guide.
+- **Also fixed:**
+  - On admin screens the keyboard covered the lower fields (edge-to-edge again). `AdminScreen` now avoids the keyboard while it's up, via a shared `hooks/useKeyboardVisible.js`, also used by `AuthScreen`.
+  - The section icons on Config › Notifications were empty.
+- **Tablet test** (temporary `e2e.admin`, deleted afterwards along with its attendance and notifications, including the audit notices its deletion raised). Screenshots `E01`–`E28`:
+
+| Check | Result |
+|---|---|
+| Config › Notifications lists the types and switches; Send me a test arrives in the bell | Pass |
+| Settings › App Manual opens ("No manuals yet", Add a manual) | Pass |
+| A late check-in gives "You checked in late"; tap → Late reason → Send reason saves it on the attendance | Pass |
+| Reminder cron: "Still checked in, office closed at 5:00 PM" | Pass |
+| WhatsApp Group status: Connected, "Attendance test", Off | Pass |
+| Choose group: 64 groups loaded from the phone; "Attendance test" kept | Pass |
+| Send test message: "Test sent. Check the group 'Attendance test'." | Pass |
+| A wrong number gets the server's message; a valid one is added, then removed | Pass |
+| Switched on and saved; reopened shows Roll call On | Pass |
+| Check In → the attendance's WhatsApp post is **sent** | Pass |
+| The number field stays above the keyboard; Add works with one tap | Pass (after the AdminScreen fix) |
+
+- **Live state now:**
+  - **roll call ON** to "Attendance test", default message, daily summary **off**, no numbers;
+  - the 3 live employees (Administrator, User, HR) still have no Work Mobile, so posts show the name in bold;
+  - a group named "Alphalize Attendance" (8 members) is also on the phone, if the real team group should be used instead.
+- **`_db_backup/` deleted:** 7 dumps, 4 old module folders and 3 logs (about 104 MB). It was never in git. There is now no database backup from before these upgrades.
+- Metro was stopped (background time limit) after the tests.
 
 **Live data:**
 - No public holidays are set for 2026.
@@ -181,12 +223,10 @@ Late check-ins currently aren't asked for a reason at all, because in this app v
   - KRA Start Workday: exactly one attendance post, and nothing from KRA.
 
   Backup taken: `_db_backup/369application_before_wa_group_2026-09-29.dump`.
-- [ ] **Deploy to live:**
-  - Copy `hr_attendance_369_whatsapp` into the server addons folder, and `KRA_KPI/odoo_modules/kra_kpi_module` too.
-  - Run `-u kra_kpi_module -i hr_attendance_369_whatsapp`.
-- [ ] **Configure on live:** paste the setup key and choose the group. If *Load Groups* returns HTTP 400, the hosted panel is dropping the query string; paste the group address (`1203…@g.us`) by hand instead. Then Send Test and tick Enabled.
-- [ ] **Employees:** fill in Work Mobile with the WhatsApp number, so the tag works.
-- [ ] **One real check-in:** check that the tag shows as the person's name in the group.
+- [x] **Deploy to live:** done by another session on 1 Oct (`hr_attendance_369_whatsapp` 1.5.1, `kra_kpi_module` 19.0.5.3). That version sends through WhatsApp in Odoo (the connected session), not the panel.
+- [x] **Configure on live:** done 1 Oct night from the app's new Config › WhatsApp Group. The group is "Attendance test", the test was sent, and the roll call is on.
+- [ ] **Employees:** fill in Work Mobile with the WhatsApp number, so the tag works. None of the 3 live employees has one yet.
+- [x] **One real check-in:** 1 Oct night, the test admin's check-in was posted (state *sent*, shown as the bold name because there was no number). The real @tag still needs a Work Mobile.
 - [ ] **KRA Maestro test 42** now expects *Workday ended* to be the enabled event on the test database.
 
 - [x] **Upgrade live again** — done 28 Sep 17:50 (exit 0, no errors; backup `_db_backup/369application_before_joiner_fix_2026-09-28.dump`, old module in `_db_backup/addons_before_joiner_fix`). Live now has:
@@ -221,10 +261,7 @@ Late check-ins currently aren't asked for a reason at all, because in this app v
   - Press Generate on `PAY/2026/0001` again, then Confirm.
   - Use **Mark paid** for the first time. It can't be undone and has never been tested.
 - [ ] **Commit and push.** Nothing from 27–28 Sep is committed (the file list is below).
-- [ ] **Delete the database backups at the very end**, as asked. They are in `_db_backup/`:
-  - `369application_before_hr_tab_2026-09-27.dump` (taken today, before the live upgrade)
-  - older ones: `…before_10.1.0.dump`, `…before_10.3.0.dump`, `…before_9.0.0_deploy.dump`, `…before_admin_actions_test.dump`
-  - old module folders: `addons_before_10.1.0`, `addons_before_10.3.0`, `addons_before_hr_tab`
+- [x] **Delete the database backups at the very end**, as asked. Done 1 Oct night: all of `_db_backup/` (7 dumps, 4 old module folders, 3 logs) is deleted, and the folder is gone.
 
 ---
 
