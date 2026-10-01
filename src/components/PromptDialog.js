@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, Animated, Easing, ScrollView, StyleSheet 
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 import AppTextInput from './AppTextInput';
+import * as haptics from '../utils/haptics';
 
 /**
  * ConfirmDialog with one text field.
@@ -58,16 +59,21 @@ export default function PromptDialog({
 
   const submit = () => {
     if (required && !value.trim()) {
+      haptics.error();
       setError(requiredMessage);
       return;
     }
     onConfirm(value.trim());
   };
 
+  // While the decision is being sent, back and the backdrop do nothing: the
+  // dialog must still be there to show it if the server says no.
+  const dismiss = loading ? () => {} : onCancel;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss} statusBarTranslucent>
       <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessibilityLabel="Dismiss dialog" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel="Dismiss dialog" />
         <Animated.View
           style={[
             styles.dialog,
@@ -82,10 +88,11 @@ export default function PromptDialog({
             shadows.raised,
           ]}
         >
-          {/* keyboardShouldPersistTaps: with the keyboard up, the first tap on
-              a button used to only dismiss the keyboard, so HR pressed Keep
-              leave or Reject twice. Inside this ScrollView the tap goes to the
-              button as well. */}
+          {/* keyboardShouldPersistTaps covers this ScrollView only. A
+              ScrollView ABOVE the dialog in the React tree still takes the
+              first tap to close the keyboard, Modal or not -- so the screen
+              that renders this dialog must use "handled" too (AdminScreen
+              does). */}
           <ScrollView keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
           <View style={[styles.icon, { backgroundColor: withAlpha(accent, 0.13), borderRadius: radii.md }]}>
             <Ionicons name={icon} size={26} color={accent} />
@@ -131,7 +138,7 @@ export default function PromptDialog({
 
           <View style={[styles.actions, { marginTop: spacing.lg }]}>
             <Pressable
-              onPress={onCancel}
+              onPress={dismiss}
               accessibilityRole="button"
               accessibilityLabel={cancelLabel}
               style={({ pressed }) => [
@@ -146,6 +153,7 @@ export default function PromptDialog({
 
             <Pressable
               onPress={loading ? undefined : submit}
+              onPressIn={loading ? undefined : haptics.press}
               accessibilityRole="button"
               accessibilityLabel={confirmLabel}
               style={({ pressed }) => [

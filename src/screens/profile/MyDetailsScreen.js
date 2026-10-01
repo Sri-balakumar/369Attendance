@@ -233,7 +233,7 @@ export default function MyDetailsScreen({ navigation }) {
                   <Section title="Your queue" icon="file-tray-full-outline" style={{ marginTop: spacing.md }}>
                     {[
                       ['Leave requests', extras.queue.leave, 'LeaveQueue', { state: 'pending' }],
-                      ['Cancellation requests', extras.queue.cancels, 'LeaveQueue', { state: 'approved' }],
+                      ['Cancellation requests', extras.queue.cancels, 'LeaveQueue', { state: 'cancel_requested' }],
                       ['WFH requests', extras.queue.wfh, 'WfhQueue', { state: 'pending' }],
                       ['Absent today', extras.queue.absent, 'AbsentToday', undefined],
                     ]

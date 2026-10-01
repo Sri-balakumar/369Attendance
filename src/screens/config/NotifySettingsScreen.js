@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Card, Chip, PrimaryButton, SwitchRow, useToast } from '../../components';
 import { useTheme } from '../../theme';
-import { fetchNotifyEvents, saveNotifyEvent, sendTestNotification } from '../../services/odoo';
+import { fetchNotifyEvents, isMissingBackend, saveNotifyEvent, sendTestNotification } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
 import { Section } from './FormBits';
 
@@ -18,6 +18,8 @@ const CATEGORY_LABELS = {
   system: 'System',
 };
 const ORDER = Object.keys(CATEGORY_LABELS);
+const NEEDS_UPGRADE = "The server's Attendance module needs upgrading first.";
+const failText = (e, fallback) => (isMissingBackend(e) ? NEEDS_UPGRADE : e?.message || fallback);
 const AUDIENCE = {
   employee: ['Employee', 'info'],
   hr: ['HR', 'warning'],
@@ -63,7 +65,7 @@ export default function NotifySettingsScreen({ navigation }) {
       await saveNotifyEvent(row.id, { [field]: next });
     } catch (e) {
       setRows((all) => all.map((r) => (r.id === row.id ? { ...r, [field]: !next } : r)));
-      showToast(e?.message || 'Could not save.', 'danger');
+      showToast(failText(e, 'Could not save.'), 'danger');
     }
   };
 
@@ -73,7 +75,7 @@ export default function NotifySettingsScreen({ navigation }) {
       await sendTestNotification();
       showToast('Test sent. Check the bell (and your phone, if push is set up).', 'success');
     } catch (e) {
-      showToast(e?.message || 'Could not send the test.', 'danger');
+      showToast(failText(e, 'Could not send the test.'), 'danger');
     } finally {
       setTesting(false);
     }

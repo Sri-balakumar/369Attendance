@@ -52,7 +52,7 @@ export default function LateRecordsScreen({ navigation }) {
       onRefresh={() => load(true)}
       empty={!loading && !error && rows.length === 0}
       emptyTitle="Nobody was late"
-      emptyMessage="No check-in in this month was flagged late. If that looks wrong, check that late tracking is on for the scope in Office Hours."
+      emptyMessage="No check-in in this month was flagged late. If that looks wrong, check that late tracking is on for the scope in Office Hours, and that your user is an Attendances Administrator. Without that group you only see your own check-ins."
       headerExtra={
         <MonthNav
           label={month.label}

@@ -8,6 +8,7 @@ import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
 import { Card, Skeleton } from '../../components';
 import { GuideBanner } from './FormBits';
+import { goBackOnce } from '../../navigation/back';
 
 /**
  * The shell every Attendance Status screen sits in.
@@ -64,7 +65,7 @@ export default function AdminScreen({
       >
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            onPress={() => goBackOnce(navigation)}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Back"
@@ -100,7 +101,15 @@ export default function AdminScreen({
         {headerExtra}
       </LinearGradient>
 
+      {/* keyboardShouldPersistTaps="handled": with the keyboard up, a
+          ScrollView left on the default takes the first tap anywhere beneath
+          it just to close the keyboard -- and "beneath" follows the React
+          tree, so it includes the Reject / Keep leave dialogs, which are
+          Modals but are rendered inside these children. That was the 1 Oct
+          tablet double tap: one tap closed the keyboard, the second pressed
+          the button. It is also every form's Save button. */}
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}
         refreshControl={

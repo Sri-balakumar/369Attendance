@@ -135,9 +135,22 @@ async function rpc(url, path, params = {}, { withSession = true } = {}) {
         "computer's network address, e.g. http://192.168.1.5:8069."
     );
   }
-  clearTimeout(timer);
-
-  const text = await response.text();
+  // The timer stays armed until the body is in. Headers can arrive and the
+  // body then stall -- the tablet's USB tunnel dropping mid-reply did exactly
+  // that, and with the timer already cleared Check In just hung, no spinner
+  // end and no message.
+  let text;
+  try {
+    text = await response.text();
+  } catch (e) {
+    throw new Error(
+      e?.name === 'AbortError'
+        ? `The server did not answer within ${TIMEOUT_MS / 1000}s.`
+        : 'The connection dropped before the server finished answering. Try again.'
+    );
+  } finally {
+    clearTimeout(timer);
+  }
   log(`<-- ${response.status} ${path}`, {
     type: response.headers?.get?.('content-type') || '?',
     bytes: text.length,
@@ -193,7 +206,11 @@ async function rpc(url, path, params = {}, { withSession = true } = {}) {
       throw new Error('Your session has expired. Please sign in again.');
     }
 
-    throw new Error(data.message || body.error.message || 'The server rejected the request.');
+    const err = new Error(data.message || body.error.message || 'The server rejected the request.');
+    // Odoo's exception class, e.g. "werkzeug.exceptions.NotFound" -- what
+    // isMissingBackend() reads, since the message alone is wording.
+    err.odooName = String(data.name || '');
+    throw err;
   }
 
   const cookie = readSessionCookie(response);
@@ -2417,9 +2434,35 @@ export async function unregisterPushDevice(token) {
   return callKw('hr.attendance.push.device', 'unregister_device', [token]);
 }
 
-/** Admin: every notification type with its two switches. */
+/**
+ * True when the server simply does not have what was asked for yet -- a model
+ * or method from a newer module than the one installed. Odoo answers that
+ * with a 404 NotFound (unknown model) or an AttributeError (unknown method),
+ * which as raw text reads like a broken server rather than "upgrade me".
+ */
+export function isMissingBackend(err) {
+  const name = err?.odooName || '';
+  // A deleted record ("Record does not exist or has been deleted") is a real
+  // answer about data, not a missing feature.
+  if (/MissingError/.test(name)) return false;
+  if (/NotFound|AttributeError/.test(name)) return true;
+  return /^404\b|not found on the server|^Object \S+ doesn't exist|has no attribute/i.test(
+    String(err?.message || '')
+  );
+}
+
+/**
+ * Admin: every notification type with its two switches. An empty list on a
+ * server whose module predates notifications, so the screen shows its
+ * "needs upgrading" note instead of Odoo's 404 page text.
+ */
 export async function fetchNotifyEvents() {
-  return (await callKw('hr.attendance.notify.event', 'app_list', [])) || [];
+  try {
+    return (await callKw('hr.attendance.notify.event', 'app_list', [])) || [];
+  } catch (e) {
+    if (isMissingBackend(e)) return [];
+    throw e;
+  }
 }
 
 /** Admin: flip one type's switches ({ enabled?, push? }). */
