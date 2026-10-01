@@ -8,6 +8,7 @@ import { useSession } from '../../state/SessionContext';
 import { fetchDatabases } from '../../services/odoo';
 import { looksLikeUrl, normalizeUrl } from '../../utils/url';
 import AuthField, { AuthButton, AuthHeading, useAuthColors } from './AuthField';
+import useKeyboardScrollToEnd from './useKeyboardScrollToEnd';
 
 /**
  * Step one of two: entering a URL fetches the database list on a debounce,
@@ -33,6 +34,8 @@ export default function ServerForm({ onDone }) {
 
   // Guards against a slow earlier request overwriting a newer one's result.
   const requestId = useRef(0);
+  // Keeps Continue in view above the keyboard.
+  const keyboardScroll = useKeyboardScrollToEnd();
 
   const load = useCallback(async (raw) => {
     const id = ++requestId.current;
@@ -146,6 +149,7 @@ export default function ServerForm({ onDone }) {
   return (
     <>
       <ScrollView
+        {...keyboardScroll}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: gutter, paddingTop: 18, paddingBottom: insets.bottom + 18 }}
         keyboardShouldPersistTaps="handled"
       >

@@ -7,7 +7,9 @@ import { ConfirmDialog } from '../../components';
 import { useSession } from '../../state/SessionContext';
 import { authenticate } from '../../services/odoo';
 import { prettyHost } from '../../utils/url';
+import * as haptics from '../../utils/haptics';
 import AuthField, { AuthButton, AuthHeading, useAuthColors } from './AuthField';
+import useKeyboardScrollToEnd from './useKeyboardScrollToEnd';
 
 /** "369application" -> "36", "sales_test" -> "ST": two letters for the avatar. */
 function initials(name) {
@@ -39,8 +41,11 @@ export default function LoginForm({ navigation, onServerChanged }) {
 
   const shake = useRef(new Animated.Value(0)).current;
   const passwordRef = useRef(null);
+  // Keeps Sign In in view above the keyboard.
+  const keyboardScroll = useKeyboardScrollToEnd();
 
   const runShake = () => {
+    haptics.error();
     shake.setValue(0);
     Animated.sequence([
       Animated.timing(shake, { toValue: 1, duration: 60, useNativeDriver: true }),
@@ -71,6 +76,7 @@ export default function LoginForm({ navigation, onServerChanged }) {
         password,
       });
       await signIn(user);
+      haptics.success();
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (e) {
       setFormError(e?.message || 'Sign in failed.');
@@ -95,6 +101,7 @@ export default function LoginForm({ navigation, onServerChanged }) {
   return (
     <>
       <ScrollView
+        {...keyboardScroll}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: gutter, paddingTop: 18, paddingBottom: insets.bottom + 12 }}
         keyboardShouldPersistTaps="handled"
       >

@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Animated,
+  BackHandler,
   Easing,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
@@ -81,6 +83,33 @@ export default function AuthScreen({ navigation, route }) {
     [pan, slide]
   );
 
+  // Android back on the sign-in step returns to the server step -- but only
+  // when that is where the person came from (Continue). Opened straight on
+  // sign-in (every launch after the first, and after Log out), sign-in IS the
+  // first screen, and back leaves the app as it would anywhere else.
+  const cameFromServer = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (step !== 1 || !cameFromServer.current) return undefined;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        cameFromServer.current = false;
+        goTo(0);
+        return true;
+      });
+      return () => sub.remove();
+    }, [step, goTo])
+  );
+
+  const [keyboardUp, setKeyboardUp] = useState(() => Keyboard.isVisible());
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardUp(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   const page = (index, child) => {
     const active = step === index;
     return (
@@ -95,8 +124,24 @@ export default function AuthScreen({ navigation, route }) {
     );
   };
 
+  // The keyboard avoider wraps the WHOLE screen, not just the form. It works
+  // out the overlap from its own frame, and that frame is relative to its
+  // parent: placed under the header it believed it started at the top of the
+  // screen, under-counted by the header's height, and on Android (edge-to-edge,
+  // so the window no longer shrinks) added nothing -- the keyboard covered
+  // Sign In. Here its frame IS the screen. Only the form below gives way: the
+  // header is a fixed height, so the video keeps its size and never moves.
+  //
+  // On Android it is switched on only while the keyboard is up. Its sums for
+  // the keyboard OPENING are right, but the close event's coordinates under
+  // edge-to-edge left ~70dp of padding behind, so Sign In sat too high after
+  // the keyboard went away. Off means exactly no padding.
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? colors.bg : ART_BG }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: isDark ? colors.bg : ART_BG }}
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      enabled={Platform.OS !== 'android' || keyboardUp}
+    >
       {/* The art is always on white, so the status bar icons are always dark. */}
       <StatusBar style="dark" />
 
@@ -116,26 +161,32 @@ export default function AuthScreen({ navigation, route }) {
       </View>
 
       <View style={{ width, flex: 1, alignSelf: 'center' }}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={{ flex: 1, overflow: 'hidden' }}>
-            <Animated.View
-              style={{
-                flex: 1,
-                width: width * 2,
-                flexDirection: 'row',
-                opacity: enterForm,
-                transform: [
-                  { translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, -width] }) },
-                  { translateY: enterForm.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
-                ],
-              }}
-            >
-              {page(0, <ServerForm onDone={() => goTo(1)} />)}
-              {page(1, <LoginForm navigation={navigation} onServerChanged={() => goTo(0)} />)}
-            </Animated.View>
-          </View>
-        </KeyboardAvoidingView>
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          <Animated.View
+            style={{
+              flex: 1,
+              width: width * 2,
+              flexDirection: 'row',
+              opacity: enterForm,
+              transform: [
+                { translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, -width] }) },
+                { translateY: enterForm.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+              ],
+            }}
+          >
+            {page(
+              0,
+              <ServerForm
+                onDone={() => {
+                  cameFromServer.current = true;
+                  goTo(1);
+                }}
+              />
+            )}
+            {page(1, <LoginForm navigation={navigation} onServerChanged={() => goTo(0)} />)}
+          </Animated.View>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
