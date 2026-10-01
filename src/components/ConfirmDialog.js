@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Modal, View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 
 /**
  * In-app confirm, used instead of Alert.alert for the two destructive session
@@ -102,6 +103,7 @@ export default function ConfirmDialog({
 
             <Pressable
               onPress={onConfirm}
+              onPressIn={haptics.press}
               accessibilityRole="button"
               accessibilityLabel={confirmLabel}
               style={({ pressed }) => [

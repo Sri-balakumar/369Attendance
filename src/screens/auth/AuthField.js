@@ -2,6 +2,7 @@ import React, { forwardRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
+import * as haptics from '../../utils/haptics';
 
 // The login flow's own palette, taken from the reference design: a blue that
 // matches the hero art, a navy title and an orange eyebrow. Only the light
@@ -143,6 +144,7 @@ export function AuthButton({ label, icon, onPress, disabled, loading }) {
   return (
     <Pressable
       onPress={disabled || loading ? undefined : onPress}
+      onPressIn={disabled || loading ? undefined : haptics.press}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: Boolean(disabled), busy: Boolean(loading) }}

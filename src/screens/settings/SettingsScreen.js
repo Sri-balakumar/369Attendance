@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,9 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
-import { Card } from '../../components';
+import { Card, SwitchRow } from '../../components';
 import { useSession } from '../../state/SessionContext';
 import { prettyHost } from '../../utils/url';
+import { isHapticsEnabled, setHapticsEnabled } from '../../utils/haptics';
+import { goBackOnce } from '../../navigation/back';
 
 /**
  * Settings -- which server and database this install is talking to, and as
@@ -27,6 +29,7 @@ export default function SettingsScreen({ navigation }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
   const { server, user, canManage, caps } = useSession();
+  const [vibration, setVibration] = useState(isHapticsEnabled);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -40,7 +43,7 @@ export default function SettingsScreen({ navigation }) {
       >
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            onPress={() => goBackOnce(navigation)}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Back"
@@ -117,6 +120,31 @@ export default function SettingsScreen({ navigation }) {
             </View>
           </Card>
         </Pressable>
+
+        {/* This phone's own preference, so it lives on the device rather than
+            the server: on by default, and remembered across sign-ins. */}
+        <Card padded={false} style={{ marginTop: spacing.md }}>
+          <View style={[styles.head, { borderBottomColor: colors.border }]}>
+            <View style={[styles.headIcon, { backgroundColor: withAlpha(colors.accent, 0.14) }]}>
+              <Ionicons name="phone-portrait-outline" size={16} color={colors.accent} />
+            </View>
+            <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: fontSize.sm, marginLeft: 10 }}>
+              This device
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: spacing.lg }}>
+            <SwitchRow
+              label="Vibration on tap"
+              help="A short buzz on buttons, and when something succeeds or fails."
+              value={vibration}
+              onValueChange={(next) => {
+                setVibration(next);
+                setHapticsEnabled(next);
+              }}
+              last
+            />
+          </View>
+        </Card>
 
         {/* Only worth saying to someone who HAS a Config tab -- pointing
             staff at a destination they cannot reach is worse than silence. */}

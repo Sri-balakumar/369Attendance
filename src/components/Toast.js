@@ -3,8 +3,13 @@ import { Animated, Text, View, StyleSheet, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 
 const ToastContext = createContext(() => {});
+
+// Every result the app reports comes through here, so this is where the
+// result is also felt: done, failed, or worth a look.
+const FEEL = { success: haptics.success, danger: haptics.error, warning: haptics.warning };
 
 /** showToast(message, tone) — tone is a palette key: info / success / danger. */
 export function ToastProvider({ children }) {
@@ -12,6 +17,7 @@ export function ToastProvider({ children }) {
   const timer = useRef(null);
 
   const showToast = useCallback((message, tone = 'info') => {
+    FEEL[tone]?.();
     if (timer.current) clearTimeout(timer.current);
     setToast({ message, tone, key: Date.now() });
     timer.current = setTimeout(() => setToast(null), 2600);

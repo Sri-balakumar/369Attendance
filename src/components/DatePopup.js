@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, Animated, Easing, StyleSheet, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 import { todayKey, parseDateKey, formatDateRange } from '../utils/time';
 
 // Monday first: the working week reads left to right, and the weekly off
@@ -93,6 +94,7 @@ export default function DatePopup({
   };
 
   const pick = (key) => {
+    haptics.tick();
     if (mode === 'single') {
       setDraft({ from: key, to: null });
       return;

@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, FlatList, Animated, Easing, StyleSheet } 
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 import AppTextInput from './AppTextInput';
 
 /**
@@ -156,6 +157,7 @@ export default function SelectSheet({
             return (
               <Pressable
                 onPress={() => {
+                  haptics.tick();
                   if (multiple) {
                     const current = Array.isArray(value) ? value : [];
                     onSelect(

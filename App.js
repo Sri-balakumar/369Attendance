@@ -11,6 +11,11 @@ import { ThemeProvider } from './src/theme';
 import { ToastProvider } from './src/components';
 import { SessionProvider } from './src/state/SessionContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import { loadHapticsSetting } from './src/utils/haptics';
+
+// Before the first screen, so the first tap already honours the person's
+// "Vibration on tap" choice. Until it resolves the default (on) applies.
+loadHapticsSetting();
 
 export default function App() {
   const [fontsLoaded] = useFonts({

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, Switch, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 
 /**
  * Label + optional help line + a switch, as one tappable row.
@@ -9,9 +10,15 @@ import { useTheme } from '../theme';
  * ten inline blocks. Styling follows the Remember-me switch on the Login
  * screen so the two read as the same control.
  */
-export default function SwitchRow({ label, help, value, onValueChange, disabled, last, style }) {
+export default function SwitchRow({ label, help, value, onValueChange: onChange, disabled, last, style }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const on = Boolean(value);
+  // Change first, then tick: so the Vibration switch itself is silent when
+  // turned off and buzzes when turned back on.
+  const onValueChange = (next) => {
+    onChange(next);
+    haptics.tick();
+  };
   return (
     <Pressable
       onPress={disabled ? undefined : () => onValueChange(!on)}

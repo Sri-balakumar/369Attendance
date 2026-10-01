@@ -3,6 +3,7 @@ import { Pressable, Text, ActivityIndicator, Animated, View } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 
 /**
  * Gradient call-to-action. Press scales it very slightly — enough to feel
@@ -77,7 +78,11 @@ export default function PrimaryButton({
     <Animated.View style={[{ transform: [{ scale }], opacity: disabled ? 0.5 : 1 }, style]}>
       <Pressable
         onPress={inert ? undefined : onPress}
-        onPressIn={() => !inert && spring(0.97)}
+        onPressIn={() => {
+          if (inert) return;
+          spring(0.97);
+          haptics.press();
+        }}
         onPressOut={() => spring(1)}
         disabled={inert}
         android_ripple={

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 import { radii } from '../theme/tokens';
 import { todayKey, parseDateKey } from '../utils/time';
 
@@ -119,7 +120,10 @@ export default function DateRangeCalendar({
           return (
             <Pressable
               key={i}
-              onPress={() => onTapDay(key)}
+              onPress={() => {
+                haptics.tick();
+                onTapDay(key);
+              }}
               disabled={blocked}
               accessibilityRole="button"
               accessibilityState={{ selected: Boolean(isEnd), disabled: Boolean(blocked) }}

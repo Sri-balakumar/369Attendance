@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
+import * as haptics from '../utils/haptics';
 
 /** Filled when focused, outline when not -- the icon carries half the state. */
 const ICONS = {
@@ -71,7 +72,10 @@ export default function BottomTabBar({ state, navigation }) {
                 target: route.key,
                 canPreventDefault: true,
               });
-              if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+              if (!focused && !event.defaultPrevented) {
+                haptics.tick();
+                navigation.navigate(route.name);
+              }
             };
 
             return (
