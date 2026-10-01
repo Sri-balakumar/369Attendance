@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Attendances: Odoo's built-in menus stay exactly as Odoo ships them;
+        only the custom (369) screens are regrouped, into menus of their own.
+
+          Built-in (untouched)  Overview · Management · Kiosk Mode ·
+                                Reporting · Configuration
+          Custom                Attendance Status · Requests · Payroll ·
+                                HR Reports · Setup · Help
+
+        Nothing built-in is moved, renamed or regrouped here, and no custom
+        screen is put inside a built-in menu.
+
+        Rules kept here:
+        - New folders carry no groups. Odoo 19 shows a folder only when
+          something inside it is visible to the user, so each screen's own
+          groups decide who sees what - exactly as before.
+        - Custom folders emptied by the moves (Leave Requests, Work From Home,
+          Employee Details, Employee Report and their sub-"Configuration"
+          folders) are hidden for the same reason. Nothing is archived.
+        - A screen that relied on its old folder's groups gets those groups
+          itself (Employee Details screens: system admin; Help Documents:
+          attendance admin).
+        - hooks.py saves every touched menu before this file first loads and
+          puts it back on uninstall. 1.0.0 also regrouped built-in menus;
+          migrations/19.0.1.1.0 puts those back.
+    -->
+
+    <!-- ============================================================ -->
+    <!-- Attendance Status: hr_attendance_369's own folder             -->
+    <!-- ============================================================ -->
+    <record id="hr_attendance_369.menu_attendance_day_status" model="ir.ui.menu">
+        <field name="parent_id" ref="hr_attendance_369.menu_late_tracking_root"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_attendance_absent_today" model="ir.ui.menu">
+        <field name="parent_id" ref="hr_attendance_369.menu_late_tracking_root"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="hr_attendance_369.menu_late_attendance_records" model="ir.ui.menu">
+        <field name="parent_id" ref="hr_attendance_369.menu_late_tracking_root"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="hr_attendance_369.menu_employee_devices_root" model="ir.ui.menu">
+        <field name="parent_id" ref="hr_attendance_369.menu_late_tracking_root"/>
+        <field name="sequence">40</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- Requests                                                     -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_requests" name="Requests"
+              parent="hr_attendance.menu_hr_attendance_root" sequence="40"/>
+    <menuitem id="menu_requests_leave" name="Leave"
+              parent="menu_requests" sequence="10"/>
+    <menuitem id="menu_requests_wfh" name="Work From Home"
+              parent="menu_requests" sequence="20"/>
+    <menuitem id="menu_requests_comp_off" name="Comp Off"
+              parent="menu_requests" sequence="30"/>
+
+    <record id="hr_attendance_369.menu_leave_all_requests" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_requests_leave"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_my_leave_requests" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_requests_leave"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="hr_attendance_369.menu_wfh_all_requests" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_requests_wfh"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_my_wfh_requests" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_requests_wfh"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="hr_attendance_369.menu_comp_off_credits" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_requests_comp_off"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_leave_balances" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_requests_comp_off"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- Payroll: same menu, right after Requests                     -->
+    <!-- ============================================================ -->
+    <record id="hr_attendance_369.menu_payroll_root" model="ir.ui.menu">
+        <field name="sequence">50</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- HR Reports: the custom reports, apart from Odoo's Reporting  -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_hr_reports" name="HR Reports"
+              parent="hr_attendance.menu_hr_attendance_root" sequence="60"/>
+
+    <record id="hr_attendance_369.menu_late_summary" model="ir.ui.menu">
+        <field name="name">Monthly Late Summary</field>
+        <field name="parent_id" ref="menu_hr_reports"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_employee_report_generate" model="ir.ui.menu">
+        <field name="name">Employee Report</field>
+        <field name="parent_id" ref="menu_hr_reports"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="hr_attendance_369.menu_employee_report_browse" model="ir.ui.menu">
+        <field name="name">Past Employee Reports</field>
+        <field name="parent_id" ref="menu_hr_reports"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="hr_attendance_369.menu_approved_leaves_report" model="ir.ui.menu">
+        <field name="name">Approved Leaves</field>
+        <field name="parent_id" ref="menu_hr_reports"/>
+        <field name="sequence">40</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- Setup: the custom settings, apart from Odoo's Configuration  -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_setup" name="Setup"
+              parent="hr_attendance.menu_hr_attendance_root" sequence="70"/>
+    <menuitem id="menu_config_attendance" name="Attendance"
+              parent="menu_setup" sequence="10"/>
+    <menuitem id="menu_config_requests" name="Requests"
+              parent="menu_setup" sequence="20"/>
+    <menuitem id="menu_config_employees" name="Employees &amp; Pay"
+              parent="menu_setup" sequence="30"/>
+    <menuitem id="menu_config_whatsapp" name="WhatsApp"
+              parent="menu_setup" sequence="40"/>
+    <menuitem id="menu_config_general" name="Help"
+              parent="menu_setup" sequence="90"/>
+
+    <!-- Attendance -->
+    <record id="hr_attendance_369.menu_late_config_settings" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_attendance"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_public_holidays" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_attendance"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <!-- Requests: one Auto-Approval screen covers leave and WFH -->
+    <record id="hr_attendance_369.menu_leave_policy_config" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_requests"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="hr_attendance_369.menu_leave_auto_approve_config" model="ir.ui.menu">
+        <field name="name">Auto-Approval (Leave &amp; WFH)</field>
+        <field name="parent_id" ref="menu_config_requests"/>
+        <field name="sequence">20</field>
+        <field name="group_ids" eval="[(6, 0, [ref('hr_attendance_369.group_leave_manager'),
+                                                ref('hr_attendance_369.group_wfh_manager'),
+                                                ref('base.group_system')])]"/>
+    </record>
+    <!-- The same screen a second time: only in debug mode from now on, and
+         here rather than in its old folder, so that folder stays hidden in
+         debug mode too. -->
+    <record id="hr_attendance_369.menu_wfh_auto_approve_config" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_requests"/>
+        <field name="sequence">30</field>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_no_one')])]"/>
+    </record>
+
+    <!-- Employees & Pay: these were system-admin only through their folder -->
+    <record id="hr_attendance_369.menu_employee_details_config" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_employees"/>
+        <field name="sequence">10</field>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    </record>
+    <record id="hr_attendance_369.menu_salary_component" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_employees"/>
+        <field name="sequence">20</field>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    </record>
+    <record id="hr_attendance_369.menu_statutory_id_type" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_employees"/>
+        <field name="sequence">30</field>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    </record>
+
+    <!-- WhatsApp -->
+    <record id="hr_attendance_369_whatsapp.menu_wa_config" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_whatsapp"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- Help: relied on Odoo's Configuration (attendance admin) before -->
+    <record id="hr_attendance_369.menu_help_document" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_config_general"/>
+        <field name="sequence">10</field>
+        <field name="group_ids" eval="[(6, 0, [ref('hr_attendance.group_hr_attendance_manager')])]"/>
+    </record>
+</odoo>
