@@ -84,24 +84,23 @@ class HrAttendance(models.Model):
         return True
 
     def _wa_present_text(self, config):
-        """('@919876543210 present 9:30 AM', '919876543210')."""
+        """('@919876543210 checked in at 9:30 AM', '919876543210')."""
         self.ensure_one()
         employee = self.employee_id
         cfg = self.env['hr.attendance.late.config'].get_config_for_employee(employee.id)
         tz = pytz.timezone(cfg.get('timezone') or employee.tz or 'UTC')
         local = pytz.utc.localize(self.check_in).astimezone(tz)
         mention, digits = config.mention_for(employee)
-        text = config.render(config.template, {
-            'mention': mention,
-            'name': employee.name or '',
-            'time': local.strftime('%I:%M %p').lstrip('0'),
-            'date': local.strftime('%a %d %b'),
-        })
+        text = config.compose(mention, local.strftime('%I:%M %p').lstrip('0'))
         return text, digits
 
     # --- Admin alerts (hr_attendance_369's notification centre) -----------
+    # The centre arrived in hr_attendance_369 11.0; on an older one the alerts
+    # are skipped rather than taking the sender cron down with them.
     @api.model
     def _wa_alert_failed(self, rec, why):
+        if 'hr.attendance.notification' not in self.env:
+            return
         N = self.env['hr.attendance.notification']
         N._notify('adm_wa_failed', N._hr_users('admin', rec.employee_id.company_id),
                   _("WhatsApp post failed"),
@@ -112,6 +111,8 @@ class HrAttendance(models.Model):
     def _wa_alert_not_ready(self, company):
         """Once a day, not once per check-in: a switched-off gateway skips
         every post, and one message says it."""
+        if 'hr.attendance.notification' not in self.env:
+            return
         N = self.env['hr.attendance.notification']
         if N._once_per_day('wa_not_ready_%s' % company.id, fields.Date.context_today(self)):
             N._notify('adm_wa_not_ready', N._hr_users('admin', company),

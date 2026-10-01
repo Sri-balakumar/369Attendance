@@ -8,8 +8,9 @@
             <list string="WhatsApp Group">
                 <field name="company_id" groups="base.group_multi_company"/>
                 <field name="group_name"/>
-                <field name="template"/>
+                <field name="message_text"/>
                 <field name="enabled" widget="boolean_toggle"/>
+                <field name="summary_enabled" widget="boolean_toggle"/>
             </list>
         </field>
     </record>
@@ -22,7 +23,8 @@
                 <header>
                     <button name="action_fetch_config" type="object"
                             string="Fetch from Panel" class="btn-secondary"
-                            groups="base.group_system"/>
+                            groups="base.group_system"
+                            invisible="transport != 'panel'"/>
                     <button name="action_open_group_picker" type="object"
                             string="Choose Group" class="btn-primary"/>
                     <button name="action_send_test" type="object"
@@ -35,27 +37,95 @@
                     </div>
                     <div class="text-muted mb-3">
                         On an employee's first check-in of the day, this group
-                        gets one line tagging them, e.g.
-                        <b>@Employee present 9:30 AM</b>.
+                        gets one line tagging them - see the Example below.
                         The tag uses the employee's Work Mobile (then Work
                         Phone, Private Phone), with the country code.
+                    </div>
+                    <field name="odoo_connected" invisible="1"/>
+                    <field name="wa_state" invisible="1"/>
+                    <div class="alert alert-success" role="status"
+                         invisible="transport != 'odoo' or not odoo_connected">
+                        Sends with the WhatsApp number connected in Odoo, the
+                        same one KRA and the login codes use.
+                        <field name="odoo_status" nolabel="1" readonly="1"
+                               class="d-block fw-bold"/>
+                    </div>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="transport != 'odoo' or odoo_connected">
+                        <field name="odoo_status" nolabel="1" readonly="1"
+                               class="d-block"/>
+                        <button name="action_wa_connect" type="object"
+                                string="Connect WhatsApp" icon="fa-whatsapp"
+                                class="btn-primary mt-2"
+                                groups="base.group_system"
+                                invisible="wa_state == 'unavailable'"/>
+                    </div>
+                    <!-- Kept current by static/src/js/wa_qr_refresh.js while
+                         wa_state is waiting_qr. -->
+                    <div class="text-center mb-4" groups="base.group_system"
+                         invisible="transport != 'odoo' or wa_state != 'waiting_qr'">
+                        <field name="wa_qr_html" nolabel="1" readonly="1"/>
+                        <div class="text-muted small">
+                            A new code appears every 20 seconds and this page
+                            picks it up by itself. On the phone it is listed as
+                            <b>Alphalize Attendance</b>. If no code shows within
+                            a few seconds, press Connect WhatsApp again.
+                        </div>
                     </div>
                     <group>
                         <group string="Posting">
                             <field name="enabled" widget="boolean_toggle"/>
+                            <field name="transport" widget="radio"/>
                             <field name="company_id" groups="base.group_multi_company"
                                    options="{'no_create': True}"/>
                             <field name="group_jid" placeholder="120363...@g.us"/>
-                            <field name="template"/>
+                            <label for="message_text"/>
+                            <div class="o_row">
+                                <field name="message_text" placeholder="checked in at"/>
+                                <button name="action_reset_message" type="object"
+                                        string="Reset to default" icon="fa-undo"
+                                        class="btn-link p-0 ms-2"/>
+                            </div>
+                            <field name="message_preview" readonly="1"/>
                             <field name="default_country_code"/>
                         </group>
-                        <group string="Gateway" groups="base.group_system">
+                        <group string="Gateway" groups="base.group_system"
+                               invisible="transport != 'panel'">
                             <field name="gateway_api_key" password="True"
                                    placeholder="Paste the setup key (wa1_...)"/>
                             <field name="gateway_url"/>
                             <field name="instance_name"/>
                         </group>
                     </group>
+
+                    <separator string="Daily Summary"/>
+                    <div class="text-muted mb-2">
+                        Once a day, the numbers below get a private WhatsApp
+                        message with who is present, on leave and absent today.
+                        Nothing is posted in the group.
+                    </div>
+                    <group>
+                        <group>
+                            <field name="summary_enabled" widget="boolean_toggle"/>
+                            <field name="summary_time" widget="float_time"/>
+                        </group>
+                        <group>
+                            <field name="summary_last_date"/>
+                            <field name="summary_last_error"
+                                   invisible="not summary_last_error"/>
+                        </group>
+                    </group>
+                    <div class="fw-bold mb-1">Send To</div>
+                    <field name="summary_recipient_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="name" placeholder="e.g. Owner"/>
+                            <field name="number" placeholder="9876543210"/>
+                        </list>
+                    </field>
+                    <button name="action_send_summary_now" type="object"
+                            string="Send Summary Now" icon="fa-paper-plane"
+                            class="btn-secondary mt-2"
+                            invisible="not summary_recipient_ids"/>
                 </sheet>
             </form>
         </field>
@@ -70,8 +140,9 @@
                 Post who is present to a WhatsApp group
             </p>
             <p>
-                Create one, paste the setup key, choose the group, send a test
-                and tick Enabled.
+                Create one: it sends with the WhatsApp number connected in Odoo
+                (WhatsApp &gt; Sessions). Check the group, send a test and tick
+                Enabled.
             </p>
         </field>
     </record>

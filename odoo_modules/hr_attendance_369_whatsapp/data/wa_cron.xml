@@ -18,5 +18,20 @@
             <field name="active" eval="True"/>
         </record>
 
+        <!--
+            Sends each company's daily summary to its Send To numbers once the
+            Send At time has come. Checks every 5 minutes; does nothing while
+            Send Daily Summary is off or the day's summary has gone out.
+        -->
+        <record id="ir_cron_wa_daily_summary" model="ir.cron">
+            <field name="name">Attendance: send daily WhatsApp summary</field>
+            <field name="model_id" ref="model_hr_attendance_wa_config"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_wa_daily_summary()</field>
+            <field name="interval_number">5</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+
     </data>
 </odoo>
