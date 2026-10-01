@@ -17,6 +17,7 @@ import { useTheme } from '../../theme';
 import { radii } from '../../theme/tokens';
 import { AppTextInput, PrimaryButton, DatePopup, useToast } from '../../components';
 import { createWfhRequest } from '../../services/odoo';
+import useWorkCalendar from '../../hooks/useWorkCalendar';
 import { formatDateKeyShort, todayKey } from '../../utils/time';
 
 /**
@@ -38,6 +39,10 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // The same weekly-off and holiday marks the leave picker shows.
+  const calendar = useWorkCalendar(visible);
+  // As in the leave sheet: back closes only this, and not mid-submit.
+  const dismiss = submitting ? () => {} : onClose;
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -89,8 +94,8 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss} statusBarTranslucent>
+      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={dismiss} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -119,7 +124,7 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
                 Work from home
               </Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable onPress={dismiss} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={22} color={colors.muted} />
             </Pressable>
           </View>
@@ -203,6 +208,8 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
         title="Pick a day"
         from={date}
         minDate={todayKey()}
+        weeklyOff={calendar.weeklyOff}
+        holidays={calendar.holidays}
         onCancel={() => setPicking(false)}
         onConfirm={({ from: f }) => {
           setDate(f);

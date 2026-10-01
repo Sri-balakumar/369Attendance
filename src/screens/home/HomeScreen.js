@@ -36,6 +36,10 @@ export default function HomeScreen({ navigation }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
+    // Log out clears the user while Home is still mounted, which re-runs this
+    // with no session: Odoo refuses, and a red "Access" toast (and an error
+    // buzz) landed on the sign-in screen. Nobody signed in, nothing to load.
+    if (!user?.uid) return;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
@@ -67,11 +71,23 @@ export default function HomeScreen({ navigation }) {
   // those keeps the handler it should have: the stack pops, and the tab
   // navigator's own backBehavior returns to Home. Re-subscribing on focus puts
   // this last in the array again, so the ordering self-heals every time.
+  //
+  // Swallowing it outright left back dead on Home. Now it behaves as other
+  // apps do: the first press says so, a second within two seconds leaves.
   useFocusEffect(
     useCallback(() => {
-      const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+      let armedAt = 0;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (Date.now() - armedAt < 2000) {
+          BackHandler.exitApp();
+          return true;
+        }
+        armedAt = Date.now();
+        showToast('Press back again to exit.', 'info');
+        return true;
+      });
       return () => sub.remove();
-    }, [])
+    }, [showToast])
   );
 
   // The bell's dot: unread notifications, re-counted whenever Home comes back

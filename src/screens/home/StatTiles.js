@@ -2,13 +2,23 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
-import { DAY_STATUS } from '../../services/mockOdoo';
+import { dayStatusMeta } from '../attendance/constants';
 import { formatHours } from '../../utils/time';
 
 /** Three-up summary of today, sitting directly under the attendance card. */
 export default function StatTiles({ today, style }) {
   const { fontSize, colors } = useTheme();
-  const statusMeta = DAY_STATUS[today?.status] || DAY_STATUS.present;
+  // Before the first check-in there is nothing to grade yet, and the day
+  // status only appears once the absent stamp runs -- "Present / On time"
+  // there was a guess, and wrong for anyone who had not arrived.
+  // Lateness likewise needs a check-in: someone stamped Absent was not "On
+  // time" either.
+  const checkedIn = Boolean(today?.checkInAt);
+  const statusMeta = today?.status
+    ? dayStatusMeta(today.status)
+    : checkedIn
+      ? dayStatusMeta('present')
+      : { label: 'Not in yet', tone: 'muted' };
 
   const tiles = [
     {
@@ -32,8 +42,8 @@ export default function StatTiles({ today, style }) {
       // isLate/lateDisplay, not lateMinutes -- getHomeData has never returned
       // a lateMinutes field, so this tile read undefined every time and said
       // "On time" even for someone who arrived late.
-      value: today?.isLate ? today?.lateDisplay || 'Late' : 'On time',
-      tone: today?.isLate ? colors.warning : colors.success,
+      value: !checkedIn ? '—' : today?.isLate ? today?.lateDisplay || 'Late' : 'On time',
+      tone: !checkedIn ? colors.muted : today?.isLate ? colors.warning : colors.success,
     },
   ];
 

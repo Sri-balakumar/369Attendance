@@ -21,21 +21,15 @@ import {
   createLeaveRequest,
   previewCompOffRedemption,
   previewPaidSplit,
-  fetchPublicHolidays,
-  fetchAttendanceConfig,
   fetchSubmitNotice,
   previewLeaveMail,
 } from '../../services/odoo';
 import { useSession } from '../../state/SessionContext';
+import useWorkCalendar from '../../hooks/useWorkCalendar';
 import { formatDateRange, formatDateKeyShort, daysBetween, formatDays } from '../../utils/time';
 import { LEAVE_TYPES } from './constants';
 
 const SOURCE_LABEL = { weekly_off: 'Weekly off', public_holiday: 'Public holiday' };
-// hr.attendance.late.config work_* booleans -> JS getDay() numbers.
-const WEEKDAY_FIELDS = [
-  ['work_sunday', 0], ['work_monday', 1], ['work_tuesday', 2], ['work_wednesday', 3],
-  ['work_thursday', 4], ['work_friday', 5], ['work_saturday', 6],
-];
 
 /**
  * Apply for leave.
@@ -69,8 +63,12 @@ export default function LeaveApplySheet({ visible, balance, compOff, onClose, on
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Back, the backdrop and X close only this sheet -- and not while Submit is
+  // running, so a refusal still has a sheet to land on.
+  const dismiss = submitting ? () => {} : onClose;
   const [picking, setPicking] = useState(false);
-  const [calendar, setCalendar] = useState({ weeklyOff: [0], holidays: {} });
+  // Weekly offs and holidays for the date popup's markers.
+  const calendar = useWorkCalendar(visible);
   const [preview, setPreview] = useState({ loading: false, data: null, error: '' });
   const [paidSplit, setPaidSplit] = useState({ loading: false, data: null, failed: false });
 
@@ -109,30 +107,6 @@ export default function LeaveApplySheet({ visible, balance, compOff, onClose, on
     fetchSubmitNotice()
       .then((n) => alive && setNotice(n))
       .catch(() => alive && setNotice({ enabled: false, recipients: 0 }));
-    return () => {
-      alive = false;
-    };
-  }, [visible]);
-
-  // Weekly offs and holidays for the popup's markers. Best effort: without
-  // them the calendar still works, it just marks nothing.
-  useEffect(() => {
-    if (!visible) return undefined;
-    let alive = true;
-    const year = new Date().getFullYear();
-    Promise.all([
-      fetchAttendanceConfig().catch(() => null),
-      fetchPublicHolidays(year).catch(() => []),
-      fetchPublicHolidays(year + 1).catch(() => []),
-    ]).then(([cfg, thisYear, nextYear]) => {
-      if (!alive) return;
-      const weeklyOff = cfg ? WEEKDAY_FIELDS.filter(([f]) => cfg[f] === false).map(([, d]) => d) : [0];
-      const holidays = {};
-      for (const h of [...(thisYear || []), ...(nextYear || [])]) {
-        if (h?.date) holidays[String(h.date).slice(0, 10)] = h.name || 'Holiday';
-      }
-      setCalendar({ weeklyOff, holidays });
-    });
     return () => {
       alive = false;
     };
@@ -276,8 +250,8 @@ export default function LeaveApplySheet({ visible, balance, compOff, onClose, on
   const keptForLater = isCompOff && preview.data ? Math.max(0, preview.data.balance - preview.data.covered) : 0;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss} statusBarTranslucent>
+      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={dismiss} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -304,7 +278,7 @@ export default function LeaveApplySheet({ visible, balance, compOff, onClose, on
             <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: fontSize.md }}>
               Apply for leave
             </Text>
-            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable onPress={dismiss} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={22} color={colors.muted} />
             </Pressable>
           </View>
