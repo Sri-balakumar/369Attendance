@@ -4,6 +4,7 @@ import { useTheme } from '../../theme';
 import { Card, AppTextInput, PrimaryButton, useToast } from '../../components';
 import { submitLateReason } from '../../services/odoo';
 import AdminScreen from '../config/AdminScreen';
+import { goBackOnce } from '../../navigation/back';
 
 /**
  * Explain a late check-in.
@@ -29,7 +30,7 @@ export default function LateReasonScreen({ navigation, route }) {
     try {
       await submitLateReason(attendanceId, reason.trim());
       showToast('Reason sent to HR.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not send the reason.', 'danger');
     } finally {

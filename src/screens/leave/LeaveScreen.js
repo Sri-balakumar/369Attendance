@@ -20,6 +20,7 @@ import CompOffStrip from './CompOffStrip';
 import LeaveRequestCard from './LeaveRequestCard';
 import LeaveApplySheet from './LeaveApplySheet';
 import { STATE_FILTERS, LEAVE_LIST_LIMIT } from './constants';
+import { goBackOnce } from '../../navigation/back';
 
 /**
  * Leave.
@@ -161,7 +162,7 @@ export default function LeaveScreen({ navigation }) {
       >
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            onPress={() => goBackOnce(navigation)}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Back"

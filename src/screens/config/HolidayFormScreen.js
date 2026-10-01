@@ -20,6 +20,7 @@ import {
 } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
+import { goBackOnce } from '../../navigation/back';
 
 /**
  * Add, edit or remove one public holiday.
@@ -92,7 +93,7 @@ export default function HolidayFormScreen({ navigation, route }) {
         affects_working_days: Boolean(affects),
       });
       showToast(id ? 'Holiday updated.' : 'Holiday added.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the holiday.', 'danger');
     } finally {
@@ -106,7 +107,7 @@ export default function HolidayFormScreen({ navigation, route }) {
     try {
       await deletePublicHoliday(id);
       showToast('Holiday removed.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not remove the holiday.', 'danger');
     } finally {

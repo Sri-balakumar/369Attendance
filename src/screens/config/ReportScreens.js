@@ -28,6 +28,7 @@ import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { Section, Caption, Note, Picker } from './FormBits';
 import { MoneyRow, FactRow, formatMoney, formatDays, monthLabel, MONTH_LABELS } from './Money';
+import { isTop } from '../../navigation/back';
 
 const ALL_DEPARTMENTS = '__all__';
 
@@ -97,7 +98,9 @@ export function GenerateReportScreen({ navigation }) {
         departmentId: d.departmentId,
       });
       showToast('Report generated.', 'success');
-      navigation.replace('Report', { id: report.id });
+      // Only if the person is still here: replacing a screen they already
+      // backed out of would land them on the report one level too deep.
+      if (isTop(navigation)) navigation.replace('Report', { id: report.id });
     } catch (e) {
       showToast(e?.message || 'Could not generate the report.', 'danger');
     } finally {

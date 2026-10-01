@@ -11,6 +11,7 @@ import { useSession } from '../../state/SessionContext';
 import { fetchAttendanceMonth } from '../../services/odoo';
 import { formatDateKeyShort, formatTime, formatHours, parseDateKey } from '../../utils/time';
 import { dayStatusMeta, SUMMARY_ORDER } from './constants';
+import { goBackOnce } from '../../navigation/back';
 
 /** Day-wise attendance history, one month at a time. */
 export default function AttendanceScreen({ navigation }) {
@@ -80,7 +81,7 @@ export default function AttendanceScreen({ navigation }) {
       >
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            onPress={() => goBackOnce(navigation)}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Back"
@@ -278,11 +279,12 @@ function DayRow({ item }) {
             {item.checkIn ? `${formatTime(item.checkIn)} – ${item.checkOut ? formatTime(item.checkOut) : '--:--'}` : '—'}
             {item.hours ? ` · ${formatHours(item.hours)}` : ''}
           </Text>
-          {/* status_display carries the actual start time when someone was
-              late, including when the lateness cost nothing. */}
-          {item.lateDisplay ? (
+          {/* late_minutes_display is a bare duration ("7:12") and is filled
+              on on-time days too ("0:00"), so it is shown, labelled, only
+              when the check-in was actually late. */}
+          {item.isLate && item.lateDisplay ? (
             <Text style={{ color: colors.warning, fontFamily: fonts.medium, fontSize: fontSize.xs, marginTop: 2 }}>
-              {item.lateDisplay}
+              {`Late ${item.lateDisplay}`}
             </Text>
           ) : null}
         </View>

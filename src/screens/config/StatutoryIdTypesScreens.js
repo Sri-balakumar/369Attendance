@@ -23,6 +23,7 @@ import {
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { Caption, Picker } from './FormBits';
+import { goBackOnce } from '../../navigation/back';
 
 /** PAN, Aadhaar, UAN and friends -- the identifier types an employee can hold. */
 export function StatutoryIdTypesListScreen({ navigation }) {
@@ -212,7 +213,7 @@ export function StatutoryIdTypeFormScreen({ navigation, route }) {
         company_id: Number(d.company_id),
       });
       showToast(id ? 'Identifier type updated.' : 'Identifier type added.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the identifier type.', 'danger');
     } finally {
@@ -226,7 +227,7 @@ export function StatutoryIdTypeFormScreen({ navigation, route }) {
     try {
       await deleteStatutoryIdType(id);
       showToast('Identifier type removed.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not remove the identifier type.', 'danger');
     } finally {

@@ -16,6 +16,7 @@ import {
 import { saveManual, deleteManual } from '../../services/odoo';
 import AdminScreen from '../config/AdminScreen';
 import { AUDIENCES } from './AppManualScreen';
+import { goBackOnce } from '../../navigation/back';
 
 /** The picked file as bare base64, on a phone or in the web build. */
 async function readBase64(asset) {
@@ -95,7 +96,7 @@ export default function AppManualFormScreen({ navigation, route }) {
         base64: file?.base64,
       });
       showToast(id ? 'Manual updated.' : 'Manual added.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the manual.', 'danger');
     } finally {
@@ -109,7 +110,7 @@ export default function AppManualFormScreen({ navigation, route }) {
     try {
       await deleteManual(id);
       showToast('Manual removed.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not remove the manual.', 'danger');
     } finally {

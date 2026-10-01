@@ -6,6 +6,7 @@ import { fetchLeaveConfig, saveLeaveConfig, previewLeaveMail } from '../../servi
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { Section, Caption, Note } from './FormBits';
+import { goBackOnce } from '../../navigation/back';
 
 /** The company's leave policy -- one record, hr.leave.config. */
 export default function LeavePolicyScreen({ navigation }) {
@@ -99,7 +100,7 @@ export default function LeavePolicyScreen({ navigation }) {
         setDraft(toDraft(saved));
       }
       showToast(config.id ? 'Leave policy updated.' : 'Leave policy created.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the leave policy.', 'danger');
     } finally {
@@ -258,7 +259,7 @@ export default function LeavePolicyScreen({ navigation }) {
       <PrimaryButton
         label="Cancel"
         variant="ghost"
-        onPress={() => navigation.goBack()}
+        onPress={() => goBackOnce(navigation)}
         style={{ marginTop: spacing.md }}
       />
       <Text style={{ height: spacing.lg }} />

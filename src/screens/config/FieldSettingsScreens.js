@@ -9,6 +9,7 @@ import { fetchDetailsConfigs, saveDetailsConfig } from '../../services/odoo';
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { Section, Note } from './FormBits';
+import { goBackOnce } from '../../navigation/back';
 
 /**
  * The five sections and the fields inside each, exactly as the model groups
@@ -216,7 +217,7 @@ export function FieldSettingsFormScreen({ navigation, route }) {
       const saved = await saveDetailsConfig(row.id, draft);
       if (saved) setRow(saved);
       showToast('Field settings updated.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the field settings.', 'danger');
     } finally {
@@ -272,7 +273,7 @@ export function FieldSettingsFormScreen({ navigation, route }) {
       <PrimaryButton
         label="Cancel"
         variant="ghost"
-        onPress={() => navigation.goBack()}
+        onPress={() => goBackOnce(navigation)}
         style={{ marginTop: spacing.md }}
       />
       <View style={{ height: spacing.lg }} />

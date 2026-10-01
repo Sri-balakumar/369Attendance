@@ -25,6 +25,7 @@ import {
 import { formatHourFloat, parseHourFloat } from '../../utils/time';
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
+import { goBackOnce } from '../../navigation/back';
 
 const DAYS = [
   { field: 'work_monday', letter: 'M', name: 'Monday' },
@@ -218,7 +219,7 @@ export default function RulesFormScreen({ navigation, route }) {
         setDraft(toDraft(saved));
       }
       showToast('Attendance rules updated.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the changes.', 'danger');
     } finally {
@@ -519,7 +520,7 @@ export default function RulesFormScreen({ navigation, route }) {
             <PrimaryButton
               label="Cancel"
               variant="ghost"
-              onPress={() => navigation.goBack()}
+              onPress={() => goBackOnce(navigation)}
               style={{ flex: 1 }}
             />
             <PrimaryButton label="Save" loading={saving} onPress={submit} style={{ flex: 1 }} />

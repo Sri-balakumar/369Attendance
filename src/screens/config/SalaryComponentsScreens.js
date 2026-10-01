@@ -23,6 +23,7 @@ import {
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { Caption, Picker } from './FormBits';
+import { goBackOnce } from '../../navigation/back';
 
 const TYPES = [
   { value: 'earning', label: 'Earning' },
@@ -246,7 +247,7 @@ export function SalaryComponentFormScreen({ navigation, route }) {
         company_id: Number(d.company_id),
       });
       showToast(id ? 'Component updated.' : 'Component added.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the component.', 'danger');
     } finally {
@@ -260,7 +261,7 @@ export function SalaryComponentFormScreen({ navigation, route }) {
     try {
       await deleteSalaryComponent(id);
       showToast('Component removed.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not remove the component.', 'danger');
     } finally {

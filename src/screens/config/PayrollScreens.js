@@ -38,6 +38,7 @@ import {
   monthLabel,
   MONTH_LABELS,
 } from './Money';
+import { isTop } from '../../navigation/back';
 
 /* ------------------------------------------------------------------ */
 /*  Payroll runs                                                       */
@@ -118,7 +119,7 @@ export function PayrollRunsScreen({ navigation }) {
       const run = await createPayrollRun({ month: draft.month, year, companyId: draft.companyId });
       setCreating(false);
       showToast('Payroll run created. Generate the payslips next.', 'success');
-      if (run) navigation.navigate('PayrollRun', { id: run.id });
+      if (run && isTop(navigation)) navigation.navigate('PayrollRun', { id: run.id });
       load();
     } catch (e) {
       showToast(e?.message || 'Could not create the run.', 'danger');

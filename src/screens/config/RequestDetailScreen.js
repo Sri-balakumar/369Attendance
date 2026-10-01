@@ -19,6 +19,7 @@ import { formatDateKeyShort, odooUtcToIso } from '../../utils/time';
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { leaveStateMeta, wfhStateMeta, leaveTypeLabel } from './requestConstants';
+import { goBackOnce } from '../../navigation/back';
 
 /** Odoo UTC datetime -> a short local 'DD Mon, HH:MM'. */
 function stamp(value) {
@@ -97,7 +98,7 @@ export default function RequestDetailScreen({ navigation, route }) {
     load();
     if (ok) {
       showToast(successText, 'success');
-      if (navigation.canGoBack()) navigation.goBack();
+      goBackOnce(navigation);
     }
   };
 

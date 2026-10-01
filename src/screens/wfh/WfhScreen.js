@@ -13,6 +13,7 @@ import { formatDateKeyShort } from '../../utils/time';
 import WfhRequestCard from './WfhRequestCard';
 import WfhApplySheet from './WfhApplySheet';
 import { WFH_STATE_FILTERS, WFH_LIST_LIMIT } from './constants';
+import { goBackOnce } from '../../navigation/back';
 
 /** Work from home. Mirrors the Leave screen; the differences are noted inline. */
 export default function WfhScreen({ navigation }) {
@@ -107,7 +108,7 @@ export default function WfhScreen({ navigation }) {
       >
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            onPress={() => goBackOnce(navigation)}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Back"

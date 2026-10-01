@@ -28,6 +28,7 @@ import { FactRow } from './Money';
 import { nameOf } from './StatusRows';
 import { Note } from './FormBits';
 import { COMP_OFF_SOURCES, compOffStateMeta, compOffSourceLabel, fmtDays } from './compOffConstants';
+import { goBackOnce } from '../../navigation/back';
 
 const DAY_OPTIONS = [
   { value: 1, label: 'Full day (1)' },
@@ -108,7 +109,7 @@ export default function CompOffFormScreen({ navigation, route }) {
         note: note.trim() || false,
       });
       showToast('Credit added.', 'success');
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       // The UNIQUE(employee_id, date_earned) constraint is the usual failure.
       showToast(e?.message || 'Could not add the credit.', 'danger');

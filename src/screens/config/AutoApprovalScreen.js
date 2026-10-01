@@ -12,6 +12,7 @@ import { fetchAutoApproveConfig, saveAutoApproveConfig, fetchCompanies } from '.
 import AdminScreen from './AdminScreen';
 import { GUIDES } from './guides';
 import { Section, Caption, Note, Picker } from './FormBits';
+import { goBackOnce } from '../../navigation/back';
 
 const UNITS = [
   { value: 'minutes', label: 'Minutes' },
@@ -138,7 +139,7 @@ export default function AutoApprovalScreen({ navigation }) {
           : 'Auto-approval updated.',
         deadLeave || deadWfh ? 'warning' : 'success'
       );
-      navigation.goBack();
+      goBackOnce(navigation);
     } catch (e) {
       showToast(e?.message || 'Could not save the policy.', 'danger');
     } finally {
@@ -238,7 +239,7 @@ export default function AutoApprovalScreen({ navigation }) {
       <PrimaryButton
         label="Cancel"
         variant="ghost"
-        onPress={() => navigation.goBack()}
+        onPress={() => goBackOnce(navigation)}
         style={{ marginTop: spacing.md }}
       />
       <Text style={{ height: spacing.lg }} />
