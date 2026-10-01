@@ -2476,6 +2476,103 @@ export async function submitLateReason(attendanceId, reason) {
 }
 
 /* ------------------------------------------------------------------ *
+ * WhatsApp roll call -- the hr_attendance_369_whatsapp addon's one
+ * settings record, its group picker and the daily-summary numbers. All
+ * through the addon's own models, so the app needs nothing new on the
+ * server; sending goes through the live server, which owns the WhatsApp
+ * link. Admins and Attendances Administrators only, as in Odoo.
+ * ------------------------------------------------------------------ */
+
+const WA_MODEL = 'hr.attendance.wa.config';
+const WA_RECIPIENT_MODEL = 'hr.attendance.wa.summary.recipient';
+const WA_FIELDS = [
+  'id', 'enabled', 'wa_state', 'odoo_status', 'group_jid', 'group_name',
+  'message_text', 'message_preview', 'summary_enabled', 'summary_time',
+  'summary_last_date', 'summary_last_error',
+];
+
+/**
+ * The settings, plus the daily-summary numbers. `available: false` when the
+ * addon is not installed on this server -- "not here" rather than an error.
+ * A server with the addon but no record yet gets one, filled with its defaults,
+ * as opening the Odoo form would.
+ */
+export async function fetchWaConfig() {
+  const fields = await knownFields(WA_MODEL, WA_FIELDS);
+  if (!fields) return { available: false };
+  let rows = await callKw(WA_MODEL, 'search_read', [[], fields], { limit: 1 });
+  if (!rows?.length) {
+    const id = await callKw(WA_MODEL, 'create', [{}]);
+    rows = await callKw(WA_MODEL, 'read', [[Number(id)], fields]);
+  }
+  const config = rows[0];
+  const recipients =
+    (await callKw(WA_RECIPIENT_MODEL, 'search_read', [[['config_id', '=', config.id]], ['name', 'number']], {
+      order: 'id',
+    })) || [];
+  return { available: true, config, recipients };
+}
+
+/** Write switches and text: { enabled?, message_text?, summary_enabled?, summary_time? }. */
+export async function saveWaConfig(id, values) {
+  await callKw(WA_MODEL, 'write', [[Number(id)], values]);
+}
+
+/**
+ * One test line to the chosen group. Returns the server's own "Check the
+ * group ..." text; a failed send arrives as the server's error.
+ */
+export async function sendWaTest(id) {
+  const res = await callKw(WA_MODEL, 'action_send_test', [[Number(id)]]);
+  return `Test sent. ${res?.params?.message || 'Check the group.'}`;
+}
+
+/**
+ * The groups the connected number is in, newest first: [{ jid, name, members }],
+ * and the server's words when the list could not be fetched.
+ *
+ * The addon's picker fetches them in its default_get, but only for the
+ * settings record handed over in the context -- the way Odoo's Choose Group
+ * button opens it. Asking default_get directly gets the same list without
+ * leaving a half-made picker behind.
+ */
+export async function fetchWaGroups(id) {
+  const values = await callKw(
+    'hr.attendance.wa.group.picker',
+    'default_get',
+    [['config_id', 'groups_json', 'fetch_error']],
+    { context: { default_config_id: Number(id) } }
+  );
+  let rows = [];
+  try {
+    rows = JSON.parse(values?.groups_json || '[]');
+  } catch {
+    rows = [];
+  }
+  return {
+    error: values?.fetch_error || '',
+    groups: rows
+      .filter((g) => g?.jid)
+      .sort((a, b) => (b.created || 0) - (a.created || 0))
+      .map((g) => ({ jid: g.jid, name: g.name || g.jid, members: Number(g.size) || 0 })),
+  };
+}
+
+/** Use this group -- what the picker's "Use" button writes. */
+export async function chooseWaGroup(id, jid, name) {
+  await callKw(WA_MODEL, 'write', [[Number(id)], { group_jid: jid, group_name: name }]);
+}
+
+/** Add a daily-summary number. The server refuses one that is not a full number, in its own words. */
+export async function addWaRecipient(configId, name, number) {
+  return callKw(WA_RECIPIENT_MODEL, 'create', [{ config_id: Number(configId), name: name || false, number }]);
+}
+
+export async function removeWaRecipient(id) {
+  await callKw(WA_RECIPIENT_MODEL, 'unlink', [[Number(id)]]);
+}
+
+/* ------------------------------------------------------------------ *
  * Profile extras -- the work, month, balance, attendance-setup and
  * role sections of the Profile tab.
  *

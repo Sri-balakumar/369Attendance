@@ -1,5 +1,14 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +18,7 @@ import { radii } from '../../theme/tokens';
 import { Card, Skeleton } from '../../components';
 import { GuideBanner } from './FormBits';
 import { goBackOnce } from '../../navigation/back';
+import useKeyboardVisible from '../../hooks/useKeyboardVisible';
 
 /**
  * The shell every Attendance Status screen sits in.
@@ -52,9 +62,19 @@ export default function AdminScreen({
 }) {
   const { colors, fonts, fontSize, spacing, withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardVisible();
 
+  // The whole screen is the keyboard avoider, so with the keyboard up the
+  // scroll area ends above it and a field low on a form (a summary number, a
+  // wait in days) is not typed into blind. As on the login screen: Android
+  // draws edge-to-edge and no longer shrinks the window, and the avoider is
+  // only on while the keyboard is, or it leaves a gap behind when it closes.
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      enabled={Platform.OS !== 'android' || keyboardUp}
+    >
       <StatusBar style="light" />
 
       <LinearGradient
@@ -145,7 +165,7 @@ export default function AdminScreen({
           children
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

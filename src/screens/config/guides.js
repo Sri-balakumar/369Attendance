@@ -203,6 +203,16 @@ export const GUIDES = {
       'Tap Save.',
     ],
   },
+  whatsAppGroup: {
+    title: 'How the WhatsApp roll call works',
+    steps: [
+      'The first check-in of each day is posted to one WhatsApp group, e.g. “@Sneha checked in at 9:30 AM”.',
+      'Choose the group from the groups the connected WhatsApp number is in, then tap Send test message.',
+      'When the test arrives, switch on “Post check-ins to the group” and tap Save.',
+      'The person is tagged by their Work Mobile number. Without one, their name is shown in bold.',
+      'The daily summary (present, on leave, absent) goes privately to the numbers you add, at the time you set.',
+    ],
+  },
 
   fieldSettingsList: {
     title: 'How Field Settings work',

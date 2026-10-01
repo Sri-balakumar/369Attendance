@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
+import useKeyboardVisible from '../../hooks/useKeyboardVisible';
 import HeroPanorama, { StepDots } from './HeroPanorama';
 import { AUTH } from './AuthField';
 import ServerForm from './ServerForm';
@@ -100,15 +101,7 @@ export default function AuthScreen({ navigation, route }) {
     }, [step, goTo])
   );
 
-  const [keyboardUp, setKeyboardUp] = useState(() => Keyboard.isVisible());
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardUp(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardUp(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  const keyboardUp = useKeyboardVisible();
 
   const page = (index, child) => {
     const active = step === index;

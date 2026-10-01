@@ -132,6 +132,7 @@ function sectionsFor(caps, counts) {
       title: 'App',
       items: [
         { key: 'NotifySettings', icon: 'notifications-outline', tone: 'warning', label: 'Notifications', caption: 'What is sent, and to whom' },
+        { key: 'WhatsAppGroup', icon: 'logo-whatsapp', tone: 'success', label: 'WhatsApp Group', caption: 'Check-ins posted to a group' },
       ],
     });
   }

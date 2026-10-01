@@ -21,6 +21,7 @@ import AppManualFormScreen from '../screens/settings/AppManualFormScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import LateReasonScreen from '../screens/attendance/LateReasonScreen';
 import NotifySettingsScreen from '../screens/config/NotifySettingsScreen';
+import WhatsAppGroupScreen from '../screens/config/WhatsAppGroupScreen';
 import LateRecordsScreen from '../screens/config/LateRecordsScreen';
 import DayStatusScreen from '../screens/config/DayStatusScreen';
 import AbsentTodayScreen from '../screens/config/AbsentTodayScreen';
@@ -149,6 +150,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="LateReason" component={LateReasonScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="NotifySettings" component={NotifySettingsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="WhatsAppGroup" component={WhatsAppGroupScreen} options={{ animation: 'slide_from_right' }} />
 
         {/* The Attendance Status admin menu, reached from the Config tab.
             Pushed rather than nested in the tabs, so the floating bar is

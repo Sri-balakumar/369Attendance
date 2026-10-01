@@ -18,6 +18,17 @@ const CATEGORY_LABELS = {
   system: 'System',
 };
 const ORDER = Object.keys(CATEGORY_LABELS);
+// Section needs an icon and a tone; without them its badge rendered empty.
+const CATEGORY_ICONS = {
+  attendance: ['finger-print-outline', 'primary'],
+  leave: ['calendar-outline', 'accent'],
+  wfh: ['home-outline', 'info'],
+  compoff: ['sunny-outline', 'warning'],
+  payroll: ['cash-outline', 'success'],
+  holiday: ['flag-outline', 'danger'],
+  other: ['person-circle-outline', 'info'],
+  system: ['settings-outline', 'primary'],
+};
 const NEEDS_UPGRADE = "The server's Attendance module needs upgrading first.";
 const failText = (e, fallback) => (isMissingBackend(e) ? NEEDS_UPGRADE : e?.message || fallback);
 const AUDIENCE = {
@@ -101,7 +112,13 @@ export default function NotifySettingsScreen({ navigation }) {
       <PrimaryButton label="Send me a test notification" variant="outline" loading={testing} onPress={test} />
 
       {groups.map(([cat, list]) => (
-        <Section key={cat} title={CATEGORY_LABELS[cat]} style={{ marginTop: spacing.lg }}>
+        <Section
+          key={cat}
+          title={CATEGORY_LABELS[cat]}
+          icon={CATEGORY_ICONS[cat][0]}
+          tone={CATEGORY_ICONS[cat][1]}
+          style={{ marginTop: spacing.lg }}
+        >
           <Card>
             {list.map((r, i) => {
               const [who, tone] = AUDIENCE[r.audience] || AUDIENCE.employee;
