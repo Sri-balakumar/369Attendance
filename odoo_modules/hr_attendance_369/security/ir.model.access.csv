@@ -1,11 +1,15 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_late_config_manager,hr.attendance.late.config.manager,model_hr_attendance_late_config,hr.group_hr_manager,1,1,1,1
 access_late_config_user,hr.attendance.late.config.user,model_hr_attendance_late_config,base.group_user,1,0,0,0
+access_week_off_rule_manager,hr.attendance.week.off.rule.manager,model_hr_attendance_week_off_rule,hr.group_hr_manager,1,1,1,1
+access_week_off_rule_user,hr.attendance.week.off.rule.user,model_hr_attendance_week_off_rule,base.group_user,1,0,0,0
 access_late_summary_wizard_manager,hr.attendance.late.summary.wizard.manager,model_hr_attendance_late_summary_wizard,hr.group_hr_manager,1,1,1,1
 access_late_summary_line_manager,hr.attendance.late.summary.line.manager,model_hr_attendance_late_summary_line,hr.group_hr_manager,1,1,1,1
 access_late_summary_line_user,hr.attendance.late.summary.line.user,model_hr_attendance_late_summary_line,base.group_user,1,0,0,0
 access_public_holiday_manager,hr.public.holiday.manager,model_hr_public_holiday,hr.group_hr_manager,1,1,1,1
 access_public_holiday_user,hr.public.holiday.user,model_hr_public_holiday,base.group_user,1,0,0,0
+access_public_holiday_admin,hr.public.holiday.admin,model_hr_public_holiday,base.group_system,1,1,1,1
+access_public_holiday_officer,hr.public.holiday.officer,model_hr_public_holiday,hr.group_hr_user,1,1,1,1
 access_late_reason_wizard_user,hr.attendance.late.reason.wizard.user,model_hr_attendance_late_reason_wizard,base.group_user,1,1,1,1
 access_checkout_confirm_wizard_user,hr.attendance.checkout.confirm.wizard.user,model_hr_attendance_checkout_confirm_wizard,base.group_user,1,1,1,1
 access_help_document_manager,attendance.help.document.manager,model_attendance_help_document,hr.group_hr_manager,1,1,1,1

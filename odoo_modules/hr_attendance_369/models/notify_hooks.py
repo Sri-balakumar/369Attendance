@@ -262,6 +262,13 @@ class HrPayslipRun(models.Model):
             N._notify(code, users, title, body % run._period_label(), run)
 
 
+def _calendar_target(day):
+    """Tap target for a holiday notification: the app's Calendar tab, opened
+    on the month of `day`. An older app that has no Calendar falls back to
+    the Notifications list."""
+    return {'screen': 'Calendar', 'params': {'month': day.strftime('%Y-%m')} if day else {}}
+
+
 class HrPublicHoliday(models.Model):
     _inherit = 'hr.public.holiday'
 
@@ -277,7 +284,8 @@ class HrPublicHoliday(models.Model):
                 N._notify('emp_holiday_added', N._company_users(h.company_id),
                           _("Holiday: %s", h.name),
                           _("%(day)s (%(weekday)s) is a holiday.",
-                            day=N._day(h.date), weekday=h.date.strftime('%A')), h)
+                            day=N._day(h.date), weekday=h.date.strftime('%A')), h,
+                          **_calendar_target(h.date))
         return recs
 
     def write(self, vals):
@@ -291,11 +299,13 @@ class HrPublicHoliday(models.Model):
                 if old_active and not h.active and old_date and old_date >= fields.Date.context_today(self):
                     N._notify('emp_holiday_removed', users, _("Holiday removed"),
                               _("%(name)s on %(day)s is no longer a holiday.",
-                                name=h.name, day=N._day(old_date)), h)
+                                name=h.name, day=N._day(old_date)), h,
+                              **_calendar_target(old_date))
                 elif h.active and old_date != h.date and h._is_upcoming():
                     N._notify('emp_holiday_moved', users, _("Holiday moved: %s", h.name),
                               _("Now on %(new)s (was %(old)s).",
-                                new=N._day(h.date), old=N._day(old_date)), h)
+                                new=N._day(h.date), old=N._day(old_date)), h,
+                              **_calendar_target(h.date))
         return res
 
     def unlink(self):
@@ -308,7 +318,8 @@ class HrPublicHoliday(models.Model):
                 N._notify('emp_holiday_removed', N._company_users(company),
                           _("Holiday removed"),
                           _("%(name)s on %(day)s is no longer a holiday.",
-                            name=name, day=N._day(day)))
+                            name=name, day=N._day(day)),
+                          **_calendar_target(day))
         return res
 
 
@@ -840,4 +851,5 @@ class AttendanceNotification(models.Model):
                 self._notify('emp_holiday_tomorrow', self._company_users(h.company_id),
                              _("Holiday tomorrow"),
                              _("%(name)s. Enjoy your day off on %(day)s.",
-                               name=h.name, day=self._day(h.date)), h)
+                               name=h.name, day=self._day(h.date)), h,
+                             **_calendar_target(h.date))

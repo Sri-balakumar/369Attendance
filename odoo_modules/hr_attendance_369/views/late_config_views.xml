@@ -17,6 +17,7 @@
                 <field name="late_until_hour" widget="float_time" string="Late Until"/>
                 <field name="half_day_after_hour" widget="float_time" string="Half Day After"/>
                 <field name="half_day_min_hours_ratio" string="Half Below" optional="show"/>
+                <field name="week_off_summary" optional="show"/>
             </list>
         </field>
     </record>
@@ -114,6 +115,25 @@
                             <field name="work_sunday"/>
                         </group>
                     </group>
+
+                    <separator string="Off on Some Weeks"/>
+                    <div class="text-muted mb-2">
+                        A working day that is off only on some weeks of the month.
+                        Saturday with <b>2nd</b> ticked means the 2nd Saturday
+                        (always the 8th-14th) is a weekly off and every other
+                        Saturday is worked. Those dates are never stamped Absent and
+                        leave the working-day count, exactly like a Sunday.
+                    </div>
+                    <field name="week_off_rule_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="weekday"/>
+                            <field name="week_1"/>
+                            <field name="week_2"/>
+                            <field name="week_3"/>
+                            <field name="week_4"/>
+                            <field name="week_5"/>
+                        </list>
+                    </field>
 
                     <div class="alert alert-warning mt-3" role="alert"
                          invisible="not late_tracking_enabled">

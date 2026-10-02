@@ -5,6 +5,7 @@ import io
 import base64
 import logging
 
+from .attendance_late_config import is_weekly_off_day
 from .time_utils import minutes_to_hm
 
 _logger = logging.getLogger(__name__)
@@ -208,6 +209,7 @@ class EmployeeReport(models.Model):
             config_data = Config.get_config_for_employee(emp.id)
             config_rec = Config.get_config_record_for_employee(emp.id)
             working_days_list = config_data.get('working_days', [0, 1, 2, 3, 4, 5])
+            monthly_offs = config_data.get('monthly_offs')
 
             def calc_leave_deduction_live(leave_record, _emp=emp):
                 """Calculate leave deduction live using salary-based formula — never trust stale stored value.
@@ -246,7 +248,7 @@ class EmployeeReport(models.Model):
             working_dates = set()
             current_date = d_from
             while current_date <= d_to:
-                if current_date.weekday() in working_days_list:
+                if not is_weekly_off_day(current_date, working_days_list, monthly_offs):
                     if not Holiday.is_public_holiday(current_date, emp.company_id.id):
                         total_working_days += 1
                         working_dates.add(current_date)
@@ -259,7 +261,7 @@ class EmployeeReport(models.Model):
                     return day in working_dates
                 if day not in _working_cache:
                     _working_cache[day] = (
-                        day.weekday() in working_days_list
+                        not is_weekly_off_day(day, working_days_list, monthly_offs)
                         and not Holiday.is_public_holiday(day, _emp.company_id.id))
                 return _working_cache[day]
 
@@ -474,7 +476,7 @@ class EmployeeReport(models.Model):
             current_date = d_from
             day_seq = 0
             while current_date <= d_to:
-                is_working = current_date.weekday() in working_days_list
+                is_working = not is_weekly_off_day(current_date, working_days_list, monthly_offs)
                 is_holiday = Holiday.is_public_holiday(current_date, emp.company_id.id)
                 is_expected = is_working
 

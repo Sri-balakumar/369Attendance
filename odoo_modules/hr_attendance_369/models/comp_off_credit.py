@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date as dt_date
 import logging
 import pytz
 
+from .attendance_late_config import is_weekly_off_day
 from .comp_off_redemption import ACTIVE_REQUEST_STATES
 
 _logger = logging.getLogger(__name__)
@@ -594,7 +595,7 @@ class CompOffCredit(models.Model):
         if holiday:
             return 'public_holiday', holiday.name or ''
         working_days = cfg.get('working_days', [0, 1, 2, 3, 4, 5])
-        if day.weekday() not in working_days:
+        if is_weekly_off_day(day, working_days, cfg.get('monthly_offs')):
             return 'weekly_off', ''
         return 'working', ''
 

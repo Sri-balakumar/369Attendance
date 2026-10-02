@@ -80,6 +80,12 @@
               action="action_public_holiday"
               sequence="30"/>
 
+    <menuitem id="menu_holiday_calendar"
+              name="Holiday Calendar"
+              parent="hr_attendance.menu_hr_attendance_root"
+              action="action_public_holiday_calendar"
+              sequence="35"/>
+
     <!-- ============================================================ -->
     <!--  35 — DEVICES                                                -->
     <!-- ============================================================ -->

@@ -116,4 +116,16 @@
         </field>
     </record>
 
+    <!-- The same holidays opened on the month, for the Attendances menu. The
+         app's Calendar tab is the everyone-view; this one is for the HR and
+         admin users who work in the backend. -->
+    <record id="action_public_holiday_calendar" model="ir.actions.act_window">
+        <field name="name">Holiday Calendar</field>
+        <field name="res_model">hr.public.holiday</field>
+        <field name="view_mode">calendar,list,form</field>
+        <field name="view_id" ref="view_public_holiday_calendar"/>
+        <field name="search_view_id" ref="view_public_holiday_search"/>
+        <field name="context">{'guide_key': 'public_holidays'}</field>
+    </record>
+
 </odoo>

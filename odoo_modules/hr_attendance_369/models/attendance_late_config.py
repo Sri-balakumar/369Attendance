@@ -1,9 +1,44 @@
-from odoo import models, fields, api, _
+from datetime import timedelta
+
+from odoo import models, fields, api, exceptions, _
 import pytz
 
 
 def _tz_get(self):
     return [(tz, tz) for tz in sorted(pytz.all_timezones)]
+
+
+WEEKDAYS = [
+    ('0', 'Monday'), ('1', 'Tuesday'), ('2', 'Wednesday'), ('3', 'Thursday'),
+    ('4', 'Friday'), ('5', 'Saturday'), ('6', 'Sunday'),
+]
+ORDINALS = {1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: '5th'}
+WORK_DAY_FIELDS = {
+    'work_monday', 'work_tuesday', 'work_wednesday', 'work_thursday',
+    'work_friday', 'work_saturday', 'work_sunday',
+}
+
+
+def week_of_month(day):
+    """Which occurrence of its weekday a date is: the 1st-7th are the 1st,
+    the 8th-14th the 2nd, and so on. So the 2nd Saturday always falls on the
+    8th-14th, whatever weekday the month starts on."""
+    return (day.day - 1) // 7 + 1
+
+
+def is_weekly_off_day(day, working_days, monthly_offs=None):
+    """The one test for "is this DATE a weekly off".
+
+    working_days is the list of weekday ints (0=Monday) ticked as working;
+    monthly_offs maps a weekday int to the weeks of the month it is off even
+    though it is ticked (Saturday -> {2} for "2nd Saturday off"). Everything
+    that counts or grades working days goes through here, so the rule only
+    has to be right once.
+    """
+    wd = day.weekday()
+    if wd not in working_days:
+        return True
+    return week_of_month(day) in (monthly_offs or {}).get(wd, ())
 
 
 class AttendanceLateConfig(models.Model):
@@ -77,6 +112,21 @@ class AttendanceLateConfig(models.Model):
     work_friday = fields.Boolean(string='Friday', default=True)
     work_saturday = fields.Boolean(string='Saturday', default=True)
     work_sunday = fields.Boolean(string='Sunday', default=False)
+
+    # A working day can still be off on some weeks of the month: "2nd Saturday
+    # off" is Saturday ticked above plus one rule here with the 2nd week ticked.
+    week_off_rule_ids = fields.One2many(
+        'hr.attendance.week.off.rule', 'config_id',
+        string='Off on Some Weeks',
+        help='A working day that is off only on some weeks of the month, e.g. '
+             'Saturday with 2nd ticked for "2nd Saturday off". Those dates count '
+             'exactly like a weekly off: never stamped Absent, outside the '
+             'working-day count, and working them needs "I am working today".',
+    )
+    week_off_summary = fields.Char(
+        string='Some Weeks Off', compute='_compute_week_off_summary',
+        help='The monthly offs in words, e.g. "2nd Saturday off".',
+    )
 
     active = fields.Boolean(default=True)
 
@@ -173,12 +223,84 @@ class AttendanceLateConfig(models.Model):
             days.append(6)
         return days
 
+    def _monthly_offs(self):
+        """{weekday int: {week numbers}} from the some-weeks-off rules."""
+        self.ensure_one()
+        return {int(rule.weekday): set(rule._weeks()) for rule in self.week_off_rule_ids}
+
+    def _is_weekly_off(self, day):
+        self.ensure_one()
+        return is_weekly_off_day(day, self.get_working_days_list(), self._monthly_offs())
+
+    @api.depends('work_monday', 'work_tuesday', 'work_wednesday', 'work_thursday',
+                 'work_friday', 'work_saturday', 'work_sunday',
+                 'week_off_rule_ids.weekday', 'week_off_rule_ids.week_1',
+                 'week_off_rule_ids.week_2', 'week_off_rule_ids.week_3',
+                 'week_off_rule_ids.week_4', 'week_off_rule_ids.week_5')
+    def _compute_week_off_summary(self):
+        names = dict(WEEKDAYS)
+        for rec in self:
+            working = rec.get_working_days_list()
+            parts = []
+            # A rule on a day that is off every week anyway says nothing.
+            for rule in rec.week_off_rule_ids.filtered(lambda r: int(r.weekday) in working):
+                weeks = [ORDINALS[n] for n in rule._weeks()]
+                if not weeks:
+                    continue
+                shown = weeks[0] if len(weeks) == 1 else '%s & %s' % (', '.join(weeks[:-1]), weeks[-1])
+                parts.append('%s %s off' % (shown, names[rule.weekday]))
+            rec.week_off_summary = ' · '.join(parts)
+
+    def set_week_off_rules(self, rules):
+        """Replace this config's some-weeks-off rules in one call (the app's
+        Save). rules: [{'weekday': 5, 'weeks': [2]}]. A day with no weeks is
+        dropped. Recomputes once, and only when the rule really changed."""
+        self.ensure_one()
+        lines = {}
+        for rule in rules or []:
+            wd = int(rule.get('weekday', -1))
+            weeks = sorted({int(w) for w in (rule.get('weeks') or []) if 1 <= int(w) <= 5})
+            if 0 <= wd <= 6 and weeks:
+                lines[wd] = weeks
+        before = self._monthly_offs()
+        Rule = self.env['hr.attendance.week.off.rule'].with_context(skip_week_off_recompute=True)
+        self.with_context(skip_week_off_recompute=True).week_off_rule_ids.unlink()
+        Rule.create([
+            dict({'config_id': self.id, 'weekday': str(wd)},
+                 **{'week_%d' % n: n in weeks for n in range(1, 6)})
+            for wd, weeks in sorted(lines.items())
+        ])
+        self.invalidate_recordset(['week_off_rule_ids'])
+        if self._monthly_offs() != before:
+            self._recompute_week_off_dates()
+        return True
+
+    def _recompute_week_off_dates(self):
+        """Working days changed: recount and re-grade from the 1st of this month.
+
+        Neither the weekday ticks nor the some-weeks-off rules are ORM
+        dependencies of the leave day count or the day status, so nothing
+        follows them on its own. Same re-grading a holiday change does
+        (hr.public.holiday._recompute_affected). Earlier months are left
+        alone: they are payroll history.
+        """
+        if not self:
+            return
+        from dateutil.relativedelta import relativedelta
+        start = fields.Date.context_today(self).replace(day=1)
+        end = start + relativedelta(months=12)
+        dates = [start + timedelta(days=i) for i in range((end - start).days)]
+        self.env['hr.public.holiday']._recompute_affected(dates, set(self.mapped('company_id').ids))
+        # The daily rate's divisor moved too, which the day count alone does
+        # not carry to the leave deductions.
+        self._recompute_affected_leaves()
+
     @api.model
     def is_working_day(self, check_date, employee_id):
         config_data = self.get_config_for_employee(employee_id)
         working_days = config_data.get('working_days', [0, 1, 2, 3, 4, 5])
 
-        if check_date.weekday() not in working_days:
+        if is_weekly_off_day(check_date, working_days, config_data.get('monthly_offs')):
             return False
 
         Holiday = self.env['hr.public.holiday']
@@ -205,13 +327,14 @@ class AttendanceLateConfig(models.Model):
         import calendar
         from datetime import date as dt_date
         working_days_list = self.get_working_days_list()
+        monthly_offs = self._monthly_offs()
         Holiday = self.env['hr.public.holiday']
 
         total = 0.0
         days_in_month = calendar.monthrange(year, month)[1]
         for day_num in range(1, days_in_month + 1):
             d = dt_date(year, month, day_num)
-            if d.weekday() in working_days_list:
+            if not is_weekly_off_day(d, working_days_list, monthly_offs):
                 if not Holiday.is_public_holiday(d, company_id):
                     total += 1
         return total
@@ -229,6 +352,7 @@ class AttendanceLateConfig(models.Model):
             'late_threshold_minutes': 15,
             'daily_work_hours': 9.0,
             'working_days': [0, 1, 2, 3, 4, 5],
+            'monthly_offs': {},
             'timezone': False,
             # Ladder off by default: no config record must never start
             # stamping people absent or docking half days.
@@ -264,6 +388,7 @@ class AttendanceLateConfig(models.Model):
             'late_threshold_minutes': config.late_threshold_minutes,
             'daily_work_hours': config.daily_work_hours,
             'working_days': config.get_working_days_list(),
+            'monthly_offs': config._monthly_offs(),
             'timezone': config.timezone,
             'late_until_hour': config.late_until_hour,
             'half_day_after_hour': config.half_day_after_hour,
@@ -402,7 +527,11 @@ class AttendanceLateConfig(models.Model):
         return recs
 
     def write(self, vals):
-        res = super().write(vals)
+        # The form saves its some-weeks-off lines inside this write; hold their
+        # own recompute back so a save that touches three lines re-grades once.
+        rules_in_vals = 'week_off_rule_ids' in vals
+        target = self.with_context(skip_week_off_recompute=True) if rules_in_vals else self
+        res = super(AttendanceLateConfig, target).write(vals)
         # Only recompute when a rule-affecting field changed.
         recompute_fields = {
             'late_tracking_enabled', 'late_reason_required',
@@ -415,5 +544,74 @@ class AttendanceLateConfig(models.Model):
         }
         if recompute_fields & set(vals.keys()):
             self._recompute_affected_attendances()
+        if rules_in_vals or WORK_DAY_FIELDS & set(vals):
+            self._recompute_week_off_dates()
+        return res
+
+
+class AttendanceWeekOffRule(models.Model):
+    """A working day that is off on some weeks of the month.
+
+    One line per weekday per config: Saturday with week_2 ticked is "2nd
+    Saturday off". The weeks are the occurrence in the month (see
+    week_of_month), not calendar weeks.
+    """
+    _name = 'hr.attendance.week.off.rule'
+    _description = 'Weekly Off on Some Weeks'
+    _order = 'config_id, weekday'
+
+    config_id = fields.Many2one(
+        'hr.attendance.late.config', string='Rules', required=True,
+        ondelete='cascade', index=True,
+    )
+    weekday = fields.Selection(WEEKDAYS, string='Day', required=True)
+    week_1 = fields.Boolean(string='1st')
+    week_2 = fields.Boolean(string='2nd')
+    week_3 = fields.Boolean(string='3rd')
+    week_4 = fields.Boolean(string='4th')
+    week_5 = fields.Boolean(string='5th')
+
+    _unique_config_weekday = models.Constraint(
+        'UNIQUE(config_id, weekday)',
+        'That day already has a some-weeks-off line. Tick more weeks on it instead.',
+    )
+
+    def _weeks(self):
+        self.ensure_one()
+        return [n for n in range(1, 6) if self['week_%d' % n]]
+
+    @api.constrains('week_1', 'week_2', 'week_3', 'week_4', 'week_5')
+    def _check_weeks(self):
+        for rec in self:
+            weeks = rec._weeks()
+            if not weeks:
+                raise exceptions.ValidationError(
+                    _('Tick at least one week for %s, or remove the line.',
+                      dict(WEEKDAYS)[rec.weekday]))
+            if len(weeks) == 5:
+                raise exceptions.ValidationError(
+                    _('All five weeks off means %s is off every week. Untick it '
+                      'under Working Days instead.', dict(WEEKDAYS)[rec.weekday]))
+
+    def _after_change(self, configs):
+        if not self.env.context.get('skip_week_off_recompute'):
+            configs._recompute_week_off_dates()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        recs = super().create(vals_list)
+        recs._after_change(recs.mapped('config_id'))
+        return recs
+
+    def write(self, vals):
+        configs = self.mapped('config_id')
+        res = super().write(vals)
+        self._after_change(configs | self.mapped('config_id'))
+        return res
+
+    def unlink(self):
+        configs = self.mapped('config_id')
+        res = super().unlink()
+        self._after_change(configs.exists())
         return res
 

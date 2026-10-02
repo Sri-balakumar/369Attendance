@@ -1,6 +1,8 @@
 from odoo import models, fields, api, exceptions
 import logging
 
+from .attendance_late_config import is_weekly_off_day
+
 _logger = logging.getLogger(__name__)
 
 
@@ -76,9 +78,12 @@ class PublicHoliday(models.Model):
                 # Same fallback get_config_for_employee uses when no config
                 # record exists at all: Mon-Sat working, Sunday off.
                 by_company[company_id] = (
-                    cfg.get_working_days_list() if cfg else [0, 1, 2, 3, 4, 5])
+                    (cfg.get_working_days_list(), cfg._monthly_offs()) if cfg
+                    else ([0, 1, 2, 3, 4, 5], {}))
 
-            rec.affects_working_days = rec.date.weekday() in by_company[company_id]
+            # A holiday on a 2nd Saturday (when that is off) counts for nothing,
+            # the same as one on a Sunday.
+            rec.affects_working_days = not is_weekly_off_day(rec.date, *by_company[company_id])
 
     # Odoo 19 note: the `_sql_constraints = [...]` list is no longer supported
     # (the ORM logs "Model attribute '_sql_constraints' is no longer supported"
@@ -240,6 +245,44 @@ class PublicHoliday(models.Model):
         result = super().unlink()
         self.browse()._recompute_affected(touched, companies)
         return result
+
+    @api.model
+    def app_calendar(self, year):
+        """Everything the app's Calendar tab needs for one year, in one call.
+
+        Holidays of the caller's company, the weekly-off rule that applies to
+        them (their department's config when it has one, as everywhere else),
+        and whether they may add or edit holidays. Every employee may call it:
+        holidays are readable by all, and the config is read with sudo because
+        an ordinary employee cannot read hr.employee in Odoo 19.
+        """
+        year = int(year or fields.Date.context_today(self).year)
+        Config = self.env['hr.attendance.late.config'].sudo()
+        employee = self.env.user.sudo().employee_id
+        company = employee.company_id or self.env.company
+        if employee:
+            cfg = Config.get_config_record_for_employee(employee.id)
+        else:
+            cfg = Config.search([('company_id', '=', company.id),
+                                 ('department_id', '=', False)], limit=1)
+        holidays = self.search([('year', '=', year), ('company_id', '=', company.id)])
+        return {
+            'year': year,
+            'company': company.name,
+            'working_days': cfg.get_working_days_list() if cfg else [0, 1, 2, 3, 4, 5],
+            # JSON keys are strings; the app turns them back into weekdays.
+            'monthly_offs': {str(wd): sorted(weeks)
+                             for wd, weeks in (cfg._monthly_offs() if cfg else {}).items()},
+            'week_off_summary': cfg.week_off_summary if cfg else '',
+            'holidays': [{
+                'id': h.id,
+                'name': h.name,
+                'date': fields.Date.to_string(h.date),
+                'day_name': h.day_name,
+                'affects_working_days': h.affects_working_days,
+            } for h in holidays],
+            'can_edit': self.browse().has_access('write'),
+        }
 
     @api.model
     def is_public_holiday(self, check_date, company_id=None):
