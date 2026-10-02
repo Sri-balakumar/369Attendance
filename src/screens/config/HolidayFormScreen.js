@@ -8,7 +8,6 @@ import {
   DateField,
   PrimaryButton,
   SelectSheet,
-  SwitchRow,
   ConfirmDialog,
   useToast,
 } from '../../components';
@@ -33,6 +32,8 @@ import { goBackOnce } from '../../navigation/back';
 export default function HolidayFormScreen({ navigation, route }) {
   const id = route?.params?.id || null;
   const year = route?.params?.year || new Date().getFullYear();
+  // The Calendar tab opens Add on the day that was tapped.
+  const presetDate = route?.params?.date || null;
   const { colors, fonts, fontSize, spacing } = useTheme();
   const showToast = useToast();
 
@@ -43,8 +44,10 @@ export default function HolidayFormScreen({ navigation, route }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [name, setName] = useState('');
-  const [date, setDate] = useState(`${year}-01-01`);
+  const [date, setDate] = useState(presetDate || `${year}-01-01`);
   const [companyId, setCompanyId] = useState(null);
+  // Read-only: the server works it out from the working days (a holiday on a
+  // Sunday or a 2nd Saturday off changes nothing). There is nothing to set.
   const [affects, setAffects] = useState(true);
   const [companies, setCompanies] = useState([]);
   const [sheet, setSheet] = useState(false);
@@ -90,7 +93,6 @@ export default function HolidayFormScreen({ navigation, route }) {
         name: name.trim(),
         date,
         company_id: Number(companyId),
-        affects_working_days: Boolean(affects),
       });
       showToast(id ? 'Holiday updated.' : 'Holiday added.', 'success');
       goBackOnce(navigation);
@@ -154,15 +156,14 @@ export default function HolidayFormScreen({ navigation, route }) {
           rightSlot={<Ionicons name="chevron-down" size={17} color={colors.muted} />}
           style={{ marginTop: spacing.base }}
         />
-        <View style={{ marginTop: spacing.md }}>
-          <SwitchRow
-            label="Counts as a non-working day"
-            help="On means it leaves the working-day count, which raises the daily rate for that month. Off records the date without touching payroll."
-            value={affects}
-            onValueChange={setAffects}
-            last
-          />
-        </View>
+        {id && !affects ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: spacing.md }}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.muted} style={{ marginTop: 1 }} />
+            <Text style={{ flex: 1, color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, lineHeight: 17 }}>
+              This date is already a weekly off, so it does not change the working-day count or anyone&apos;s pay.
+            </Text>
+          </View>
+        ) : null}
       </Card>
 
       <Text

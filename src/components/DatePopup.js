@@ -18,8 +18,8 @@ const CELL = 38;
  *   mode 'range'   tap a start, tap an end (an earlier second tap restarts)
  *
  * Nothing is committed until the confirm button, so Cancel really cancels.
- * Weekly offs and public holidays can be marked (`weeklyOff`, `holidays`) so
- * nobody books leave on a day they already have off.
+ * Weekly offs and public holidays can be marked (`isWeeklyOff`, `holidays`)
+ * so nobody books leave on a day they already have off.
  *
  * Opens with a short scale-and-fade; changing month slides the grid in the
  * direction of travel.
@@ -32,7 +32,7 @@ export default function DatePopup({
   to,
   minDate,
   maxDate,
-  weeklyOff = [],        // JS getDay() numbers: 0 = Sunday .. 6 = Saturday
+  isWeeklyOff,           // (dateKey) => true on a weekly off, a 2nd Saturday included
   holidays = {},         // { 'YYYY-MM-DD': 'Holiday name' }
   confirmLabel,
   onConfirm,
@@ -115,7 +115,7 @@ export default function DatePopup({
     ? confirmLabel || `Use ${formatDateRange(draft.from, draft.to)}`
     : 'Pick a date';
 
-  const hasMarkers = weeklyOff.length > 0 || Object.keys(holidays).length > 0;
+  const hasMarkers = Boolean(isWeeklyOff) || Object.keys(holidays).length > 0;
   const holidayNameInView = cells.map((k) => (k && holidays[k]) || null).find(Boolean);
 
   return (
@@ -167,7 +167,7 @@ export default function DatePopup({
               const isTo = key === draft.to;
               const inRange = draft.from && draft.to && key > draft.from && key < draft.to;
               const isHoliday = Boolean(holidays[key]);
-              const isOff = weeklyOff.includes(d.getDay());
+              const isOff = Boolean(isWeeklyOff?.(key));
               const selected = isFrom || isTo;
 
               let color = colors.text;
@@ -219,7 +219,7 @@ export default function DatePopup({
           {hasMarkers ? (
             <View style={[styles.legend, { marginTop: 6 }]}>
               <Legend color={colors.accent} label={holidayNameInView ? `Holiday: ${holidayNameInView}` : 'Holiday'} />
-              <Legend color={colors.faint} label="Weekly off" />
+              <Legend color={colors.muted} label="Weekly off" />
             </View>
           ) : null}
 

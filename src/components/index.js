@@ -7,6 +7,7 @@ export { default as SelectSheet } from './SelectSheet';
 export { default as DateRangeCalendar } from './DateRangeCalendar';
 export { default as DateField } from './DateField';
 export { default as DatePopup } from './DatePopup';
+export { default as MonthGrid } from './MonthGrid';
 export { default as FadeIn } from './FadeIn';
 export { default as MailPreviewModal } from './MailPreviewModal';
 export { default as ConfirmDialog } from './ConfirmDialog';

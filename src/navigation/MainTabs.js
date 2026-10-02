@@ -6,11 +6,12 @@ import HomeScreen from '../screens/home/HomeScreen';
 import ConfigScreen from '../screens/config/ConfigScreen';
 import HrHomeScreen from '../screens/config/HrHomeScreen';
 import MyDetailsScreen from '../screens/profile/MyDetailsScreen';
+import CalendarScreen from '../screens/calendar/CalendarScreen';
 
 const Tab = createBottomTabNavigator();
 
 /**
- * The three signed-in tab roots. Home is first, which also makes it where
+ * The signed-in tab roots. Home is first, which also makes it where
  * Android's back button lands from the others (backBehavior defaults to
  * firstRoute) -- and Home's own handler then swallows the next press.
  *
@@ -22,6 +23,9 @@ const Tab = createBottomTabNavigator();
  * The middle tab depends on the hat. An admin (Odoo Settings access) gets
  * Config, the full admin menu. Anyone else with HR rights gets HR: today's
  * attendance and the approval queues, and no configuration at all.
+ *
+ * Calendar is for everybody: holidays and weekly offs. Admin and HR edit
+ * holidays from it; everyone else only looks.
  *
  * Leave, WFH, Attendance and Settings are deliberately NOT tabs -- they are
  * pushed by the root stack and cover the bar while they are up.
@@ -37,6 +41,7 @@ export default function MainTabs() {
       tabBar={(props) => <BottomTabBar {...props} />}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Calendar" component={CalendarScreen} />
       {canManage && caps.admin ? <Tab.Screen name="Config" component={ConfigScreen} /> : null}
       {canManage && !caps.admin ? <Tab.Screen name="HR" component={HrHomeScreen} /> : null}
       <Tab.Screen name="Profile" component={MyDetailsScreen} />

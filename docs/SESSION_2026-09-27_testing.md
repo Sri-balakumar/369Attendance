@@ -196,8 +196,33 @@ Live server: `369application` on this PC (Odoo 19, port 8069). Tablet: Samsung S
 - **`_db_backup/` deleted:** 7 dumps, 4 old module folders and 3 logs (about 104 MB). It was never in git. There is now no database backup from before these upgrades.
 - Metro was stopped (background time limit) after the tests.
 
+### 2 Oct: Calendar tab, some-weeks-off rules (2nd Saturday), live on 12.1.0
+- **Module `hr_attendance_369` 19.0.12.1.0.** Deployed twice the usual way (stop → copy → `-u` → start). Both upgrades were clean (no ERROR or CRITICAL), and the WhatsApp session reconnected after each restart.
+  - **Weekly offs can now be "some weeks"**, with a new `hr.attendance.week.off.rule` (Day + 1st–5th) under Office Hours & Working Days.
+    - The 2nd is the 8th–14th of the month.
+    - One helper, `is_weekly_off_day`, is used by `is_working_day`, `get_working_days_in_month` (the payroll divisor), comp-off `_day_kind` (check-in gate), the employee report and holiday "Counts". Everything else goes through those.
+    - Changing a rule or a working-day tick re-grades from the 1st of the current month: leave day counts, day status and comp off.
+  - **`hr.public.holiday.app_calendar(year)`** is one call for the app. It returns:
+    - the holidays and the caller's own weekly-off rule (department aware);
+    - `can_edit`.
+  - **Holiday notifications** (added, moved, removed, tomorrow) now open the Calendar on that month.
+  - **Who can edit holidays** is now HR Officers (`hr.group_hr_user`) and admins (`base.group_system`) as well as HR Managers. Employees stay read-only.
+  - **Attendances › Holiday Calendar** is a backend menu for HR and admin.
+- **App:**
+  - A **Calendar** tab for every role, showing the month grid, holidays, weekly offs (2nd Saturday included), the month's counts and the day detail. Whoever has `can_edit` gets Add, Edit and "Make holiday".
+  - Office Hours has an "Off on some weeks" block.
+  - The leave and WFH pickers and Profile follow the same rule.
+  - The holiday form's dead "Counts" switch is gone.
+  - Files:
+    - new: `CalendarScreen.js`, `MonthGrid.js`, `utils/workDays.js`
+    - changed: `useWorkCalendar.js`, `DatePopup.js`, `RulesFormScreen.js`, `HolidayFormScreen.js`, `MainTabs.js`, `BottomTabBar.js`, `notificationTarget.js`, `odoo.js`, `MyDetailsScreen.js`
+  - `npm run verify` passes, and so does `expo export`. **Not yet tested on the tablet.**
+- **Set on live:**
+  - company-wide rule **Saturday · 2nd off**: October 2026 now has 26 working days (was 27), and 10 Oct is a weekly off for all 3 employees;
+  - `can_edit` is true for admin, hr and karthickm, and false for user.
+
 **Live data:**
-- No public holidays are set for 2026.
+- No public holidays are set for 2026. Gandhi Jayanti (2 Oct) was **not** added.
 - The September run `PAY/2026/0001` is still Draft (1 employee, 0.00 net, because Administrator has no monthly wage).
 
 ## Remaining work

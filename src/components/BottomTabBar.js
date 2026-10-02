@@ -9,11 +9,12 @@ import * as haptics from '../utils/haptics';
 /** Filled when focused, outline when not -- the icon carries half the state. */
 const ICONS = {
   Home: ['home', 'home-outline'],
+  Calendar: ['calendar', 'calendar-outline'],
   Config: ['options', 'options-outline'],
   HR: ['people', 'people-outline'],
   Profile: ['person', 'person-outline'],
 };
-const LABELS = { Home: 'Home', Config: 'Config', HR: 'HR', Profile: 'Profile' };
+const LABELS = { Home: 'Home', Calendar: 'Calendar', Config: 'Config', HR: 'HR', Profile: 'Profile' };
 
 /** Visual height of the pill. Screens need it to know what to scroll clear of. */
 export const BAR_HEIGHT = 62;
@@ -49,6 +50,9 @@ export default function BottomTabBar({ state, navigation }) {
   const insets = useSafeAreaInsets();
 
   const activeKey = state.routes[state.index]?.key;
+  // Four tabs (Calendar plus Config or HR) tighten up so the pill still fits
+  // a 320dp phone; three keep the roomier padding.
+  const itemPad = state.routes.length > 3 ? 12 : 18;
 
   return (
     <View style={[styles.wrap, { bottom: liftFor(insets.bottom) }]} pointerEvents="box-none">
@@ -89,6 +93,7 @@ export default function BottomTabBar({ state, navigation }) {
                 style={({ pressed }) => [
                   styles.item,
                   {
+                    paddingHorizontal: itemPad,
                     borderRadius: radii.pill,
                     backgroundColor: focused ? colors.primary : 'transparent',
                     opacity: pressed && !focused ? 0.6 : 1,
@@ -112,5 +117,5 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   ring: { borderRadius: 30, padding: 2 },
   bar: { flexDirection: 'row', borderRadius: 28, paddingHorizontal: 6, paddingVertical: 8 },
-  item: { alignItems: 'center', gap: 3, paddingHorizontal: 18, paddingVertical: 4 },
+  item: { alignItems: 'center', gap: 3, paddingVertical: 4 },
 });

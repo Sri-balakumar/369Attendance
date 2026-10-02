@@ -510,7 +510,7 @@ export default function LeaveApplySheet({ visible, balance, compOff, onClose, on
         title={isHalf ? 'Pick the date' : 'Tap the first day, then the last'}
         from={from}
         to={isHalf ? null : to}
-        weeklyOff={calendar.weeklyOff}
+        isWeeklyOff={calendar.isWeeklyOff}
         holidays={calendar.holidays}
         onCancel={() => setPicking(false)}
         onConfirm={({ from: f, to: t }) => {

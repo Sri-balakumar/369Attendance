@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { odooUtcToIso, odooLocalToIso, todayKey } from '../utils/time';
+import { ruleFromServer } from '../utils/workDays';
 
 /**
  * The real Odoo transport, replacing the bodies that mockOdoo.js stubbed.
@@ -517,6 +518,8 @@ const ATTENDANCE_CONFIG_FIELDS = [
   'timezone',
   'work_monday', 'work_tuesday', 'work_wednesday', 'work_thursday',
   'work_friday', 'work_saturday', 'work_sunday',
+  // The some-weeks-off rules in words, e.g. '2nd Saturday off'.
+  'week_off_summary',
   'kra_workday_creates_attendance',
   // _rec_name on the model: 'Company (Company-wide)' or 'Company / Dept'.
   'display_name',
@@ -823,6 +826,52 @@ export async function savePublicHoliday(id, values) {
  */
 export async function deletePublicHoliday(id) {
   await callKw('hr.public.holiday', 'unlink', [[Number(id)]]);
+}
+
+/**
+ * One year of the Calendar tab, in one call open to every employee
+ * (hr.public.holiday.app_calendar): the holidays of the caller's company, the
+ * weekly-off rule that applies to THEM -- their department's config when it
+ * has one, which a plain read of the company-wide row would miss -- and
+ * whether they may add or edit holidays.
+ */
+export async function fetchHolidayCalendar(year) {
+  const data = await callKw('hr.public.holiday', 'app_calendar', [Number(year)]);
+  return {
+    year: Number(data?.year) || Number(year),
+    company: data?.company || '',
+    rule: ruleFromServer(data),
+    weekOffSummary: data?.week_off_summary || '',
+    holidays: data?.holidays || [],
+    canEdit: Boolean(data?.can_edit),
+  };
+}
+
+const WEEK_OFF_RULE_MODEL = 'hr.attendance.week.off.rule';
+const WEEK_NUMBERS = [1, 2, 3, 4, 5];
+
+/** A rules row's some-weeks-off lines: [{ weekday: 5, weeks: [2] }]. */
+export async function fetchWeekOffRules(configId) {
+  const rows = await callKw(WEEK_OFF_RULE_MODEL, 'search_read', [
+    [['config_id', '=', Number(configId)]],
+    ['weekday', ...WEEK_NUMBERS.map((n) => `week_${n}`)],
+  ], { order: 'weekday' });
+  return (rows || []).map((r) => ({
+    weekday: Number(r.weekday),
+    weeks: WEEK_NUMBERS.filter((n) => r[`week_${n}`]),
+  }));
+}
+
+/**
+ * Replace a rules row's some-weeks-off lines in one call. The server drops
+ * days with no weeks and re-grades from the 1st of this month only when the
+ * rule really changed.
+ */
+export async function saveWeekOffRules(configId, rules) {
+  await callKw('hr.attendance.late.config', 'set_week_off_rules', [
+    [Number(configId)],
+    (rules || []).map((r) => ({ weekday: Number(r.weekday), weeks: r.weeks || [] })),
+  ]);
 }
 
 /**
@@ -2653,6 +2702,7 @@ export async function getProfileExtras({ uid, caps = {} }) {
           endHour: cfg.office_end_hour,
           graceMinutes: Number(cfg.late_threshold_minutes) || 0,
           workingDays: days,
+          weekOffSummary: text(cfg.week_off_summary),
         }
       : null,
     device: device

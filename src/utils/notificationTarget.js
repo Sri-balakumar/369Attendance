@@ -15,18 +15,22 @@ const STACK_SCREENS = new Set([
   'AbsentToday', 'PayrollRuns',
 ]);
 
+// Tabs live inside Main, not on the root stack, so they are reached through it.
+const TAB_SCREENS = new Set(['Home', 'Calendar']);
+
 /**
  * Never stacks a second copy. React Navigation 7's navigate() pushes another
  * Main on top of the real one, after which back walks through duplicates; so
- * Home pops back down to the Main already there, and every other target goes
+ * a tab (Home, Calendar) pops back down to the Main already there, with its
+ * params (Calendar's month), and every other target goes
  * back to its screen if it is open (`pop: true`) rather than adding one.
  */
 export function openNotificationTarget(navigation, target) {
   const screen = target?.screen || '';
   const params = target?.params || {};
   if (!navigation) return;
-  if (screen === 'Home') {
-    navigation.dispatch(StackActions.popTo('Main', { screen: 'Home' }));
+  if (TAB_SCREENS.has(screen)) {
+    navigation.dispatch(StackActions.popTo('Main', { screen, params }));
   } else if (STACK_SCREENS.has(screen)) {
     navigation.navigate(screen, params, { pop: true });
   } else {

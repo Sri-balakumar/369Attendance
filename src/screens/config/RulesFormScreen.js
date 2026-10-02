@@ -21,6 +21,8 @@ import {
   fetchCompanies,
   fetchDepartments,
   recomputeAttendanceConfig,
+  fetchWeekOffRules,
+  saveWeekOffRules,
 } from '../../services/odoo';
 import { formatHourFloat, parseHourFloat } from '../../utils/time';
 import AdminScreen from './AdminScreen';
@@ -38,6 +40,21 @@ const DAYS = [
 ];
 
 const NO_DEPARTMENT = '__none__';
+
+// Weeks of the month for the some-weeks-off rows. The 2nd is the 8th-14th,
+// whatever weekday the month starts on.
+const WEEKS = [
+  { n: 1, label: '1st' },
+  { n: 2, label: '2nd' },
+  { n: 3, label: '3rd' },
+  { n: 4, label: '4th' },
+  { n: 5, label: '5th' },
+];
+
+/** Same rules, same order? Decides whether Save has to send them. */
+const sameWeekOffs = (a, b) =>
+  JSON.stringify((a || []).map((r) => [r.weekday, [...r.weeks].sort()]).sort()) ===
+  JSON.stringify((b || []).map((r) => [r.weekday, [...r.weeks].sort()]).sort());
 
 /**
  * One attendance-rules record, every field the Odoo form exposes.
@@ -68,7 +85,12 @@ export default function RulesFormScreen({ navigation, route }) {
   const [timezones, setTimezones] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [sheet, setSheet] = useState(null); // 'timezone' | 'company' | 'department'
+  const [sheet, setSheet] = useState(null); // 'timezone' | 'company' | 'department' | 'weekOff'
+
+  // Some-weeks-off rows: [{ weekday: 5, weeks: [2] }] is "2nd Saturday off".
+  // null = the server predates them, so the block stays hidden.
+  const [weekOffs, setWeekOffs] = useState(null);
+  const [savedWeekOffs, setSavedWeekOffs] = useState(null);
 
   const toDraft = (c) => ({
     late_tracking_enabled: Boolean(c.late_tracking_enabled),
@@ -89,15 +111,18 @@ export default function RulesFormScreen({ navigation, route }) {
 
   const load = useCallback(async () => {
     try {
-      const [rows, allowed] = await Promise.all([
+      const [rows, allowed, rules] = await Promise.all([
         fetchAttendanceConfigs(),
         canEditAttendanceConfig(),
+        fetchWeekOffRules(id).catch(() => null),
       ]);
       const row = rows.find((r) => r.id === Number(id));
       if (!row) throw new Error('These rules no longer exist. Pull back and refresh the list.');
       setConfig(row);
       setDraft(toDraft(row));
       setCanEdit(allowed);
+      setWeekOffs(rules);
+      setSavedWeekOffs(rules);
       setError('');
     } catch (e) {
       setError(e?.message || 'Could not load these rules.');
@@ -146,6 +171,25 @@ export default function RulesFormScreen({ navigation, route }) {
 
   const workingDayCount = DAYS.filter((d) => draft[d.field]).length;
 
+  // DAYS runs Monday..Sunday, which is the server's weekday numbering, so
+  // the index IS the weekday. A rule only means something on a working day.
+  const isWorking = (weekday) => Boolean(draft[DAYS[weekday]?.field]);
+  const shownWeekOffs = (weekOffs || []).filter((r) => isWorking(r.weekday));
+  const weekOffOptions = DAYS.map((d, i) => ({ value: i, label: d.name })).filter(
+    (o) => isWorking(o.value) && !(weekOffs || []).some((r) => r.weekday === o.value)
+  );
+
+  const toggleWeek = (weekday, n) => {
+    setWeekOffs((rows) =>
+      (rows || []).map((r) =>
+        r.weekday === weekday
+          ? { ...r, weeks: r.weeks.includes(n) ? r.weeks.filter((w) => w !== n) : [...r.weeks, n].sort() }
+          : r
+      )
+    );
+    if (errors.weekOffs) setErrors((e) => ({ ...e, weekOffs: undefined }));
+  };
+
   const submit = async () => {
     const next = {};
     const start = parseHourFloat(draft.office_start_hour);
@@ -181,6 +225,13 @@ export default function RulesFormScreen({ navigation, route }) {
       next.daily_work_hours = 'Give the paid hours per day, 0 or more.';
     }
     if (!draft.company_id) next.company_id = 'A company is required.';
+    const emptyRule = shownWeekOffs.find((r) => r.weeks.length === 0);
+    const fullRule = shownWeekOffs.find((r) => r.weeks.length === WEEKS.length);
+    if (emptyRule) {
+      next.weekOffs = `Tick the weeks ${DAYS[emptyRule.weekday].name} is off, or remove it.`;
+    } else if (fullRule) {
+      next.weekOffs = `All five weeks off means ${DAYS[fullRule.weekday].name} is off every week. Untick it above instead.`;
+    }
 
     setErrors(next);
     if (Object.keys(next).length) {
@@ -217,6 +268,12 @@ export default function RulesFormScreen({ navigation, route }) {
       if (saved) {
         setConfig(saved);
         setDraft(toDraft(saved));
+      }
+      // Only the rows for working days go up: a rule on a day now off every
+      // week says nothing, so it is dropped rather than kept dormant.
+      if (weekOffs !== null && !sameWeekOffs(shownWeekOffs, savedWeekOffs)) {
+        await saveWeekOffRules(config.id, shownWeekOffs);
+        setSavedWeekOffs(shownWeekOffs);
       }
       showToast('Attendance rules updated.', 'success');
       goBackOnce(navigation);
@@ -512,6 +569,98 @@ export default function RulesFormScreen({ navigation, route }) {
             zero, and every daily rate in payroll divides by it.
           </Note>
         ) : null}
+
+        {weekOffs !== null ? (
+          <View style={[styles.weekOffs, { borderTopColor: colors.border, marginTop: spacing.md, paddingTop: spacing.md }]}>
+            <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: fontSize.sm }}>
+              Off on some weeks
+            </Text>
+            <Caption>
+              A working day that is still off on some weeks of the month. Saturday
+              with 2nd ticked means the 2nd Saturday (always the 8th–14th) is a
+              weekly off and every other Saturday is worked.
+            </Caption>
+
+            {shownWeekOffs.map((r) => (
+              <View key={r.weekday} style={[styles.weekRow, { marginTop: spacing.md }]}>
+                <Text
+                  numberOfLines={1}
+                  style={{ width: 84, color: colors.text, fontFamily: fonts.medium, fontSize: fontSize.sm }}
+                >
+                  {DAYS[r.weekday].name}
+                </Text>
+                <View style={styles.weekChips}>
+                  {WEEKS.map((w) => {
+                    const on = r.weeks.includes(w.n);
+                    return (
+                      <Pressable
+                        key={w.n}
+                        onPress={readOnly ? undefined : () => toggleWeek(r.weekday, w.n)}
+                        accessibilityRole="switch"
+                        accessibilityState={{ checked: on }}
+                        accessibilityLabel={`${w.label} ${DAYS[r.weekday].name} ${on ? 'is off' : 'is worked'}`}
+                        style={[
+                          styles.weekChip,
+                          {
+                            backgroundColor: on ? withAlpha(colors.warning, 0.16) : colors.surfaceAlt,
+                            borderColor: on ? withAlpha(colors.warning, 0.5) : colors.border,
+                            opacity: readOnly ? 0.6 : 1,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: on ? colors.warning : colors.muted,
+                            fontFamily: on ? fonts.bold : fonts.regular,
+                            fontSize: fontSize.xs,
+                          }}
+                        >
+                          {w.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {!readOnly ? (
+                  <Pressable
+                    onPress={() => setWeekOffs((rows) => rows.filter((x) => x.weekday !== r.weekday))}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove the ${DAYS[r.weekday].name} rule`}
+                    style={{ marginLeft: 6 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color={colors.muted} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ))}
+
+            {errors.weekOffs ? (
+              <Text style={{ color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.xs, marginTop: spacing.sm }}>
+                {errors.weekOffs}
+              </Text>
+            ) : null}
+
+            {!readOnly && weekOffOptions.length ? (
+              <Pressable
+                onPress={() => setSheet('weekOff')}
+                accessibilityRole="button"
+                hitSlop={6}
+                style={[styles.weekAdd, { marginTop: spacing.md }]}
+              >
+                <Ionicons name="add-circle-outline" size={17} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.sm }}>
+                  Add a day
+                </Text>
+              </Pressable>
+            ) : null}
+            {readOnly && !shownWeekOffs.length ? (
+              <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: spacing.sm }}>
+                None. Every ticked day is worked every week.
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </Section>
 
       {!readOnly ? (
@@ -571,6 +720,18 @@ export default function RulesFormScreen({ navigation, route }) {
         options={departmentOptions}
         value={draft.department_id ?? NO_DEPARTMENT}
         onSelect={(v) => set('department_id', v === NO_DEPARTMENT ? null : v)}
+        onClose={() => setSheet(null)}
+      />
+      <SelectSheet
+        visible={sheet === 'weekOff'}
+        title="Off on some weeks"
+        icon="calendar-outline"
+        options={weekOffOptions}
+        value={null}
+        onSelect={(v) => {
+          // Starts with nothing ticked: the admin picks the weeks next to it.
+          setWeekOffs((rows) => [...(rows || []), { weekday: Number(v), weeks: [] }]);
+        }}
         onClose={() => setSheet(null)}
       />
 
@@ -734,6 +895,19 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1 },
   headIcon: { width: 30, height: 30, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   days: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  weekOffs: { borderTopWidth: 1 },
+  weekRow: { flexDirection: 'row', alignItems: 'center' },
+  weekChips: { flex: 1, flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  weekChip: {
+    minWidth: 40,
+    height: 32,
+    paddingHorizontal: 8,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekAdd: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   day: {
     width: 40,
     height: 40,

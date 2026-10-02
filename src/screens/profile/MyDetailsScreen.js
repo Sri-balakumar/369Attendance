@@ -224,7 +224,12 @@ export default function MyDetailsScreen({ navigation }) {
                   items={[
                     ['Office hours', extras.setup ? `${to12(extras.setup.startHour)} – ${to12(extras.setup.endHour)}` : ''],
                     ['Grace time', extras.setup?.graceMinutes ? `${extras.setup.graceMinutes} min` : ''],
-                    ['Working days', extras.setup ? dayRange(extras.setup.workingDays) : ''],
+                    [
+                      'Working days',
+                      extras.setup
+                        ? [dayRange(extras.setup.workingDays), extras.setup.weekOffSummary].filter(Boolean).join(' · ')
+                        : '',
+                    ],
                     ['Device', deviceText(extras.device)],
                   ]}
                 />

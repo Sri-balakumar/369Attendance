@@ -208,7 +208,7 @@ export default function WfhApplySheet({ visible, onClose, onSubmitted }) {
         title="Pick a day"
         from={date}
         minDate={todayKey()}
-        weeklyOff={calendar.weeklyOff}
+        isWeeklyOff={calendar.isWeeklyOff}
         holidays={calendar.holidays}
         onCancel={() => setPicking(false)}
         onConfirm={({ from: f }) => {
