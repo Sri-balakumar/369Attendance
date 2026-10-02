@@ -5,9 +5,9 @@ import { useTheme } from '../theme';
 import * as haptics from '../utils/haptics';
 import { todayKey, parseDateKey, formatDateRange } from '../utils/time';
 
-// Monday first: the working week reads left to right, and the weekly off
-// (Sunday here) sits at the end of the row where it belongs.
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+// Sunday first, the same row rule as ExpenseApp's calendar: each row runs
+// Sunday to Saturday, so the weekly off (Sunday here) opens every row.
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const CELL = 38;
 
 /**
@@ -67,8 +67,9 @@ export default function DatePopup({
 
   const cells = useMemo(() => {
     const { year, month } = cursor;
-    // getDay(): 0 = Sunday. Shift so Monday is column 0.
-    const lead = (new Date(year, month, 1).getDay() + 6) % 7;
+    // getDay(): 0 = Sunday, which is column 0, so the 1st's weekday is the
+    // number of blanks before it. Blanks after only finish the last week.
+    const lead = new Date(year, month, 1).getDay();
     const days = new Date(year, month + 1, 0).getDate();
     const out = [];
     const total = Math.ceil((lead + days) / 7) * 7;

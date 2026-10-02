@@ -7,7 +7,6 @@ import { radii } from '../theme/tokens';
 import { todayKey, parseDateKey } from '../utils/time';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const ROWS = 6;
 
 /**
  * A month-grid range picker. A pure VIEW -- no Modal, no sheet chrome, so the
@@ -52,7 +51,8 @@ export default function DateRangeCalendar({
     const lead = new Date(year, month, 1).getDay();
     const days = new Date(year, month + 1, 0).getDate();
     const out = [];
-    for (let i = 0; i < ROWS * 7; i += 1) {
+    const total = Math.ceil((lead + days) / 7) * 7;
+    for (let i = 0; i < total; i += 1) {
       const day = i - lead + 1;
       out.push(day >= 1 && day <= days ? todayKey(new Date(year, month, day)) : null);
     }
@@ -103,9 +103,9 @@ export default function DateRangeCalendar({
         ))}
       </View>
 
-      {/* Always six rows, padded with blanks. Real months need four, five or
-          six, and letting the grid change height as you page reads as a
-          rendering glitch rather than as a shorter month. */}
+      {/* Only as many rows as the month needs -- four, five or six -- the
+          same row rule as ExpenseApp's calendar. Blanks before the 1st follow
+          its weekday; blanks after only finish the last week. */}
       <View style={styles.grid}>
         {cells.map((key, i) => {
           if (!key) return <View key={i} style={styles.cell} />;
